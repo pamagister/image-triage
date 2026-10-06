@@ -9,7 +9,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "blake3>=1.0.10",
-    "config-cli-gui>=0.3.9",
+    "config-cli-gui>=0.3.10",
     "imagehash>=4.3.2",
     "numpy>=2.5.3",
     "onnx>=1.23.2",

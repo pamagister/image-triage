@@ -1,7 +1,7 @@
 # Configuration Parameters
 
 These parameters are available to configure the behavior of your application.
-The parameters in the cli category can be accessed via the command line interface.
+Parameters marked as CLI parameters can also be set via the command line interface.
 
 ## Configuration File Reference
 
@@ -9,8 +9,6 @@ The actual configuration is stored in [`config.yaml`](../../config.yaml). You ca
 
 - Edit the configuration file directly using your text editor
 - Use the `--config` command-line option to specify a custom config file
-- Place a `config.yaml` in your application's config
-  directory (typically `~/.config/config-cli-gui/`)
 
 ## Category "app" {#app}
 
@@ -25,11 +23,11 @@ The actual configuration is stored in [`config.yaml`](../../config.yaml). You ca
 
 ## Category "general" {#general}
 
-| Name    | Type      | Description                                              | Default               | Choices       |
-|---------|-----------|----------------------------------------------------------|-----------------------|---------------|
-| input   | PosixPath | Folder with photos (searched recursively)                | PosixPath('.')        | -             |
-| output  | PosixPath | Folder the selected photos are exported to               | PosixPath('selected') | -             |
-| dry_run | bool      | Only analyze and report, do not write metadata or export | False                 | [True, False] |
+| Name    | Type | Description                                              | Default               | Choices       |
+|---------|------|----------------------------------------------------------|-----------------------|---------------|
+| input   | Path | Folder with photos (searched recursively)                | PosixPath('.')        | -             |
+| output  | Path | Folder the selected photos are exported to               | PosixPath('selected') | -             |
+| dry_run | bool | Only analyze and report, do not write metadata or export | False                 | [True, False] |
 
 ## Category "selection" {#selection}
 
@@ -64,11 +62,11 @@ The actual configuration is stored in [`config.yaml`](../../config.yaml). You ca
 
 ## Category "models" {#models}
 
-| Name            | Type      | Description                                                       | Default                            | Choices       |
-|-----------------|-----------|-------------------------------------------------------------------|------------------------------------|---------------|
-| enabled         | bool      | Detect objects (YOLO) for scoring, content diversity and keywords | True                               | [True, False] |
-| object_detector | PosixPath | YOLO26 ONNX model file                                            | PosixPath('res/yolo/yolo26n.onnx') | -             |
-| confidence      | float     | Min. confidence (0-1) of an object detection                      | 0.5                                | -             |
+| Name            | Type  | Description                                                       | Default                            | Choices       |
+|-----------------|-------|-------------------------------------------------------------------|------------------------------------|---------------|
+| enabled         | bool  | Detect objects (YOLO) for scoring, content diversity and keywords | True                               | [True, False] |
+| object_detector | Path  | YOLO26 ONNX model file                                            | PosixPath('res/yolo/yolo26n.onnx') | -             |
+| confidence      | float | Min. confidence (0-1) of an object detection                      | 0.5                                | -             |
 
 ## Category "metadata" {#metadata}
 
