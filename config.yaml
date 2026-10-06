@@ -61,10 +61,10 @@ models:
   # Min. confidence (0-1) of an object detection | type=float
   confidence: 0.5
 metadata:
-  # Write the star rating as XMP Rating into the image files | type=bool | [CLI] | choices=[True, False]
-  write_xmp_rating: true
-  # Write detected objects as XMP keywords (dc:subject), existing keywords are kept | type=bool | [CLI] | choices=[True, False]
-  write_keywords: true
+  # Write the star rating as XMP Rating into the image files (disabled by default) | type=bool | [CLI] | choices=[True, False]
+  write_xmp_rating: false
+  # Write detected objects as XMP keywords (dc:subject), existing keywords are kept (disabled by default) | type=bool | [CLI] | choices=[True, False]
+  write_keywords: false
   # Also write the rating to an .xmp sidecar of a RAW file with the same name | type=bool | choices=[True, False]
   sidecar_for_raw: true
   # ExifTool executable (name on PATH or full path) | type=str

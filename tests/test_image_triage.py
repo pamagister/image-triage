@@ -9,14 +9,14 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from image_triage import metadata, pipeline
+from image_triage import cache, metadata, pipeline
 from image_triage.config import ImageTriageConfig
 from image_triage.metrics import exposure
 from image_triage.models import DEFAULT_MODEL_PATH, Detection, ObjectDetector, download_model
 from image_triage.scan import Photo, capture_time
 from image_triage.scoring import rate_photos, score_photos, subject_score
 from image_triage.selection import event_quotas, pick_diverse, select_top
-from image_triage.similarity import group_similar
+from image_triage.similarity import file_digest, group_similar
 
 LOG = logging.getLogger("test")
 T0 = datetime(2024, 1, 1)
@@ -179,6 +179,107 @@ def test_dry_run_writes_nothing(photo_dir: Path, tmp_path: Path):
     out = tmp_path / "out"
     pipeline.run(_config(photo_dir, out, general__dry_run=True), LOG)
     assert not out.exists()
+    assert not list(photo_dir.rglob(".image-triage.yaml"))
+
+
+def test_xmp_writing_is_disabled_by_default():
+    config = ImageTriageConfig()
+    assert not config.metadata.write_xmp_rating.value
+    assert not config.metadata.write_keywords.value
+
+
+def test_analysis_cache_round_trips_object_data(tmp_path: Path):
+    photo = _photo(
+        str(tmp_path / "photo.jpg"),
+        123.0,
+        0.8,
+        1,
+        objects=[Detection("dog", 0.9, (0.1, 0.2, 0.8, 0.9))],
+        embedding=np.array([0.6, 0.8], dtype=np.float32),
+    )
+    record = cache.photo_record(photo, "detector-hash:0.5")
+    cache.write_folder_cache(tmp_path, {"photo.jpg": record})
+    restored_record = cache.read_folder_cache(tmp_path)["photo.jpg"]
+    restored = cache.photo_from_cache(
+        photo.path, photo.digest, restored_record, "detector-hash:0.5"
+    )
+
+    assert restored is not None
+    assert restored.phash == photo.phash
+    assert restored.objects == photo.objects
+    np.testing.assert_array_equal(restored.embedding, photo.embedding)
+    assert (
+        cache.photo_from_cache(photo.path, "changed-hash", restored_record, "detector-hash:0.5")
+        is None
+    )
+
+
+def test_pipeline_caches_and_reuses_analysis(photo_dir: Path, tmp_path: Path, monkeypatch):
+    config = ImageTriageConfig(
+        general__input=photo_dir,
+        general__output=tmp_path / "out",
+        models__enabled=False,
+    )
+    monkeypatch.setattr(metadata, "find_exiftool", lambda _: pytest.fail("ExifTool is not needed"))
+    pipeline.run(config, LOG)
+    assert (photo_dir / ".image-triage.yaml").is_file()
+    assert (photo_dir / "sub" / ".image-triage.yaml").is_file()
+
+    analyzed = []
+    original = pipeline.analyze_photo
+
+    def track_analysis(path, detector=None, digest=None):
+        analyzed.append(path)
+        return original(path, detector, digest)
+
+    monkeypatch.setattr(pipeline, "analyze_photo", track_analysis)
+    photos = pipeline.run(config, LOG)
+    assert len(photos) == 4
+    assert analyzed == []
+
+
+def test_pipeline_reanalyzes_photo_when_digest_changes(
+    photo_dir: Path, tmp_path: Path, monkeypatch
+):
+    config = _config(photo_dir, tmp_path / "out", models__enabled=False)
+    pipeline.run(config, LOG)
+
+    changed = photo_dir / "burst_sharp.jpg"
+    with Image.open(changed) as image:
+        image.copy().save(changed, quality=90)
+
+    analyzed = []
+    original = pipeline.analyze_photo
+
+    def track_analysis(path, detector=None, digest=None):
+        analyzed.append(path)
+        return original(path, detector, digest)
+
+    monkeypatch.setattr(pipeline, "analyze_photo", track_analysis)
+    pipeline.run(config, LOG)
+    assert analyzed == [changed]
+
+
+def test_pipeline_updates_cache_digest_after_xmp_write(
+    photo_dir: Path, tmp_path: Path, monkeypatch
+):
+    config = _config(
+        photo_dir,
+        tmp_path / "out",
+        metadata__write_xmp_rating=True,
+        models__enabled=False,
+    )
+    monkeypatch.setattr(metadata, "find_exiftool", lambda _: "mock-exiftool")
+
+    def write_metadata(photos, *_args):
+        for photo in photos:
+            photo.path.write_bytes(photo.path.read_bytes() + b"xmp")
+
+    monkeypatch.setattr(metadata, "write_metadata", write_metadata)
+    pipeline.run(config, LOG)
+
+    entries = cache.read_folder_cache(photo_dir)
+    assert entries["burst_sharp.jpg"]["digest"] == file_digest(photo_dir / "burst_sharp.jpg")
 
 
 def test_output_inside_input_is_not_rescanned(photo_dir: Path):

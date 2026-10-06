@@ -27,8 +27,8 @@ python -m image_triage [OPTIONS] input
 | `--max-per-group`    | int  | Number of best photos per similarity group that can get 3-5 stars                                                    | 1                     | -                               |
 | `--export-mode`      | str  | How photos are placed in the output folder                                                                           | 'copy'                | ['copy', 'hardlink', 'symlink'] |
 | `--models-enabled`   | bool | Detect objects (YOLO) for scoring, content diversity and keywords                                                    | True                  | [True, False]                   |
-| `--write-xmp-rating` | bool | Write the star rating as XMP Rating into the image files                                                             | True                  | [True, False]                   |
-| `--write-keywords`   | bool | Write detected objects as XMP keywords (dc:subject), existing keywords are kept                                      | True                  | [True, False]                   |
+| `--write-xmp-rating` | bool | Write the star rating as XMP Rating into the image files (disabled by default)                                       | False                 | [True, False]                   |
+| `--write-keywords`   | bool | Write detected objects as XMP keywords (dc:subject), existing keywords are kept (disabled by default)                | False                 | [True, False]                   |
 
 
 ## Examples

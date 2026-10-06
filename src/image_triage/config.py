@@ -175,15 +175,16 @@ class MetadataConfig(ConfigCategory):
 
     write_xmp_rating: ConfigParameter = ConfigParameter(
         name="write_xmp_rating",
-        value=True,
-        help="Write the star rating as XMP Rating into the image files",
+        value=False,
+        help="Write the star rating as XMP Rating into the image files (disabled by default)",
         cli_arg="--write-xmp-rating",
         is_cli=True,
     )
     write_keywords: ConfigParameter = ConfigParameter(
         name="write_keywords",
-        value=True,
-        help="Write detected objects as XMP keywords (dc:subject), existing keywords are kept",
+        value=False,
+        help="Write detected objects as XMP keywords (dc:subject), existing keywords are kept "
+        "(disabled by default)",
         cli_arg="--write-keywords",
         is_cli=True,
     )

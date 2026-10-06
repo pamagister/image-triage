@@ -9,7 +9,7 @@ import numpy as np
 from config_cli_gui.config import ConfigManager
 from PIL import Image, ImageOps
 
-from image_triage import metadata
+from image_triage import cache, metadata
 from image_triage.export import export_photos
 from image_triage.metrics import exposure, sharpness
 from image_triage.models import DOWNLOAD_HINT, ObjectDetector
@@ -21,7 +21,9 @@ from image_triage.similarity import file_digest, group_similar, perceptual_hash
 PREVIEW_SIZE = 1024
 
 
-def analyze_photo(path: Path, detector: ObjectDetector | None = None) -> Photo:
+def analyze_photo(
+    path: Path, detector: ObjectDetector | None = None, digest: str | None = None
+) -> Photo:
     with Image.open(path) as image:
         taken = capture_time(image, path)
         # JPEG draft mode decodes at reduced size, which is much faster for large files.
@@ -36,7 +38,7 @@ def analyze_photo(path: Path, detector: ObjectDetector | None = None) -> Photo:
         sharpness=sharpness(gray),
         exposure=exposure(gray),
         phash=perceptual_hash(preview),
-        digest=file_digest(path),
+        digest=digest if digest is not None else file_digest(path),
         raw=find_raw_companion(path),
         objects=objects,
         embedding=embedding,
@@ -78,9 +80,25 @@ def run(
     if not paths:
         return []
 
+    folder_caches = {
+        folder: cache.read_folder_cache(folder) for folder in {p.parent for p in paths}
+    }
+    detector_signature = (
+        f"{file_digest(Path(models.object_detector.value))}:{models.confidence.value}"
+        if detector
+        else None
+    )
+
+    def analyze_or_reuse(path: Path) -> Photo:
+        digest = file_digest(path)
+        cached = cache.photo_from_cache(
+            path, digest, folder_caches[path.parent].get(path.name), detector_signature
+        )
+        return cached if cached is not None else analyze_photo(path, detector, digest)
+
     photos: list[Photo] = []
     with ThreadPoolExecutor() as pool:
-        futures = {path: pool.submit(analyze_photo, path, detector) for path in paths}
+        futures = {path: pool.submit(analyze_or_reuse, path) for path in paths}
         for done, (path, future) in enumerate(futures.items(), start=1):
             try:
                 photos.append(future.result())
@@ -152,5 +170,13 @@ def run(
             write_keywords,
             logger,
         )
+        for photo in photos:
+            photo.digest = file_digest(photo.path)
+    for photo in photos:
+        folder_caches[photo.path.parent][photo.path.name] = cache.photo_record(
+            photo, detector_signature
+        )
+    for folder, entries in folder_caches.items():
+        cache.write_folder_cache(folder, entries)
     export_photos(selected, input_root, output_root, selection.export_mode.value, logger)
     return photos

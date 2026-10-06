@@ -4,7 +4,6 @@
 [![License](https://img.shields.io/github/license/pamagister/image-triage)](https://github.com/pamagister/image-triage/blob/main/LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/pamagister/image-triage)](https://github.com/pamagister/image-triage/issues)
 [![PyPI](https://img.shields.io/pypi/v/image-triage)](https://pypi.org/project/image-triage/)
-[![Downloads](https://pepy.tech/badge/image-triage)](https://pepy.tech/project/image-triage/)
 
 
 # Image Triage
@@ -22,7 +21,7 @@ Läuft unter Windows und Linux (Python ≥ 3.12, [uv](https://docs.astral.sh/uv/
 uv sync
 uv run image-triage-download-model       # YOLO-Modell nach res/yolo/ (oder Button in der GUI)
 
-# ExifTool, nötig zum Schreiben von Rating/Schlagworten
+# Optional: ExifTool zum Schreiben von Rating/Schlagworten direkt in Bilddateien
 winget install OliverBetz.ExifTool       # Windows
 sudo apt install libimage-exiftool-perl  # Debian/Ubuntu
 ```
@@ -41,10 +40,15 @@ Im Projektordner in einer normalen Eingabeaufforderung (cmd), PowerShell oder Li
 uv run image-triage --input images --output selected --top-n 10
 ```
 
-Die 10 Bilder landen in `selected\` (Ordnerstruktur bleibt erhalten). Achtung: Dabei werden Rating
-und Schlagworte in die Originale in `images` geschrieben. Wer nur sehen will, was gewählt würde,
-hängt `--dry-run` an (Ausgewählte sind im Log mit `x` markiert). Wer exportieren, die Originale
-aber nicht verändern will, hängt `--write-xmp-rating false --write-keywords false` an.
+Die 10 Bilder landen in `selected\` (Ordnerstruktur bleibt erhalten). Die Originale werden dabei
+nicht verändert: Wiederverwendbare Analysewerte einschließlich erkannter Objekte werden
+standardmäßig in einer versteckten `.image-triage.yaml` pro Foto-Unterordner gespeichert. Sterne
+und Auswahl werden bei jedem Lauf anhand der aktuellen Fotos und Settings neu berechnet. Wer nur
+sehen will, was gewählt würde, hängt `--dry-run` an (Ausgewählte sind im Log mit `x` markiert).
+
+Rating und Schlagworte können optional direkt in die Fotos geschrieben werden. Dafür ExifTool
+installieren und `--write-xmp-rating true` und/oder `--write-keywords true` angeben. Der YAML-Cache
+wird auch dann angelegt und aktualisiert.
 
 ### Weitere Beispiele
 
@@ -97,10 +101,15 @@ aus derselben Parameterdefinition (`src/image_triage/config.py`) erzeugt.
      zu seiner Zahl an Motiven, mindestens einen. Innerhalb eines Ereignisses wird gierig gewählt:
      hoher Score, aber mit Abzug (`diversity`) für Bilder, deren Inhalt einem schon gewählten ähnelt.
    - `top_n` = 0: alle Bilder ab `min_rating`.
-7. **XMP** – per ExifTool in die Datei (`-overwrite_original -P`): `XMP:Rating` und die erkannten
-   Objekte als Schlagworte `XMP-dc:Subject` (vorhandene Schlagworte bleiben, keine Duplikate).
-   Liegt eine RAW-Datei gleichen Namens daneben, zusätzlich in deren `.xmp`-Sidecar.
-8. **Export** – Auswahl kopieren, hart- oder symbolisch verlinken (Ordnerstruktur bleibt erhalten,
+7. **Metadaten-Cache** – Analysewerte werden je Foto-Unterordner in `.image-triage.yaml` abgelegt.
+   Dateiname und BLAKE3-Hash identifizieren jedes Foto. Bei gleichem Hash werden die gespeicherten
+   Analysewerte wiederverwendet; bei geänderter Datei wird neu analysiert. Gruppierung, Bewertung
+   und Auswahl werden mit den aktuellen Fotos und Settings jedes Mal neu berechnet.
+8. **Optionales XMP** – nur wenn `metadata.write_xmp_rating` und/oder `metadata.write_keywords`
+   aktiviert sind, schreibt ExifTool `XMP:Rating` und erkannte Objekte als `XMP-dc:Subject`
+   (vorhandene Schlagworte bleiben erhalten, Duplikate werden vermieden). Bei RAW-Dateien kann
+   zusätzlich ein `.xmp`-Sidecar geschrieben werden.
+9. **Export** – Auswahl kopieren, hart- oder symbolisch verlinken (Ordnerstruktur bleibt erhalten,
    vorhandene Dateien werden nicht überschrieben).
 
 `--dry-run` führt nur Analyse und Bewertung aus und loggt das Ergebnis (`x` = ausgewählt).

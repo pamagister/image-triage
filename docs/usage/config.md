@@ -70,10 +70,10 @@ The actual configuration is stored in [`config.yaml`](../../config.yaml). You ca
 
 ## Category "metadata" {#metadata}
 
-| Name             | Type | Description                                                                     | Default    | Choices       |
-|------------------|------|---------------------------------------------------------------------------------|------------|---------------|
-| write_xmp_rating | bool | Write the star rating as XMP Rating into the image files                        | True       | [True, False] |
-| write_keywords   | bool | Write detected objects as XMP keywords (dc:subject), existing keywords are kept | True       | [True, False] |
-| sidecar_for_raw  | bool | Also write the rating to an .xmp sidecar of a RAW file with the same name       | True       | [True, False] |
-| exiftool_path    | str  | ExifTool executable (name on PATH or full path)                                 | 'exiftool' | -             |
+| Name             | Type | Description                                                                                           | Default    | Choices       |
+|------------------|------|-------------------------------------------------------------------------------------------------------|------------|---------------|
+| write_xmp_rating | bool | Write the star rating as XMP Rating into the image files (disabled by default)                        | False      | [True, False] |
+| write_keywords   | bool | Write detected objects as XMP keywords (dc:subject), existing keywords are kept (disabled by default) | False      | [True, False] |
+| sidecar_for_raw  | bool | Also write the rating to an .xmp sidecar of a RAW file with the same name                             | True       | [True, False] |
+| exiftool_path    | str  | ExifTool executable (name on PATH or full path)                                                       | 'exiftool' | -             |
 
