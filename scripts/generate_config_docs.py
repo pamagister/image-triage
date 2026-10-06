@@ -9,6 +9,8 @@ default_config: str = "config.yaml"
 default_cli_doc: str = "docs/usage/cli.md"
 default_config_doc: str = "docs/usage/config.md"
 
+app_name = ImageTriageConfig.get_app_name()
+
 config_manager = ImageTriageConfig()
 
 docGen = DocumentationGenerator(config_manager)
@@ -18,5 +20,5 @@ print(f"Generated: {default_config}")
 docGen.generate_config_markdown_doc(output_file=default_config_doc)
 print(f"Generated: {default_config_doc}")
 
-docGen.generate_cli_markdown_doc(output_file=default_cli_doc)
+docGen.generate_cli_markdown_doc(output_file=default_cli_doc, app_name=app_name)
 print(f"Generated: {default_cli_doc}")

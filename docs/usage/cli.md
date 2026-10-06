@@ -1,15 +1,15 @@
 # Command Line Interface
 
-Command line options for app
+Command line options for image-triage
 
 ```bash
-app [OPTIONS] input
+image-triage [OPTIONS] input
 ```
 
 For development from a source checkout, the equivalent module invocation is:
 
 ```bash
-python -m app [OPTIONS] input
+python -m image_triage [OPTIONS] input
 ```
 
 ## Options
@@ -37,44 +37,44 @@ python -m app [OPTIONS] input
 ### 1. Basic usage
 
 ```bash
-app input
+image-triage input
 ```
 
 ### 2. With verbose logging
 
 ```bash
-app -v input
-app --verbose input
+image-triage -v input
+image-triage --verbose input
 ```
 
 ### 3. With quiet mode
 
 ```bash
-app -q input
-app --quiet input
+image-triage -q input
+image-triage --quiet input
 ```
 
 ### 4. With input parameter
 
 ```bash
-app --input . input
+image-triage --input . input
 ```
 
 ### 5. With output parameter
 
 ```bash
-app --output selected input
+image-triage --output selected input
 ```
 
 ### 6. With dry_run parameter
 
 ```bash
-app --dry_run True input
+image-triage --dry_run True input
 ```
 
 ### Developer usage
 
 ```bash
-python -m app --help
-python -m app input
+python -m image_triage --help
+python -m image_triage input
 ```
