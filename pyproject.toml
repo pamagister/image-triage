@@ -54,8 +54,8 @@ docs = [
     "pygments>=2.19.1",
 ]
 
-[tool.deptry]
-pep621_dev_dependency_groups = ["dev"]
+[tool.deptry.per_rule_ignores]
+DEP002 = ["lxml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
