@@ -1,61 +1,52 @@
 [project]
 name = "image-triage"
 dynamic = ["version"]
-description = "Feature-rich Python project template for image-triage."
+description = "Analyze photos, group similar shots, rate them and export the best ones"
 authors = [
     {name = "pamagister"}
 ]
-readme = "docs/index.md"
-requires-python = ">=3.10,<3.12"
+readme = "README.md"
+requires-python = ">=3.12"
 dependencies = [
-    "config-cli-gui>=0.2.2",
-    "fastkml>=1.1.0",
-    "gpxpy>=1.6.2",
-    "lxml>=6.0.2",
-    "shapely>=2.1.1",
-    "srtm-py>=0.3.7",
-]
-
-# Dev dependencies as optional dependencies
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.4.0",
-    "pytest-mock>=3.14.1",
-    "coverage>=7.8.2",
-    "flake8>=7.2.0",
-    "black>=25.1.0",
-    "isort>=6.0.1",
-    "pytest-cov>=6.1.1",
-    "mypy>=1.16.0",
-    "gitchangelog>=3.0.4",
-    "pyinstaller>=5.8",
-    "pre-commit>=4.2.0",
-    "ruff>=0.11.13"
-]
-
-docs = [
-    "mkdocs>=1.6.1",
-    "mkdocs-awesome-nav>=2.6.1",
-    "pygments>=2.19.1",
+    "blake3>=1.0.10",
+    "config-cli-gui>=0.3.9",
+    "imagehash>=4.3.2",
+    "numpy>=2.5.3",
+    "onnx>=1.23.2",
+    "onnxruntime>=1.30.0",
+    "opencv-python-headless>=5.0.0.93",
+    "pillow>=12.3.0",
+    "ttkbootstrap>=1.10.1",
 ]
 
 [project.scripts]
-image-triage = "image_triage.cli.cli:main"
-image-triage-gui = "image_triage.gui.gui:main"
+image-triage = "image_triage.cli:main"
+image-triage-download-model = "image_triage.models:main"
+
+[project.gui-scripts]
+image-triage-gui = "image_triage.gui:main"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools_scm]
-write_to = "src/image_triage/_version.py"
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.0",
+    "pyinstaller>=6.16.0",
+]
 
 [tool.deptry]
-pep621_dev_dependency_groups = ["dev", "docs"]
+pep621_dev_dependency_groups = ["dev"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py312"
 exclude = ["src/image_triage/_version.py"]
 
 [tool.ruff.lint]

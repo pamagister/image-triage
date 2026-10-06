@@ -17,9 +17,7 @@ show:             ## Show the current environment.
 
 .PHONY: install
 install:          ## Install the project in dev mode.
-	$(MAKE) lock
-	$(MAKE) virtualenv
-	uv pip install -e .[dev,docs]
+	uv sync
 
 .PHONY: lock
 lock:           ## builds the uv.make lock file and syncs the packages
@@ -51,48 +49,47 @@ lint:             ## Run pep8, black, mypy linters.
 
 .PHONY: test
 test: lint        ## Run tests and generate coverage report.
-	uv run pytest -v --cov-config .coveragerc --cov=src -l --tb=short --maxfail=1 tests/
+	uv run pytest -v --cov=src -l --tb=short --maxfail=1 tests/
 	uv run coverage xml
 	uv run coverage html
 
 .PHONY: build-win
-build-win:    ## Build the Windows executable.
-	echo "Building unified CLI/GUI application"
-	uv run pyinstaller --onefile src/main.py --name image-triage --add-data "config.yaml;." --hidden-import image_triage.cli.cli --hidden-import image_triage.gui.gui
+build-win:    ## Build the CLI and GUI executables for Windows.
+	uv run pyinstaller --onefile --paths src --name image-triage src/image_triage/__main__.py
+	uv run pyinstaller --onefile --windowed --paths src --name image-triage-gui src/image_triage/gui.py
 	rm -rf release
 	mkdir release
 	cp dist/image-triage.exe release
+	cp dist/image-triage-gui.exe release
 	cp config.yaml release
 	cp README.md release
 
 .PHONY: build-linux
-build-linux:    ## Build the Linux executable.
-	## Build the Linux executable.
-	uv run pyinstaller --onefile src/main.py --name image-triage --add-data "config.yaml;." --hidden-import image_triage.cli.cli --hidden-import image_triage.gui.gui
+build-linux:    ## Build the CLI and GUI executables for Linux.
+	uv run pyinstaller --onefile --paths src --name image-triage src/image_triage/__main__.py
+	uv run pyinstaller --onefile --windowed --paths src --name image-triage-gui src/image_triage/gui.py
 
 	rm -rf release
 	mkdir release
 	cp dist/image-triage release
+	cp dist/image-triage-gui release
 	cp config.yaml release
+	cp README.md release
 
 
 .PHONY: build-macos
-build-macos:    ## Build the macOS executable.
-	echo "Building unified CLI/GUI application as executable"
-	uv run pyinstaller --onefile src/main.py --name image-triage --add-data "config.yaml:." --hidden-import image_triage.cli.cli --hidden-import image_triage.gui.gui
+build-macos:    ## Build the CLI executable and GUI app bundle for macOS.
+	uv run pyinstaller --onefile --paths src --name image-triage src/image_triage/__main__.py
+	uv run pyinstaller --windowed --paths src --name "Image Triage" src/image_triage/gui.py
 
-	echo "Building unified CLI/GUI application as .app bundle"
-	# --windowed is important to hide the console for GUI mode
-	# The name "TemplateApp" becomes the name of the .app
-	uv run pyinstaller --windowed --name "TemplateApp" src/main.py --add-data "config.yaml:." --hidden-import image_triage.cli.cli --hidden-import image_triage.gui.gui
-
+	echo "Preparing release files"
 	# Prepare ZIP file for release
 	rm -rf release
 	mkdir release
 	echo "Copy the CLI/GUI executable"
 	cp dist/image-triage release/
 	echo "Copy the .app bundle (directory) recursively"
-	cp -R "dist/TemplateApp.app" release/
+	cp -R "dist/Image Triage.app" release/
 	echo "Copy configuration and documentation"
 	cp config.yaml release/
 	cp README.md release/

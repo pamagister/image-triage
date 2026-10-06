@@ -1,6 +1,6 @@
 from config_cli_gui.docs_generator import DocumentationGenerator
 
-from image_triage.config.config import ConfigParameterManager
+from image_triage.config import ImageTriageConfig
 
 """function to generate config file and documentation."""
 
@@ -9,7 +9,7 @@ default_config: str = "config.yaml"
 default_cli_doc: str = "docs/usage/cli.md"
 default_config_doc: str = "docs/usage/config.md"
 
-config_manager = ConfigParameterManager()
+config_manager = ImageTriageConfig()
 
 docGen = DocumentationGenerator(config_manager)
 docGen.generate_default_config_file(output_file=default_config)
