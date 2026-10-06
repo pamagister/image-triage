@@ -1,4 +1,4 @@
-"""CLI interface for python-template-project using the generic config framework.
+"""CLI interface for image-triage using the generic config framework.
 
 This file uses the CliGenerator from the generic config framework.
 """
@@ -7,9 +7,9 @@ from pathlib import Path
 
 from config_cli_gui.cli import CliGenerator
 
-from python_template_project.config.config import ConfigParameterManager
-from python_template_project.core.base import BaseGPXProcessor
-from python_template_project.core.logging import initialize_logging
+from image_triage.config.config import ConfigParameterManager
+from image_triage.core.base import BaseGPXProcessor
+from image_triage.core.logging import initialize_logging
 
 
 def validate_config(config: ConfigParameterManager) -> bool:
@@ -63,7 +63,7 @@ def run_main_processing(config: ConfigParameterManager) -> int:
 
     try:
         # Log startup information
-        logger.info("Starting python_template_project CLI")
+        logger.info("Starting image_triage CLI")
         logger_manager.log_config_summary()
 
         # Validate configuration
@@ -120,7 +120,7 @@ def main():
     config_manager = ConfigParameterManager()
 
     # Create CLI generator
-    cli_generator = CliGenerator(config_manager=config_manager, app_name="python_template_project")
+    cli_generator = CliGenerator(config_manager=config_manager, app_name="image_triage")
 
     # Run the CLI with our main processing function
     return cli_generator.run_cli(

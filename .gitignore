@@ -194,10 +194,10 @@ cython_debug/
 .cursorindexingignore
 /.idea/misc.xml
 /.idea/modules.xml
-/.idea/python-template-project.iml
+/.idea/image-triage.iml
 /.idea/inspectionProfiles/profiles_settings.xml
 /.idea/inspectionProfiles/Project_Default.xml
-/src/python_template_project/_version.py
+/src/image_triage/_version.py
 /release/config.yaml
-/release/python-template-project.exe
+/release/image-triage.exe
 /release/README.md

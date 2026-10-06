@@ -97,7 +97,7 @@ def main():
 def run_cli():
     """Launch the CLI interface."""
     try:
-        from python_template_project.cli.cli import main as cli_main
+        from image_triage.cli.cli import main as cli_main
 
         cli_main()
     except ImportError as e:
@@ -111,7 +111,7 @@ def run_cli():
 def run_gui():
     """Launch the GUI interface."""
     try:
-        from python_template_project.gui.gui import main as gui_main
+        from image_triage.gui.gui import main as gui_main
 
         gui_main()
     except ImportError as e:
