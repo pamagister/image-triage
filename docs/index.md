@@ -1,7 +1,3 @@
-# Welcome to image-triage
-
-A feature-rich Python project template with auto-generated CLI, GUI and parameterized configuration.
-
 [![Github CI Status](https://github.com/pamagister/image-triage/actions/workflows/main.yml/badge.svg)](https://github.com/pamagister/image-triage/actions)
 [![GitHub release](https://img.shields.io/github/v/release/pamagister/image-triage)](https://github.com/pamagister/image-triage/releases)
 [![Read the Docs](https://readthedocs.org/projects/image-triage/badge/?version=stable)](https://image-triage.readthedocs.io/en/stable/)
@@ -11,159 +7,106 @@ A feature-rich Python project template with auto-generated CLI, GUI and paramete
 [![Downloads](https://pepy.tech/badge/image-triage)](https://pepy.tech/project/image-triage/)
 
 
-This template provides a solid foundation for your next Python project, incorporating best practices for testing, automation, and distribution. It streamlines the development process with a comprehensive set of pre-configured tools and workflows, allowing you to focus on writing code.
+# Image Triage
 
----
-
-## How to use this template
-
-Getting started on developing your own project based on this template
-
-> **DO NOT FORK** 
-> This project is meant to be used from **[Use this template](https://github.com/pamagister/image-triage/generate)** feature.
-
----
-
-1. **Create a new repository using GitHub template**  
-   Click on **[Use this template](https://github.com/pamagister/image-triage/generate)**.
-
-2. **Give a name to your project**  
-   For example: `my-python-project`  
-   *(Hyphens may be used as project name; they are converted during renaming internally to underscores for packages.)*
-
-3. **Set write permissions**  
-   Go to: `Repository -> Settings -> Actions -> General -> Workflow permissions`  
-   Select: `Read and write permissions`, then click **Save**.
-
-4. **Trigger rename workflow**  
-   Navigate to `Actions` tab → Select **Rename Action** → Run workflow on the `main` branch.
-
-5. **Wait for the workflow to finish**
-
-6. **Clone the repository**  
-   Run:  
-   ```bash
-   git clone [your-github-url]
-   ```
-
-7. **Open the project in your IDE**
-
-8. **Install dependencies and create virtual environment**
-   Run:
-
-   ```bash
-   make install
-   ```
-
-9. **Configure your IDE**
-   Set `.venv` as the local Python virtual environment.
-
-10. **Adjust project metadata**
-    Modify `pyproject.toml` (e.g., project description, authors, license, etc.)
-
-11. **Clean up template scripts**
-    Delete the files:
-
-    * `rename_project.yml`
-    * `rename_project.sh`
-
-12. **Format your codebase**
-    Run:
-
-    ```bash
-    make fmt
-    ```
-
-    This will auto-format your files and reorder imports (based on any name changes).
-
-13. **Enable pre-commit hooks**
-    Run:
-
-    ```bash
-    uv run pre-commit install
-    ```
-
-14. **Add repository to ReadTheDocs**
-    Visit: [https://app.readthedocs.org/dashboard/import/](https://app.readthedocs.org/dashboard/import/)
-
-15. **Configure PyPI publishing**
-
-    * Generate a **PyPI API token** from your PyPI account.
-    * Go to **GitHub → Settings → Secrets and variables → Actions**.
-    * Add the secret as `PYPI_API_TOKEN`.
-
-16. **Release your first version**
-    Run:
-
-    ```bash
-    make release
-    ```
-    
----
-
-## Feature overview
-
-* 📦 **Package Management:** Utilizes [uv](https://docs.astral.sh/uv/getting-started/), an extremely fast Python package manager, with dependencies managed in `pyproject.toml`.
-* ✅ **Code Formatting and Linting:** Pre-commit hook with the [RUFF auto-formatter](https://docs.astral.sh/ruff/) to ensure consistent code style.
-* 🧪 **Testing:** Unit testing framework with [pytest](https://docs.pytest.org/en/latest/).
-* 📊 **Code coverage reports** using [codecov](https://about.codecov.io/sign-up/)
-* 🔄 **CI/CD:**  [GitHub Actions](https://github.com/features/actions) for automated builds (Windows, macOS), unit tests, and code checks.
-* 💾 **Automated Builds:** GitHub pipeline for automatically building a Windows executable and a macOS installer.
-* 💬 **Parameter-Driven Automation:**
-    * Automatic generation of a configuration file from parameter definitions.
-    * Automatic generation of a Command-Line Interface (CLI) from the same parameters.
-    * Automatic generation of CLI API documentation.
-    * Automatic generation of change log using **gitchangelog** to keep a HISTORY.md file up to date.
-* 📃 **Documentation:** Configuration for publishing documentation on [Read the Docs](https://about.readthedocs.com/) using [mkdocs](https://www.mkdocs.org/) .
-* 🖼️ **Minimalist GUI:** Comes with a basic GUI based on [tkinker](https://tkdocs.com/tutorial/index.html) that includes an auto-generated settings menu based on your defined parameters.
-* 🖥️ **Workflow Automation:** A `Makefile` is included to simplify and automate common development tasks.
-* 🛳️ **Release pipeline:** Automated releases unsing the Makefile `make release` command, which creates a new tag and pushes it to the remote repo. The `release` pipeline will automatically create a new release on GitHub and trigger a release on  [PyPI](https://pypi.org.
-    * **[setuptools](https://pypi.org/project/setuptools/)** is used to package the project and manage dependencies.
-    * **[setuptools-scm](https://pypi.org/project/setuptools-scm/)** is used to automatically generate the `_version.py` file from the `pyproject.toml` file.
-
----
+Analysiert Fotos, gruppiert ähnliche Aufnahmen (Serien, Duplikate), wählt pro Gruppe die beste
+Variante, erkennt Objekte (YOLO), schreibt Sterne (1–5) und Objekt-Schlagworte als XMP und
+exportiert entweder alle guten Bilder oder die **N relevantesten** – breit gestreut über alle
+Unterordner und Motive. Originale werden nie gelöscht.
 
 ## Installation
 
-Get an impression of how your own project could be installed and look like.
-
-Download from [PyPI](https://pypi.org/).
-
-💾 For more installation options see [install](getting-started/install.md).
+Läuft unter Windows und Linux (Python ≥ 3.12, [uv](https://docs.astral.sh/uv/)).
 
 ```bash
-pip install image-triage
+uv sync
+uv run image-triage-download-model       # YOLO-Modell nach res/yolo/ (oder Button in der GUI)
+
+# ExifTool, nötig zum Schreiben von Rating/Schlagworten
+winget install OliverBetz.ExifTool       # Windows
+sudo apt install libimage-exiftool-perl  # Debian/Ubuntu
 ```
 
-Run GUI from command line
+Das Modell (`res/yolo/yolo26n.onnx`, ~10 MB, Ultralytics YOLO26, AGPL-3.0) ist nicht im Repo.
+Der Pfad ist relativ zum Arbeitsverzeichnis. Wer die GUI nicht im Projektordner startet, setzt
+`models.object_detector` in den Settings auf einen absoluten Pfad. Ohne Modell: `--models-enabled false`.
+
+## Verwendung
+
+### Schnellstart: die besten 10 Bilder aus `images`
+
+Im Projektordner in einer normalen Eingabeaufforderung (cmd), PowerShell oder Linux-Shell:
+
+```bat
+uv run image-triage --input images --output selected --top-n 10
+```
+
+Die 10 Bilder landen in `selected\` (Ordnerstruktur bleibt erhalten). Achtung: Dabei werden Rating
+und Schlagworte in die Originale in `images` geschrieben. Wer nur sehen will, was gewählt würde,
+hängt `--dry-run` an (Ausgewählte sind im Log mit `x` markiert). Wer exportieren, die Originale
+aber nicht verändern will, hängt `--write-xmp-rating false --write-keywords false` an.
+
+### Weitere Beispiele
 
 ```bash
-image-triage-gui
+# Die 100 relevantesten Fotos aus allen Unterordnern
+uv run image-triage --input Photos_of_2025 --output Best_of_2025 --top-n 100
+
+# Alle Fotos ab 4 Sternen, nur anzeigen
+uv run image-triage --input images --min-rating 4 --dry-run
+
+uv run image-triage --config config.yaml --input images
+
+# GUI
+uv run image-triage-gui
 ```
 
-Run application from command line using CLI
+Alle Parameter stehen in [`config.yaml`](config.yaml) (mit Kommentaren). Die wichtigsten sind
+auch als CLI-Option verfügbar (`uv run image-triage --help`), in der GUI unter *Settings*.
+CLI, GUI und Config-Datei werden über [config-cli-gui](https://github.com/pamagister/config-cli-gui)
+aus derselben Parameterdefinition (`src/image_triage/config.py`) erzeugt.
+
+## Ablauf
+
+1. **Scan** – Bilder (`jpg`, `png`, `tif`, `webp`) rekursiv einlesen; der Output-Ordner wird ignoriert.
+   Aufnahmezeit: EXIF, sonst aus dem Dateinamen (`IMG_20150502_071410`, `2015-03-10 09.00.10`),
+   sonst Änderungsdatum.
+2. **Analyse** (auf 1024-px-Vorschau)
+   - Schärfe: Laplace-Varianz, 90. Perzentil über ein 4×4-Raster (scharfes Motiv vor unscharfem
+     Hintergrund zählt als scharf)
+   - Belichtung: Anteil ausgefressener Lichter/abgesoffener Schatten, extreme Helligkeit
+   - Objekte (YOLO26, 80 COCO-Klassen) ab `models.confidence`, dazu ein Inhalts-Embedding
+     (gemittelte Backbone-Features aus demselben Modelllauf)
+3. **Gruppierung** – identische Dateien (BLAKE3) sowie Aufnahmen mit ≤ `max_time_gap_s`
+   Sekunden Abstand, deren pHash-Abstand ≤ `max_hash_distance` **oder** deren Embedding-Ähnlichkeit
+   ≥ `min_embedding_similarity` ist (erkennt Serien auch, wenn sich jemand bewegt).
+4. **Score** (0–1) – gewichtetes Mittel aus
+   `min(1, Schärfe / sharpness_reference)`, Belichtung und Motiv. Das Motiv ist die beste Detektion
+   aus `subject_classes` (Personen, Tiere): Konfidenz × Größe, ab 5 % der Bildfläche voll.
+   Objekte sind bewusst nur ein Bonus (`object_weight`), damit Landschaften ohne Personen nicht
+   verlieren.
+5. **Rating**
+   | Sterne | Bedingung |
+   |---|---|
+   | ★★★★★ / ★★★★ / ★★★ | beste(s) `max_per_group` Bild(er) der Gruppe, je nach Score (`min_score_5`, `min_score_4`) |
+   | ★★ | scharf, aber schlechter als das beste Bild der Gruppe |
+   | ★ | unscharf (Schärfe < `blur_threshold`) |
+6. **Auswahl**
+   - `top_n` > 0: Kandidaten sind die besten Bilder jeder Gruppe (jedes Motiv nur einmal).
+     Jeder Ordner mit Bildern gilt als Ereignis (Urlaub, Feier, …) und bekommt Plätze im Verhältnis
+     zu seiner Zahl an Motiven, mindestens einen. Innerhalb eines Ereignisses wird gierig gewählt:
+     hoher Score, aber mit Abzug (`diversity`) für Bilder, deren Inhalt einem schon gewählten ähnelt.
+   - `top_n` = 0: alle Bilder ab `min_rating`.
+7. **XMP** – per ExifTool in die Datei (`-overwrite_original -P`): `XMP:Rating` und die erkannten
+   Objekte als Schlagworte `XMP-dc:Subject` (vorhandene Schlagworte bleiben, keine Duplikate).
+   Liegt eine RAW-Datei gleichen Namens daneben, zusätzlich in deren `.xmp`-Sidecar.
+8. **Export** – Auswahl kopieren, hart- oder symbolisch verlinken (Ordnerstruktur bleibt erhalten,
+   vorhandene Dateien werden nicht überschrieben).
+
+`--dry-run` führt nur Analyse und Bewertung aus und loggt das Ergebnis (`x` = ausgewählt).
+
+## Tests
 
 ```bash
-python -m image_triage.cli [OPTIONS] path/to/file
+uv run pytest
 ```
-
-```bash
-image-triage-cli [OPTIONS] path/to/file
-```
-
----
-
-## Troubleshooting
-
-### Problems with release pipeline
-
-If you get this error below:
-```bash
-/home/runner/work/_temp/xxxx_xxx.sh: line 1: .github/release_message.sh: Permission denied
-```
-
-You have to run these commands in your IDE Terminal or the git bash and then push the changes.
-```bash
-git update-index --chmod=+x ./.github/release_message.sh
-```
-

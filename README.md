@@ -1,3 +1,14 @@
+<!-- This README.md is auto-generated from docs/index.md -->
+
+[![Github CI Status](https://github.com/pamagister/image-triage/actions/workflows/main.yml/badge.svg)](https://github.com/pamagister/image-triage/actions)
+[![GitHub release](https://img.shields.io/github/v/release/pamagister/image-triage)](https://github.com/pamagister/image-triage/releases)
+[![Read the Docs](https://readthedocs.org/projects/image-triage/badge/?version=stable)](https://image-triage.readthedocs.io/en/stable/)
+[![License](https://img.shields.io/github/license/pamagister/image-triage)](https://github.com/pamagister/image-triage/blob/main/LICENSE)
+[![GitHub issues](https://img.shields.io/github/issues/pamagister/image-triage)](https://github.com/pamagister/image-triage/issues)
+[![PyPI](https://img.shields.io/pypi/v/image-triage)](https://pypi.org/project/image-triage/)
+[![Downloads](https://pepy.tech/badge/image-triage)](https://pepy.tech/project/image-triage/)
+
+
 # Image Triage
 
 Analysiert Fotos, gruppiert ähnliche Aufnahmen (Serien, Duplikate), wählt pro Gruppe die beste

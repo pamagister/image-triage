@@ -36,6 +36,22 @@ dev = [
     "pytest-cov>=7.0.0",
     "ruff>=0.14.0",
     "pyinstaller>=6.16.0",
+    "pre-commit>=4.2.0",
+    "pytest-mock>=3.14.1",
+    "coverage>=7.8.2",
+    "flake8>=7.2.0",
+    "black>=25.1.0",
+    "isort>=6.0.1",
+    "mypy>=1.16.0",
+    "gitchangelog>=3.0.4",
+    "pre-commit>=4.2.0",
+    "requests>=2.34.2",
+]
+
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-awesome-nav>=2.6.1",
+    "pygments>=2.19.1",
 ]
 
 [tool.deptry]
