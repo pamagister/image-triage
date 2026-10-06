@@ -1,20 +1,34 @@
 # Command Line Interface
 
-Command line options for image_triage
+Command line options for app
 
 ```bash
-python -m image_triage [OPTIONS] input
+app [OPTIONS] input
+```
+
+For development from a source checkout, the equivalent module invocation is:
+
+```bash
+python -m app [OPTIONS] input
 ```
 
 ## Options
 
-| Option                | Type | Description                                       | Default    | Choices       |
-|-----------------------|------|---------------------------------------------------|------------|---------------|
-| `input`               | str  | Path to input (file or folder)                    | *required* | -             |
-| `--output`            | str  | Path to output destination                        | *required* | -             |
-| `--min_dist`          | int  | Maximum distance between two waypoints            | 25         | -             |
-| `--extract_waypoints` | bool | Extract starting points of each track as waypoint | True       | [True, False] |
-| `--elevation`         | bool | Include elevation data in waypoints               | True       | [True, False] |
+| Option               | Type      | Description                                                                                                          | Default               | Choices                         |
+|----------------------|-----------|----------------------------------------------------------------------------------------------------------------------|-----------------------|---------------------------------|
+| --config             | str       | Path to configuration file                                                                                           | -                     | -                               |
+| -v, --verbose        | bool      | Enable debug logging                                                                                                 | False                 | [True, False]                   |
+| -q, --quiet          | bool      | Show warnings and errors only                                                                                        | False                 | [True, False]                   |
+| `--input`            | PosixPath | Folder with photos (searched recursively)                                                                            | PosixPath('.')        | -                               |
+| `--output`           | PosixPath | Folder the selected photos are exported to                                                                           | PosixPath('selected') | -                               |
+| `--dry-run`          | bool      | Only analyze and report, do not write metadata or export                                                             | False                 | [True, False]                   |
+| `--top-n`            | int       | Export the N most relevant photos: best of each motif, spread over all subfolders (0 = export by min_rating instead) | 0                     | -                               |
+| `--min-rating`       | int       | Export photos with at least this many stars (if top_n is 0)                                                          | 4                     | [1, 2, 3, 4, 5]                 |
+| `--max-per-group`    | int       | Number of best photos per similarity group that can get 3-5 stars                                                    | 1                     | -                               |
+| `--export-mode`      | str       | How photos are placed in the output folder                                                                           | 'copy'                | ['copy', 'hardlink', 'symlink'] |
+| `--models-enabled`   | bool      | Detect objects (YOLO) for scoring, content diversity and keywords                                                    | True                  | [True, False]                   |
+| `--write-xmp-rating` | bool      | Write the star rating as XMP Rating into the image files                                                             | True                  | [True, False]                   |
+| `--write-keywords`   | bool      | Write detected objects as XMP keywords (dc:subject), existing keywords are kept                                      | True                  | [True, False]                   |
 
 
 ## Examples
@@ -23,37 +37,44 @@ python -m image_triage [OPTIONS] input
 ### 1. Basic usage
 
 ```bash
-python -m image_triage input
+app input
 ```
 
 ### 2. With verbose logging
 
 ```bash
-python -m image_triage -v input
-python -m image_triage --verbose input
+app -v input
+app --verbose input
 ```
 
 ### 3. With quiet mode
 
 ```bash
-python -m image_triage -q input
-python -m image_triage --quiet input
+app -q input
+app --quiet input
 ```
 
-### 4. With min_dist parameter
+### 4. With input parameter
 
 ```bash
-python -m image_triage --min_dist 25 input
+app --input . input
 ```
 
-### 5. With extract_waypoints parameter
+### 5. With output parameter
 
 ```bash
-python -m image_triage --extract_waypoints True input
+app --output selected input
 ```
 
-### 6. With elevation parameter
+### 6. With dry_run parameter
 
 ```bash
-python -m image_triage --elevation True input
+app --dry_run True input
+```
+
+### Developer usage
+
+```bash
+python -m app --help
+python -m app input
 ```

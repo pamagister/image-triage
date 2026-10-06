@@ -1,4 +1,4 @@
-from config_cli_gui.docs_generator import DocumentationGenerator
+from config_cli_gui.docs import DocumentationGenerator
 
 from image_triage.config import ImageTriageConfig
 

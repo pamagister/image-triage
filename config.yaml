@@ -12,9 +12,9 @@ app:
   # GUI theme setting supported by ttkbootstrap | type=str | choices=['cosmo', 'flatly', 'litera', 'minty', 'lumen', 'sandstone', 'yeti', 'pulse', 'united', 'darkly', 'superhero', 'solar', 'cyborg', 'vapor', 'simplex']
   theme: darkly
 general:
-  # Folder with photos (searched recursively) | type=WindowsPath | [CLI]
+  # Folder with photos (searched recursively) | type=PosixPath | [CLI]
   input: .
-  # Folder the selected photos are exported to | type=WindowsPath | [CLI]
+  # Folder the selected photos are exported to | type=PosixPath | [CLI]
   output: selected
   # Only analyze and report, do not write metadata or export | type=bool | [CLI] | choices=[True, False]
   dry_run: false
@@ -56,7 +56,7 @@ scoring:
 models:
   # Detect objects (YOLO) for scoring, content diversity and keywords | type=bool | [CLI] | choices=[True, False]
   enabled: true
-  # YOLO26 ONNX model file | type=WindowsPath
+  # YOLO26 ONNX model file | type=PosixPath
   object_detector: res/yolo/yolo26n.onnx
   # Min. confidence (0-1) of an object detection | type=float
   confidence: 0.5
