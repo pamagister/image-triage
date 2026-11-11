@@ -79,6 +79,7 @@ The generated `config.yaml` contains the same defaults.
 | enabled | bool | `true` |
 | yolo_path | Path | `res/yolo/yolo26n.onnx` |
 | aesthetic_path | Path | `res/aesthetic/aesthetic.onnx` |
+| registry_path | Path | `res/models/registry.json` |
 | provider | str | `"CPUExecutionProvider"` |
 | auto_download | bool | `false` |
 

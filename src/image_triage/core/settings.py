@@ -127,6 +127,7 @@ class ModelsSettings(BaseModel):
     enabled: bool = True
     yolo_path: Path = Path("res/yolo/yolo26n.onnx")
     aesthetic_path: Path = Path("res/aesthetic/aesthetic.onnx")
+    registry_path: Path = Path("res/models/registry.json")
     provider: str = "CPUExecutionProvider"
     auto_download: bool = False
 

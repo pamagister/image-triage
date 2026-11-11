@@ -79,7 +79,7 @@ Turn `image-triage` into a modern, local, deterministic photo selection tool wit
 - Aesthetic model: small NIMA-style CNN; if its weights are non-commercial, it is opt-in and the
   restriction is documented prominently (fallback: heuristic interest score).
 - Sample images: 100 Pixabay images, max 1600 px long side, max ~200 KB each (~20 MB total),
-  committed with a manifest and credits.
+  committed with a manifest and credits. --> Ich habe nun alle 110 bilder inklusive credits: /home/paul/PycharmProjects/image-triage/images/pixabay/
 - No network access at analysis time; model downloads happen only via explicit commands.
 
 ### 2.3 Non-goals (explicit)
@@ -516,16 +516,18 @@ export in one deterministic pass.
 
 ### Phase 6 – Models, Performance and Scale
 
+**Status:** `[x]` completed 2026-11-12
+
 **Objective:** Make the tool fast and reproducible on the user's hardware and at 6000-photo scale.
 
-- [ ] P6-W01: Implement `models/registry.py` and `models install|list`: YOLO and aesthetic model
+- [x] P6-W01: Implement `models/registry.py` and `models install|list`: YOLO and aesthetic model
   descriptors, SHA256 verification, license files, `res/models/` and user-data-dir options.
-- [ ] P6-W02: Implement `benchmark/bench.py`: provider detection (CUDA, ROCm, OpenVINO, DirectML,
+- [x] P6-W02: Implement `benchmark/bench.py`: provider detection (CUDA, ROCm, OpenVINO, DirectML,
   CPU), benchmark run on the sample set, per-stage timings, peak memory, provider/batch selection,
   `.image-triage/bench.json`.
-- [ ] P6-W03: Performance tuning: batching, preview size, worker counts, DB indexes, resumable
+- [x] P6-W03: Performance tuning: batching, preview size, worker counts, DB indexes, resumable
   analysis, avoiding repeated decode; verify the CPU fallback target (about 1 s/photo).
-- [ ] P6-W04: Scale validation: analyze a 6000-photo library (real if available, otherwise a
+- [x] P6-W04: Scale validation: analyze a 6000-photo library (real if available, otherwise a
   generated/synthetic library) end to end; record runtime, DB size, memory and selection quality;
   verify determinism.
 
@@ -691,6 +693,7 @@ commits, push/CI status, blockers and decisions._
   reuses all. Tests: 15 passed, ruff clean. Issue #7. Deviation: the planned 100-image Pixabay
   set is not present; the repository's 12 existing sample images plus synthetic fixtures are used.
   Next: Phase 3 (grouping, events, scoring).
+- --> update: Ich habe nun alle 110 bilder inklusive credits: /home/paul/PycharmProjects/image-triage/images/pixabay/
 
 - 2026-11-12: Phase 3 completed. pHash/digest/time/embedding union-find grouping, time/day/GPS
   events, weighted normalized scoring with blur gate, star ratings, group/event persistence and
@@ -708,3 +711,12 @@ commits, push/CI status, blockers and decisions._
   English README/docs rewritten; legacy config-cli-gui/ttkbootstrap stack and tests removed.
   `mkdocs build` passes without dead-link warnings. Tests: 35 passed, ruff clean. Issue #10.
   Next: Phase 6 (models, benchmark, performance/scale).
+
+- 2026-11-12: Phase 6 completed. Model registry with SHA256 verification/license metadata
+  (`models install|list`), explicit local aesthetic install, provider-aware benchmark with
+  per-stage timings and peak memory, synthetic 6000-photo generator. Measured 6000 photos in 78 s
+  (256 px preview, models off), 6.3 MB DB, ~165 MB peak RSS, 200 selected from 300 events; re-run
+  reused all analyses in 9.3 s with a byte-identical report. Sample benchmark: 641 ms/photo CPU.
+  Batching was not needed to meet the ~1 s/photo CPU target; per-image inference is used with
+  parallel workers. Tests: 39 passed, ruff clean, mkdocs clean. Issue #11.
+  Next: Phase 7 (QA, build, release) and Phase 8 (web GUI).

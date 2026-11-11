@@ -65,6 +65,7 @@ models:
   enabled: true
   yolo_path: res/yolo/yolo26n.onnx
   aesthetic_path: res/aesthetic/aesthetic.onnx
+  registry_path: res/models/registry.json
   provider: CPUExecutionProvider
   auto_download: false
 report:

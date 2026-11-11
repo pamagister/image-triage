@@ -193,6 +193,22 @@ Usage: python -m image_triage run [OPTIONS]
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
+### `benchmark`
+
+```text
+Usage: python -m image_triage benchmark [OPTIONS]                                                  
+                                                                                                    
+ Detect ONNX providers and measure analysis stages on sample photos.                                
+                                                                                                    
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
+│ --input         <path>  Sample library root.                                                     │
+│ --limit         <int>   Number of sample photos. [default: 20]                                   │
+│ --json          <bool>  Emit JSON.                                                               │
+│ --config        <path>  YAML config file.                                                        │
+│ --help          <bool>  Show this message and exit.                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
 ### `config`
 
 ```text
@@ -207,5 +223,21 @@ Usage: python -m image_triage config [OPTIONS] COMMAND [ARGS]...
 │ init      Write a documented default configuration file.                                         │
 │ show      Print the effective merged configuration.                                              │
 │ validate  Validate weights, paths, profiles and model files.                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
+### `models`
+
+```text
+Usage: python -m image_triage models [OPTIONS] COMMAND [ARGS]...                                   
+                                                                                                    
+ Install and inspect ONNX models.                                                                   
+                                                                                                    
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help        <bool>  Show this message and exit.                                                │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────╮
+│ install  Install a model, verify its checksum and record its license.                            │
+│ list     List known models, installed paths and licenses.                                        │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```

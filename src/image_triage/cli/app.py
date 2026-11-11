@@ -42,11 +42,13 @@ def get_settings(
 def _register_commands() -> None:
     from image_triage.cli.commands import config as config_command
     from image_triage.cli.commands import doctor as doctor_command
+    from image_triage.cli.commands import models as models_command
     from image_triage.cli.commands import schema as schema_command
 
     app.command("doctor")(doctor_command.doctor)
     app.command("schema")(schema_command.schema)
     app.add_typer(config_command.config_app, name="config")
+    app.add_typer(models_command.models_app, name="models")
 
     for module_name, command_name in (
         ("scan", "scan"),
@@ -58,7 +60,7 @@ def _register_commands() -> None:
         ("export", "export"),
         ("report", "report"),
         ("run", "run"),
-        ("models", "models"),
+        ("benchmark", "benchmark"),
     ):
         try:
             module = __import__(f"image_triage.cli.commands.{module_name}", fromlist=[command_name])

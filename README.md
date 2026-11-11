@@ -115,6 +115,9 @@ The generated defaults are in `config.yaml`; all fields are documented in
 [`docs/usage/config.md`](docs/usage/config.md). Selection profiles live in `profiles/`; the default is
 `profiles/best200.yaml`.
 
+Performance and scale measurements are in [`docs/usage/performance.md`](docs/usage/performance.md);
+model installation and licensing are in [`docs/usage/models.md`](docs/usage/models.md).
+
 ## JSON for agents
 
 All commands that support `--json` write a stable JSON document to stdout; human logs go to stderr.
