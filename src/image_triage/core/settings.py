@@ -64,6 +64,26 @@ class ScoringSettings(BaseModel):
     min_score_5: float = Field(0.75, ge=0.0, le=1.0)
     min_score_4: float = Field(0.45, ge=0.0, le=1.0)
     sharpness_percentile: float = Field(90.0, ge=50.0, le=100.0)
+    subject_classes: list[str] = Field(
+        default_factory=lambda: [
+            "person",
+            "bird",
+            "cat",
+            "dog",
+            "horse",
+            "sheep",
+            "cow",
+            "elephant",
+            "bear",
+            "zebra",
+            "giraffe",
+            "car",
+            "bicycle",
+            "motorcycle",
+            "airplane",
+            "boat",
+        ]
+    )
 
     @model_validator(mode="after")
     def _weights(self) -> ScoringSettings:
@@ -105,6 +125,7 @@ class ModelsSettings(BaseModel):
     enabled: bool = True
     yolo_path: Path = Path("res/yolo/yolo26n.onnx")
     aesthetic_path: Path = Path("res/aesthetic/aesthetic.onnx")
+    provider: str = "CPUExecutionProvider"
     auto_download: bool = False
 
 

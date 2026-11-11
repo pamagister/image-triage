@@ -391,27 +391,29 @@ any analysis work.
 
 ### Phase 2 – Ingest and Analysis
 
+**Status:** `[x]` completed 2026-11-12
+
 **Objective:** Fill the database with reproducible per-photo analysis.
 
-- [ ] P2-W01: Implement `io/scan.py` and `io/decode.py`: recursive scan, EXIF capture time, GPS
+- [x] P2-W01: Implement `io/scan.py` and `io/decode.py`: recursive scan, EXIF capture time, GPS
   (WGS84), dimensions, BLAKE3 digest, robust decode (draft mode, EXIF transpose), per-file error
   capture.
-- [ ] P2-W02: Implement `metrics/sharpness.py`: normalized multi-scale sharpness, tile-based
+- [x] P2-W02: Implement `metrics/sharpness.py`: normalized multi-scale sharpness, tile-based
   analysis, blur classification (defocus vs motion) with confidence.
-- [ ] P2-W03: Implement `metrics/composition.py`: horizon/level detection, rule-of-thirds subject
+- [x] P2-W03: Implement `metrics/composition.py`: horizon/level detection, rule-of-thirds subject
   placement, subject size, headroom, edge clipping, saliency/clutter proxy; 0..1 score plus
   component breakdown.
-- [ ] P2-W04: Implement `models/providers.py` and the YOLO inference adapter: provider detection,
+- [x] P2-W04: Implement `models/providers.py` and the YOLO inference adapter: provider detection,
   batched detections, boxes/labels/confidences, L2-normalized embedding extraction, deterministic
   CPU path.
-- [ ] P2-W05: Integrate the aesthetic ONNX model (`metrics/aesthetic.py`): preprocessing, score
+- [x] P2-W05: Integrate the aesthetic ONNX model (`metrics/aesthetic.py`): preprocessing, score
   calibration, model metadata and license registration; fall back to weight 0 when unavailable.
-- [ ] P2-W06: Implement `metrics/subjects.py`: subject presence score and corpus-level label
+- [x] P2-W06: Implement `metrics/subjects.py`: subject presence score and corpus-level label
   rarity.
-- [ ] P2-W07: Implement analysis orchestration and persistence: resumable per-photo analysis,
+- [x] P2-W07: Implement analysis orchestration and persistence: resumable per-photo analysis,
   `(digest, model_signature, metric_version)` cache key, parallel workers, NDJSON progress, error
   capture, DB writes.
-- [ ] P2-W08: Add `scan` and `analyze` CLI commands with `--json` output.
+- [x] P2-W08: Add `scan` and `analyze` CLI commands with `--json` output.
 
 **Acceptance criteria**
 
@@ -676,3 +678,10 @@ commits, push/CI status, blockers and decisions._
   versioned SQLite schema (WAL, migrations), typed repository, Typer skeleton and `doctor`.
   Legacy config-cli-gui/ttkbootstrap modules and their tests removed. Phase 1 tests: 7 passed,
   ruff clean. Issue #6. Next: Phase 2 (ingest and analysis).
+
+- 2026-11-12: Phase 2 completed. Scan/decode, blur classification, composition, YOLO
+  adapter, aesthetic model with heuristic fallback, subject rarity, resumable analysis and
+  scan/analyze CLI commands. 12 available sample images analyzed in ~2 s on CPU; second run
+  reuses all. Tests: 15 passed, ruff clean. Issue #7. Deviation: the planned 100-image Pixabay
+  set is not present; the repository's 12 existing sample images plus synthetic fixtures are used.
+  Next: Phase 3 (grouping, events, scoring).

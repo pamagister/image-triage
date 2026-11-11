@@ -55,11 +55,13 @@ CREATE TABLE IF NOT EXISTS photos (
 CREATE TABLE IF NOT EXISTS metrics (
     photo_id              INTEGER PRIMARY KEY REFERENCES photos(id) ON DELETE CASCADE,
     sharpness             REAL NOT NULL DEFAULT 0,
+    sharpness_raw         REAL NOT NULL DEFAULT 0,
     blur_kind             TEXT NOT NULL DEFAULT 'none',
     blur_confidence       REAL NOT NULL DEFAULT 0,
     composition           REAL NOT NULL DEFAULT 0,
     composition_components TEXT NOT NULL DEFAULT '{}',
     aesthetic             REAL NOT NULL DEFAULT 0,
+    aesthetic_source      TEXT NOT NULL DEFAULT 'heuristic',
     subject_score         REAL NOT NULL DEFAULT 0,
     subject_rarity        REAL NOT NULL DEFAULT 0,
     exposure              REAL NOT NULL DEFAULT 0,

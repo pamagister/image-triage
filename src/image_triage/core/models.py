@@ -93,11 +93,13 @@ class Metrics:
     """Quality and content metrics for one photo."""
 
     sharpness: float = 0.0
+    sharpness_raw: float = 0.0
     blur_kind: BlurKind = BlurKind.NONE
     blur_confidence: float = 0.0
     composition: float = 0.0
     composition_components: dict[str, float] = field(default_factory=dict)
     aesthetic: float = 0.0
+    aesthetic_source: str = "heuristic"
     subject_score: float = 0.0
     subject_rarity: float = 0.0
     exposure: float = 0.0
@@ -105,6 +107,7 @@ class Metrics:
     def to_dict(self) -> dict[str, object]:
         return {
             "sharpness": round(float(self.sharpness), 6),
+            "sharpness_raw": round(float(self.sharpness_raw), 6),
             "blur_kind": self.blur_kind.value,
             "blur_confidence": round(float(self.blur_confidence), 6),
             "composition": round(float(self.composition), 6),
@@ -112,6 +115,7 @@ class Metrics:
                 k: round(float(v), 6) for k, v in self.composition_components.items()
             },
             "aesthetic": round(float(self.aesthetic), 6),
+            "aesthetic_source": self.aesthetic_source,
             "subject_score": round(float(self.subject_score), 6),
             "subject_rarity": round(float(self.subject_rarity), 6),
             "exposure": round(float(self.exposure), 6),

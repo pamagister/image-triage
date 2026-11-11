@@ -129,17 +129,19 @@ class Repository:
             self.connection.execute(
                 """
                 INSERT INTO metrics (
-                    photo_id, sharpness, blur_kind, blur_confidence, composition,
-                    composition_components, aesthetic, subject_score, subject_rarity,
-                    exposure, metric_version
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    photo_id, sharpness, sharpness_raw, blur_kind, blur_confidence, composition,
+                    composition_components, aesthetic, aesthetic_source, subject_score,
+                    subject_rarity, exposure, metric_version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(photo_id) DO UPDATE SET
                     sharpness=excluded.sharpness,
+                    sharpness_raw=excluded.sharpness_raw,
                     blur_kind=excluded.blur_kind,
                     blur_confidence=excluded.blur_confidence,
                     composition=excluded.composition,
                     composition_components=excluded.composition_components,
                     aesthetic=excluded.aesthetic,
+                    aesthetic_source=excluded.aesthetic_source,
                     subject_score=excluded.subject_score,
                     subject_rarity=excluded.subject_rarity,
                     exposure=excluded.exposure,
@@ -148,11 +150,13 @@ class Repository:
                 (
                     photo.id,
                     photo.metrics.sharpness,
+                    photo.metrics.sharpness_raw,
                     photo.metrics.blur_kind.value,
                     photo.metrics.blur_confidence,
                     photo.metrics.composition,
                     json.dumps(photo.metrics.composition_components, sort_keys=True),
                     photo.metrics.aesthetic,
+                    photo.metrics.aesthetic_source,
                     photo.metrics.subject_score,
                     photo.metrics.subject_rarity,
                     photo.metrics.exposure,
@@ -198,9 +202,9 @@ class Repository:
     def photo_by_id(self, photo_id: int) -> Photo | None:
         row = self.connection.execute(
             """
-            SELECT p.*, m.sharpness, m.blur_kind, m.blur_confidence, m.composition,
-                   m.composition_components, m.aesthetic, m.subject_score,
-                   m.subject_rarity, m.exposure
+            SELECT p.*, m.sharpness, m.sharpness_raw, m.blur_kind, m.blur_confidence,
+                   m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
+                   m.subject_score, m.subject_rarity, m.exposure
             FROM photos p
             LEFT JOIN metrics m ON m.photo_id = p.id
             WHERE p.id = ?
@@ -213,9 +217,9 @@ class Repository:
         """Return every photo ordered by capture time and path."""
         rows = self.connection.execute(
             """
-            SELECT p.*, m.sharpness, m.blur_kind, m.blur_confidence, m.composition,
-                   m.composition_components, m.aesthetic, m.subject_score,
-                   m.subject_rarity, m.exposure
+            SELECT p.*, m.sharpness, m.sharpness_raw, m.blur_kind, m.blur_confidence,
+                   m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
+                   m.subject_score, m.subject_rarity, m.exposure
             FROM photos p
             LEFT JOIN metrics m ON m.photo_id = p.id
             ORDER BY p.taken, p.path
@@ -232,11 +236,13 @@ class Repository:
         components = json.loads(row["composition_components"] or "{}")
         metrics = Metrics(
             sharpness=float(row["sharpness"] or 0.0),
+            sharpness_raw=float(row["sharpness_raw"] or 0.0),
             blur_kind=BlurKind(row["blur_kind"] or "none"),
             blur_confidence=float(row["blur_confidence"] or 0.0),
             composition=float(row["composition"] or 0.0),
             composition_components=components,
             aesthetic=float(row["aesthetic"] or 0.0),
+            aesthetic_source=row["aesthetic_source"] or "heuristic",
             subject_score=float(row["subject_score"] or 0.0),
             subject_rarity=float(row["subject_rarity"] or 0.0),
             exposure=float(row["exposure"] or 0.0),
@@ -339,9 +345,9 @@ class Repository:
             "rating": "p.rating DESC, p.score DESC, p.taken",
         }.get(sort, "p.taken, p.path")
         sql = """
-            SELECT p.*, m.sharpness, m.blur_kind, m.blur_confidence, m.composition,
-                   m.composition_components, m.aesthetic, m.subject_score,
-                   m.subject_rarity, m.exposure
+            SELECT p.*, m.sharpness, m.sharpness_raw, m.blur_kind, m.blur_confidence,
+                   m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
+                   m.subject_score, m.subject_rarity, m.exposure
             FROM photos p
             LEFT JOIN metrics m ON m.photo_id = p.id
             """
@@ -363,6 +369,22 @@ class Repository:
                     (score, rating, json.dumps(flags), photo_id)
                     for photo_id, score, rating, flags in entries
                 ],
+            )
+
+    def update_sharpness(self, entries: Iterable[tuple[int, float]]) -> None:
+        """Update the corpus-normalized sharpness for many photos."""
+        with self.connection:
+            self.connection.executemany(
+                "UPDATE metrics SET sharpness = ? WHERE photo_id = ?",
+                [(value, photo_id) for photo_id, value in entries],
+            )
+
+    def update_subject_metrics(self, entries: Iterable[tuple[int, float, float, float]]) -> None:
+        """Update subject score and rarity for many photos."""
+        with self.connection:
+            self.connection.executemany(
+                "UPDATE metrics SET subject_score = ?, subject_rarity = ? WHERE photo_id = ?",
+                [(score, rarity, photo_id) for photo_id, score, rarity, _source in entries],
             )
 
     # ----------------------------------------------------------- groups/events
@@ -523,9 +545,9 @@ class Repository:
     def get_selection(self, run_id: str) -> list[Photo]:
         rows = self.connection.execute(
             """
-            SELECT p.*, m.sharpness, m.blur_kind, m.blur_confidence, m.composition,
-                   m.composition_components, m.aesthetic, m.subject_score,
-                   m.subject_rarity, m.exposure, s.rank, s.reason, s.quota_rule
+            SELECT p.*, m.sharpness, m.sharpness_raw, m.blur_kind, m.blur_confidence,
+                   m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
+                   m.subject_score, m.subject_rarity, m.exposure, s.rank, s.reason, s.quota_rule
             FROM selections s
             JOIN photos p ON p.id = s.photo_id
             LEFT JOIN metrics m ON m.photo_id = p.id

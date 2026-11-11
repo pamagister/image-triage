@@ -44,27 +44,21 @@ def _register_commands() -> None:
 
     app.command("doctor")(doctor_command.doctor)
 
-    try:
-        from image_triage.cli.commands import (
-            analyze,
-            export,
-            models,
-            report,
-            run,
-            scan,
-            score,
-            select,
-        )
-    except ImportError:
-        return
-    app.command("scan")(scan.scan)
-    app.command("analyze")(analyze.analyze)
-    app.command("score")(score.score)
-    app.command("select")(select.select)
-    app.command("export")(export.export)
-    app.command("report")(report.report)
-    app.command("run")(run.run)
-    app.command("models")(models.models)
+    for module_name, command_name in (
+        ("scan", "scan"),
+        ("analyze", "analyze"),
+        ("score", "score"),
+        ("select", "select"),
+        ("export", "export"),
+        ("report", "report"),
+        ("run", "run"),
+        ("models", "models"),
+    ):
+        try:
+            module = __import__(f"image_triage.cli.commands.{module_name}", fromlist=[command_name])
+        except ImportError:
+            continue
+        app.command(command_name)(getattr(module, command_name))
 
 
 _register_commands()
