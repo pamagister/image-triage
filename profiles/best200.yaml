@@ -1,0 +1,7 @@
+name: best200
+top_n: 200
+diversity: 0.5
+max_per_group: 1
+max_per_day: 5
+max_per_cluster: 3
+event_quota: sainte_lague

@@ -449,9 +449,10 @@ class Repository:
             stored: list[Event] = []
             for event in events:
                 cursor = self.connection.execute(
-                    'INSERT INTO events (start, "end", label, source, photo_count, created_at) '
-                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    'INSERT INTO events (id, start, "end", label, source, photo_count, created_at) '
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (
+                        event.id,
                         _iso(event.start),
                         _iso(event.end),
                         event.label,
@@ -462,6 +463,10 @@ class Repository:
                 )
                 event.id = int(cursor.lastrowid)
                 stored.append(event)
+            self.connection.execute(
+                "UPDATE sqlite_sequence SET seq = (SELECT COALESCE(MAX(id), 0) FROM events) "
+                "WHERE name = 'events'"
+            )
         if assignments:
             self.assign_events(assignments)
         return stored

@@ -457,20 +457,22 @@ any analysis work.
 
 ### Phase 4 – Selection, Reports and Export
 
+**Status:** `[x]` completed 2026-11-12
+
 **Objective:** Produce the best N photos, with explainable reasons and all report artifacts.
 
-- [ ] P4-W01: Implement `selection/profiles.py`: YAML profile schema, defaults, validation,
+- [x] P4-W01: Implement `selection/profiles.py`: YAML profile schema, defaults, validation,
   merging with CLI overrides; add `profiles/best200.yaml`.
-- [ ] P4-W02: Implement quota calculation: Sainte-Laguë per event, per-day cap, per-cluster cap,
+- [x] P4-W02: Implement quota calculation: Sainte-Laguë per event, per-day cap, per-cluster cap,
   global min/max.
-- [ ] P4-W03: Implement `selection/select.py`: greedy MMR with YOLO embeddings, quota
+- [x] P4-W03: Implement `selection/select.py`: greedy MMR with YOLO embeddings, quota
   constraints, deterministic tie-breaks, per-photo reasons.
-- [ ] P4-W04: Implement `report/json_report.py` and `report/schema/report.schema.json`:
+- [x] P4-W04: Implement `report/json_report.py` and `report/schema/report.schema.json`:
   versioned report, tool/model/config hashes, counts, reasons, GPS stripped by default.
-- [ ] P4-W05: Implement `report/csv_report.py`: stable columns, escaping, UTF-8.
-- [ ] P4-W06: Implement `export/previews.py` and `export/export.py`: WebP previews for selected
+- [x] P4-W05: Implement `report/csv_report.py`: stable columns, escaping, UTF-8.
+- [x] P4-W06: Implement `export/previews.py` and `export/export.py`: WebP previews for selected
   photos, copy/hardlink/symlink export, idempotent, no source modification.
-- [ ] P4-W07: Add `select`, `plan`, `apply`, `export`, `report` and the all-in-one `run` command.
+- [x] P4-W07: Add `select`, `plan`, `apply`, `export`, `report` and the all-in-one `run` command.
 
 **Acceptance criteria**
 
@@ -692,3 +694,9 @@ commits, push/CI status, blockers and decisions._
   events, weighted normalized scoring with blur gate, star ratings, group/event persistence and
   score CLI. Sample set scored (12 groups, 1 event due to identical mtimes). Tests: 21 passed,
   ruff clean. Issue #8. Next: Phase 4 (selection, reports, export).
+
+- 2026-11-12: Phase 4 completed. Selection profiles, Sainte-Laguë/proportional/equal event
+  quotas, per-day/cluster caps, greedy MMR, JSON report + JSON Schema, CSV, WebP previews and
+  original export. select/plan/apply/export/report/run commands added. Full 12-photo run produced
+  5 selections with report, CSV, previews and export in ~4 s; report is byte-identical on re-run.
+  Tests: 30 passed, ruff clean. Issue #9. Next: Phase 5 (agent interface, config docs, cleanup).

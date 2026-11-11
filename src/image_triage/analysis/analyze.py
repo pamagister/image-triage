@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -227,6 +226,13 @@ def _normalize_metrics(repository: Repository, settings: Settings) -> None:
     repository.update_subject_metrics(subject_updates)
 
 
+def _deterministic_run_id(command: str, settings: Settings, material: str) -> str:
+    encoded = "\x1f".join(
+        [command, settings.fingerprint(), analysis_signature(settings), material]
+    ).encode("utf-8")
+    return blake3(encoded).hexdigest()[:16]
+
+
 def analyze_library(
     settings: Settings,
     repository: Repository,
@@ -251,7 +257,12 @@ def analyze_library(
         An :class:`AnalyzeResult` summary.
     """
     root, paths = _scan_paths(settings)
-    result = AnalyzeResult(run_id=run_id or uuid.uuid4().hex, total=len(paths))
+    signature = analysis_signature(settings)
+    if run_id is None:
+        run_id = _deterministic_run_id(
+            "analyze", settings, "\x1f".join(path.relative_to(root).as_posix() for path in paths)
+        )
+    result = AnalyzeResult(run_id=run_id, total=len(paths))
     run = Run(
         id=result.run_id,
         command="analyze",
@@ -259,7 +270,6 @@ def analyze_library(
         config_hash=settings.fingerprint(),
     )
     repository.save_run(run)
-    signature = analysis_signature(settings)
     result.model_signature = signature
 
     def emit(event: dict[str, Any]) -> None:

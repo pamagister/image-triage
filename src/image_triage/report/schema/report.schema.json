@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pamagister/image-triage/schemas/report.schema.json",
+  "title": "Image Triage report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "tool_version",
+    "config_hash",
+    "model_hashes",
+    "selection_version",
+    "counts",
+    "photos"
+  ],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "tool_version": {"type": "string"},
+    "run": {
+      "type": ["object", "null"],
+      "required": ["id", "command", "status"],
+      "properties": {
+        "id": {"type": "string"},
+        "command": {"type": "string"},
+        "started_at": {"type": "string"},
+        "finished_at": {"type": ["string", "null"]},
+        "status": {"type": "string"},
+        "config_hash": {"type": "string"},
+        "model_hashes": {"type": "object", "additionalProperties": {"type": "string"}},
+        "counts": {"type": "object", "additionalProperties": {"type": "integer"}}
+      }
+    },
+    "config_hash": {"type": "string"},
+    "model_hashes": {"type": "object", "additionalProperties": {"type": "string"}},
+    "selection_version": {"type": "string"},
+    "counts": {
+      "type": "object",
+      "required": ["photos", "selected", "groups", "events"],
+      "properties": {
+        "photos": {"type": "integer", "minimum": 0},
+        "selected": {"type": "integer", "minimum": 0},
+        "groups": {"type": "integer", "minimum": 0},
+        "events": {"type": "integer", "minimum": 0}
+      }
+    },
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "path", "metrics", "score", "rating", "selected"],
+        "properties": {
+          "id": {"type": ["integer", "null"]},
+          "path": {"type": "string"},
+          "digest": {"type": "string"},
+          "phash": {"type": "string"},
+          "taken": {"type": ["string", "null"]},
+          "width": {"type": "integer"},
+          "height": {"type": "integer"},
+          "camera": {"type": "object"},
+          "gps": {"type": "object"},
+          "event_id": {"type": ["integer", "null"]},
+          "group_id": {"type": ["integer", "null"]},
+          "metrics": {
+            "type": "object",
+            "required": ["sharpness", "blur_kind", "composition", "aesthetic"],
+            "properties": {
+              "sharpness": {"type": "number"},
+              "sharpness_raw": {"type": "number"},
+              "blur_kind": {"type": "string", "enum": ["none", "defocus", "motion", "unknown"]},
+              "blur_confidence": {"type": "number"},
+              "composition": {"type": "number"},
+              "composition_components": {"type": "object"},
+              "aesthetic": {"type": "number"},
+              "aesthetic_source": {"type": "string"},
+              "subject_score": {"type": "number"},
+              "subject_rarity": {"type": "number"},
+              "exposure": {"type": "number"}
+            }
+          },
+          "detections": {"type": "array"},
+          "score": {"type": "number"},
+          "rating": {"type": "integer", "minimum": 0, "maximum": 5},
+          "score_breakdown": {"type": "object"},
+          "flags": {"type": "array", "items": {"type": "string"}},
+          "model_signature": {"type": ["string", "null"]},
+          "analyzed_at": {"type": ["string", "null"]},
+          "selected": {"type": "boolean"},
+          "reason": {"type": "string"},
+          "quota_rule": {"type": "string"}
+        }
+      }
+    }
+  }
+}

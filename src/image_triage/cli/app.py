@@ -49,6 +49,8 @@ def _register_commands() -> None:
         ("analyze", "analyze"),
         ("score", "score"),
         ("select", "select"),
+        ("plan", "plan"),
+        ("apply", "apply"),
         ("export", "export"),
         ("report", "report"),
         ("run", "run"),

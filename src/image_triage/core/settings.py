@@ -139,6 +139,7 @@ class ReportSettings(BaseModel):
     preview_max_side: int = Field(1600, ge=64, le=4096)
     webp_quality: int = Field(80, ge=1, le=100)
     csv_columns: list[str] | None = None
+    export_mode: str = Field("copy", pattern="^(copy|hardlink|symlink)$")
 
 
 class GuiSettings(BaseModel):

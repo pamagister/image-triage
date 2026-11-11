@@ -62,6 +62,8 @@ dev = [
     "gitchangelog>=3.0.4",
     "pre-commit>=4.2.0",
     "requests>=2.34.2",
+    "httpx>=0.28.0",
+    "jsonschema>=4.23.0",
 ]
 
 docs = [
