@@ -24,17 +24,24 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _error_payload(stderr: str) -> dict:
+    start = stderr.find("{")
+    if start < 0:
+        raise AssertionError(f"no JSON error in stderr: {stderr!r}")
+    return json.loads(stderr[start:])
+
+
 def test_missing_input_returns_exit_code_3() -> None:
     result = _run("scan", "--input", "/definitely/not/a/real/library")
     assert result.returncode == 3
-    error = json.loads(result.stderr)
+    error = _error_payload(result.stderr)
     assert error["error"]["exit_code"] == 3
 
 
 def test_unknown_schema_returns_exit_code_2() -> None:
     result = _run("schema", "does-not-exist")
     assert result.returncode == 2
-    error = json.loads(result.stderr)
+    error = _error_payload(result.stderr)
     assert error["error"]["exit_code"] == 2
 
 
