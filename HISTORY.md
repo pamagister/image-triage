@@ -4,6 +4,10 @@ Changelog
 
 (unreleased)
 ------------
+- Rebuilt image-triage as a local, deterministic photo triage tool: technical
+  quality metrics, learned/heuristic aesthetics, YOLO subjects and rarity,
+  similarity grouping, event detection, quota-aware selection, versioned JSON
+  report/schema, SQLite state store, Typer CLI and agent JSON contract. [pamagister]
 - Updated pyproject.toml to remove Deptry’s deprecated setting, which
   pointed at optional-dependency groups that this project doesn’t use.
   Added a targeted exception for lxml, an intentional dependency that

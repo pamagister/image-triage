@@ -17,6 +17,7 @@ dependencies = [
     "onnxruntime>=1.30.0",
     "opencv-python-headless>=5.0.0.93",
     "pillow>=12.3.0",
+    "pydantic>=2.10.0",
     "pydantic-settings>=2.7.0",
     "python-multipart>=0.0.9",
     "pyyaml>=6.0.2",
@@ -76,7 +77,9 @@ docs = [
 image_triage = ["report/schema/*.json", "gui/templates/*.html", "gui/static/*"]
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["lxml"]
+# Optional gpu extra is installed explicitly and not imported by the core package.
+# python-multipart is required by FastAPI form parsing but not imported directly.
+DEP002 = ["lxml", "jinja2", "python-multipart", "onnxruntime-gpu"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

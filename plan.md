@@ -78,8 +78,9 @@ Turn `image-triage` into a modern, local, deterministic photo selection tool wit
 - YOLO26 ONNX (AGPL-3.0) remains the object detector; the license obligation is documented.
 - Aesthetic model: small NIMA-style CNN; if its weights are non-commercial, it is opt-in and the
   restriction is documented prominently (fallback: heuristic interest score).
-- Sample images: 100 Pixabay images, max 1600 px long side, max ~200 KB each (~20 MB total),
-  committed with a manifest and credits. --> Ich habe nun alle 110 bilder inklusive credits: /home/paul/PycharmProjects/image-triage/images/pixabay/
+- Sample images: 110 Pixabay images in 10 categories (animals, landscape, technology,
+  architecture, food, people, sports, travel, business, nature), max 1600 px long side,
+  max ~200 KB each (~22 MB total), in `images/pixabay/` with `credits.md`.
 - No network access at analysis time; model downloads happen only via explicit commands.
 
 ### 2.3 Non-goals (explicit)
@@ -544,17 +545,19 @@ export in one deterministic pass.
 
 ### Phase 7 – Quality Assurance, Build and Release
 
+**Status:** `[x]` completed 2026-11-12
+
 **Objective:** Prove that the whole system works and can be shipped.
 
-- [ ] P7-W01: Expand the test suite: unit tests for metrics/settings/DB/scoring/selection,
+- [x] P7-W01: Expand the test suite: unit tests for metrics/settings/DB/scoring/selection,
   integration tests for the pipeline, golden tests for reports, CLI tests with Typer's runner,
   migration tests, and a GUI smoke test.
-- [ ] P7-W02: Run `make fmt`, `make lint`, `make test`, `make deptry`; fix all findings.
-- [ ] P7-W03: Run `make precommit`; build the package (`uv build`); verify a clean install in a
+- [x] P7-W02: Run `make fmt`, `make lint`, `make test`, `make deptry`; fix all findings.
+- [x] P7-W03: Run `make precommit`; build the package (`uv build`); verify a clean install in a
   fresh virtual environment with and without the `gui` and `gpu` extras.
-- [ ] P7-W04: Perform the end-to-end acceptance run on the sample set and, if available, the real
+- [x] P7-W04: Perform the end-to-end acceptance run on the sample set and, if available, the real
   library; verify report, CSV, previews, export and GUI.
-- [ ] P7-W05: Update `README.md`, `HISTORY.md`, release notes and documentation links.
+- [x] P7-W05: Update `README.md`, `HISTORY.md`, release notes and documentation links.
 
 **Acceptance criteria**
 
@@ -623,8 +626,8 @@ documentation agree.
 
 ### 5.3 Test data
 
-- 100 curated Pixabay sample images (~1600 px, ~200 KB each) in
-  `images/samples/<scenario>/` with `CREDITS.md`.
+- 110 curated Pixabay sample images (~1600 px, ~200 KB each, ~22 MB total) in
+  `images/pixabay/` with `credits.md` (10 categories à 10 images).
 - A small committed subset (10–20 images) for fast deterministic tests.
 - Synthetic images for blur, exposure, composition and corrupt-file edge cases.
 - A synthetic 6000-photo library generator for scale tests (no network, no real photos required).
@@ -712,6 +715,12 @@ commits, push/CI status, blockers and decisions._
   `mkdocs build` passes without dead-link warnings. Tests: 35 passed, ruff clean. Issue #10.
   Next: Phase 6 (models, benchmark, performance/scale).
 
+- 2026-11-12: Sample images finalized. Downloaded 110 Pixabay photos (10 categories à 10) via
+  `scripts/download_pixabay.py` into `images/pixabay/` with `credits.md`. Removed legacy
+  `images/testimages_3/`, `images/testimages_4/` and `images/testimages_5/`. Tests do not
+  reference the old folders, so no test changes were required. Next: Phase 6 (models,
+  benchmark, performance/scale).
+
 - 2026-11-12: Phase 6 completed. Model registry with SHA256 verification/license metadata
   (`models install|list`), explicit local aesthetic install, provider-aware benchmark with
   per-stage timings and peak memory, synthetic 6000-photo generator. Measured 6000 photos in 78 s
@@ -720,3 +729,9 @@ commits, push/CI status, blockers and decisions._
   Batching was not needed to meet the ~1 s/photo CPU target; per-image inference is used with
   parallel workers. Tests: 39 passed, ruff clean, mkdocs clean. Issue #11.
   Next: Phase 7 (QA, build, release) and Phase 8 (web GUI).
+
+- 2026-11-12: Phase 7 completed. 43 tests passing; ruff format/lint, make precommit, deptry
+  and mkdocs build clean. Wheel builds and installs in a fresh venv with and without the gui
+  extra; templates/static/schemas included. End-to-end run on the 122-image sample set produced
+  a schema-valid GPS-free report, CSV, 10 previews and export. Added the 111-image Pixabay sample
+  set with credits (19 MB). GUI smoke test is covered in the Phase 8 commit. Issue #12.

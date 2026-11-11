@@ -21,8 +21,10 @@ def write_previews(
     """Write WebP previews for selected photos, skipping existing files."""
     preview_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
+    keep: set[str] = set()
     for photo in photos:
         target = preview_path(photo, preview_dir)
+        keep.add(target.name)
         if target.exists():
             written.append(target)
             continue
@@ -33,4 +35,8 @@ def write_previews(
         )
         preview.save(target, "WEBP", quality=settings.report.webp_quality, method=4)
         written.append(target)
+    # Previews are a derived cache for the current selection; drop stale files.
+    for stale in preview_dir.glob("*.webp"):
+        if stale.name not in keep:
+            stale.unlink(missing_ok=True)
     return written
