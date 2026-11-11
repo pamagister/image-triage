@@ -136,9 +136,16 @@ See [`docs/usage/agents.md`](docs/usage/agents.md) and the schemas published by 
 
 ## Web GUI
 
-The local web GUI is implemented in a later phase. It will bind to `127.0.0.1` by default and
-provide library filtering, comparison, soft rating/keep-reject overrides, map/timeline views and
-run/export control.
+The local web GUI is implemented with FastAPI, Jinja and htmx. Start it with:
+
+```bash
+uv sync --extra gui
+uv run image-triage gui
+```
+
+It provides library filtering, photo detail, comparison, soft rating/keep-reject overrides, an
+event timeline with a GPS scatter plot and run/export job control. See
+[`docs/usage/gui.md`](docs/usage/gui.md).
 
 ## Development
 

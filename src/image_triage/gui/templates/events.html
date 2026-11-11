@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Events - Image Triage{% endblock %}
+{% block content %}
+<h1>Events</h1>
+{% if points %}
+<h2>GPS scatter</h2>
+<svg viewBox="0 0 100 100" class="map" role="img" aria-label="GPS scatter plot of photos">
+  <rect x="0" y="0" width="100" height="100" fill="#f4f4f4" stroke="#ccc"></rect>
+  {% for point in points %}
+  <circle cx="{{ '%.2f'|format(point.x) }}" cy="{{ '%.2f'|format(point.y) }}" r="1.2" fill="#2b6cb0">
+    <title>{{ point.label }}</title>
+  </circle>
+  {% endfor %}
+</svg>
+{% else %}
+<p>No GPS coordinates available.</p>
+{% endif %}
+
+<h2>Timeline</h2>
+<table>
+  <tr><th>Event</th><th>Start</th><th>End</th><th>Photos</th><th>Source</th></tr>
+  {% for event in events %}
+  <tr>
+    <td><a href="/?event_id={{ event.id }}">{{ event.label }}</a></td>
+    <td>{{ event.start }}</td>
+    <td>{{ event.end }}</td>
+    <td>{{ event.photo_count }}</td>
+    <td>{{ event.source }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

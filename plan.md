@@ -1,6 +1,6 @@
 # Image Triage – Implementation Plan
 
-**Status:** `[ ]` pending (plan only; implementation starts after approval)
+**Status:** `[x]` implementation complete (Phases 1-8)
 **Created:** 2026-11-11
 **Target:** a local-first, deterministic photo triage tool that reduces a full year of photos
 (e.g. 6000 images) to the best 200, usable from the CLI, by agents, and later from a web GUI.
@@ -571,20 +571,22 @@ documentation agree.
 
 ### Phase 8 – Web GUI
 
+**Status:** `[x]` completed 2026-11-12
+
 **Objective:** Provide a local web interface for browsing, comparing and curating the selection.
 
-- [ ] P8-W01: Implement the FastAPI skeleton and `gui` command: Jinja/htmx base layout, localhost
+- [x] P8-W01: Implement the FastAPI skeleton and `gui` command: Jinja/htmx base layout, localhost
   binding, health endpoint, static assets.
-- [ ] P8-W02: Implement the library grid with filters (rating, event, date, label, score), sorting
+- [x] P8-W02: Implement the library grid with filters (rating, event, date, label, score), sorting
   and pagination/virtual scrolling.
-- [ ] P8-W03: Implement photo detail and side-by-side comparison of similar shots with metric
+- [x] P8-W03: Implement photo detail and side-by-side comparison of similar shots with metric
   overlays.
-- [ ] P8-W04: Implement rating and keep/reject soft overrides stored in SQLite; show their effect
+- [x] P8-W04: Implement rating and keep/reject soft overrides stored in SQLite; show their effect
   on a selection preview.
-- [ ] P8-W05: Implement map and timeline views from event GPS/time data (Leaflet + GeoJSON).
-- [ ] P8-W06: Implement run/export job control from the GUI (start analyze/select/export, progress,
+- [x] P8-W05: Implement map and timeline views from event GPS/time data (Leaflet + GeoJSON).
+- [x] P8-W06: Implement run/export job control from the GUI (start analyze/select/export, progress,
   results) with a small `jobs` table and background worker.
-- [ ] P8-W07: Add GUI tests (FastAPI TestClient), documentation and basic accessibility checks.
+- [x] P8-W07: Add GUI tests (FastAPI TestClient), documentation and basic accessibility checks.
 
 **Acceptance criteria**
 
@@ -735,3 +737,10 @@ commits, push/CI status, blockers and decisions._
   extra; templates/static/schemas included. End-to-end run on the 122-image sample set produced
   a schema-valid GPS-free report, CSV, 10 previews and export. Added the 111-image Pixabay sample
   set with credits (19 MB). GUI smoke test is covered in the Phase 8 commit. Issue #12.
+
+- 2026-11-12: Phase 8 completed. FastAPI/Jinja/htmx GUI with library filters, sorting and
+  pagination; photo detail, similar-shot compare, soft rating/keep/reject overrides (now applied
+  as soft score signals), event timeline with an SVG GPS scatter, and analyze/select/export jobs
+  with a background worker. `image-triage gui` starts uvicorn; GUI TestClient tests and a live
+  health/index check pass. Deviations: pagination instead of virtual scrolling, and an SVG GPS
+  scatter instead of Leaflet tiles to keep the GUI offline. Issue #13. All phases complete.

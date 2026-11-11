@@ -8,15 +8,16 @@ from pathlib import Path
 
 import imagehash
 import numpy as np
+import pytest
 import yaml
 from typer.testing import CliRunner
 
 from image_triage.cli.app import app
-from image_triage.core.models import BlurKind, Metrics, Photo
+from image_triage.core.models import BlurKind, Metrics, Override, OverrideSource, Photo
 from image_triage.core.settings import load_settings
 from image_triage.grouping.events import detect_events
 from image_triage.grouping.similarity import group_photos
-from image_triage.scoring.score import rate_photos, score_photo
+from image_triage.scoring.score import apply_overrides, rate_photos, score_photo
 
 T0 = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
 
@@ -142,6 +143,24 @@ def test_rating_rules() -> None:
     assert by_name["second.jpg"] == 2
     assert by_name["blurry.jpg"] == 1
     assert by_name["weak.jpg"] == 2
+
+
+def test_soft_overrides_influence_rating_and_score() -> None:
+    photo = _photo(
+        "a.jpg",
+        sharpness=0.5,
+        composition=0.5,
+        aesthetic=0.5,
+    )
+    photo.id = 1
+    photo.score = 0.5
+    photo.rating = 3
+    apply_overrides(
+        [photo],
+        [Override(1, rating=5, keep=True, source=OverrideSource.GUI)],
+    )
+    assert photo.rating == 5
+    assert photo.score == pytest.approx(0.55)
 
 
 def test_score_cli_after_analyze(photo_dir: Path, tmp_path: Path) -> None:

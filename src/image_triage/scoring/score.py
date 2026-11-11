@@ -6,7 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
-from image_triage.core.models import SCORING_VERSION, BlurKind, Photo
+from image_triage.core.models import SCORING_VERSION, BlurKind, Override, Photo
 from image_triage.core.settings import Settings
 from image_triage.db.repository import Repository
 from image_triage.metrics.subjects import subject_value
@@ -96,10 +96,31 @@ def rate_photos(photos: list[Photo], settings: Settings) -> None:
                 photo.rating = 3
 
 
+def apply_overrides(photos: list[Photo], overrides: list[Override]) -> None:
+    """Apply soft CLI/GUI signals without changing originals.
+
+    A rating override replaces the computed rating; keep adds a small score bonus and
+    reject applies a penalty. These are intentionally soft so later runs can still
+    re-score from the metrics.
+    """
+    by_id = {override.photo_id: override for override in overrides}
+    for photo in photos:
+        override = by_id.get(photo.id)
+        if override is None:
+            continue
+        if override.rating is not None:
+            photo.rating = override.rating
+        if override.keep is True:
+            photo.score = min(1.0, photo.score + 0.05)
+        elif override.keep is False:
+            photo.score = max(0.0, photo.score - 0.10)
+
+
 def score_library(repository: Repository, settings: Settings) -> list[Photo]:
     """Score and rate all photos, persist the results and return them."""
     photos = repository.all_photos()
     rate_photos(photos, settings)
+    apply_overrides(photos, repository.get_overrides())
     repository.update_scores(
         [
             (photo.id, photo.score, photo.rating, photo.flags)

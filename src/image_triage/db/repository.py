@@ -229,10 +229,6 @@ class Repository:
         ).fetchall()
         return [self._row_to_photo(row) for row in rows]
 
-    def count_photos(self) -> int:
-        row = self.connection.execute("SELECT COUNT(*) AS n FROM photos").fetchone()
-        return int(row["n"])
-
     def _row_to_photo(self, row: sqlite3.Row) -> Photo:
         flags = json.loads(row["flags"] or "[]")
         components = json.loads(row["composition_components"] or "{}")
@@ -291,7 +287,7 @@ class Repository:
             analyzed_at=_parse_dt(row["analyzed_at"]),
         )
 
-    def list_photos(
+    def _photo_filters(
         self,
         *,
         rating: int | None = None,
@@ -303,11 +299,7 @@ class Repository:
         min_score: float | None = None,
         search: str | None = None,
         selected_run: str | None = None,
-        sort: str = "taken",
-        limit: int | None = None,
-        offset: int = 0,
-    ) -> list[Photo]:
-        """Filtered photo listing for the CLI and GUI."""
+    ) -> tuple[list[str], list[Any]]:
         where: list[str] = []
         params: list[Any] = []
         if rating is not None:
@@ -341,6 +333,66 @@ class Repository:
                 "EXISTS (SELECT 1 FROM selections s WHERE s.photo_id = p.id AND s.run_id = ?)"
             )
             params.append(selected_run)
+        return where, params
+
+    def count_photos(
+        self,
+        *,
+        rating: int | None = None,
+        event_id: int | None = None,
+        group_id: int | None = None,
+        label: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        min_score: float | None = None,
+        search: str | None = None,
+        selected_run: str | None = None,
+    ) -> int:
+        """Count photos matching the GUI/CLI filters."""
+        where, params = self._photo_filters(
+            rating=rating,
+            event_id=event_id,
+            group_id=group_id,
+            label=label,
+            date_from=date_from,
+            date_to=date_to,
+            min_score=min_score,
+            search=search,
+            selected_run=selected_run,
+        )
+        sql = "SELECT COUNT(*) AS n FROM photos p"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        return int(self.connection.execute(sql, params).fetchone()["n"])
+
+    def list_photos(
+        self,
+        *,
+        rating: int | None = None,
+        event_id: int | None = None,
+        group_id: int | None = None,
+        label: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        min_score: float | None = None,
+        search: str | None = None,
+        selected_run: str | None = None,
+        sort: str = "taken",
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[Photo]:
+        """Filtered photo listing for the CLI and GUI."""
+        where, params = self._photo_filters(
+            rating=rating,
+            event_id=event_id,
+            group_id=group_id,
+            label=label,
+            date_from=date_from,
+            date_to=date_to,
+            min_score=min_score,
+            search=search,
+            selected_run=selected_run,
+        )
         order = {
             "taken": "p.taken, p.path",
             "path": "p.path",

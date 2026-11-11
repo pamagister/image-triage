@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{ photo.path }} - Image Triage{% endblock %}
+{% block content %}
+<p><a href="/">back to library</a></p>
+<h1>{{ photo.path }}</h1>
+<div class="detail">
+  <img class="detail-image" src="/media/{{ photo.id }}" alt="{{ photo.path }}">
+  <div>
+    <h2>Score {{ '%.3f'|format(photo.score) }} - rating {{ photo.rating }}/5</h2>
+    <table>
+      <tr><th>Sharpness</th><td>{{ '%.3f'|format(photo.metrics.sharpness) }}</td></tr>
+      <tr><th>Blur</th><td>{{ photo.metrics.blur_kind.value }} ({{ '%.2f'|format(photo.metrics.blur_confidence) }})</td></tr>
+      <tr><th>Composition</th><td>{{ '%.3f'|format(photo.metrics.composition) }}</td></tr>
+      <tr><th>Aesthetic</th><td>{{ '%.3f'|format(photo.metrics.aesthetic) }} ({{ photo.metrics.aesthetic_source }})</td></tr>
+      <tr><th>Subject</th><td>{{ '%.3f'|format(photo.metrics.subject_score) }} / rarity {{ '%.3f'|format(photo.metrics.subject_rarity) }}</td></tr>
+      <tr><th>Exposure</th><td>{{ '%.3f'|format(photo.metrics.exposure) }}</td></tr>
+      <tr><th>Captured</th><td>{{ photo.taken }}</td></tr>
+      <tr><th>Group / event</th><td>{{ photo.group_id }} / {{ photo.event_id }}</td></tr>
+    </table>
+    <h3>Components</h3>
+    <ul>
+      {% for name, value in photo.metrics.composition_components.items() %}
+      <li>{{ name }}: {{ '%.3f'|format(value) }}</li>
+      {% endfor %}
+    </ul>
+    <h3>Detections</h3>
+    <ul>
+      {% for detection in photo.detections %}
+      <li>{{ detection.label }} {{ '%.2f'|format(detection.confidence) }}</li>
+      {% else %}
+      <li>none</li>
+      {% endfor %}
+    </ul>
+    <h3>Soft override</h3>
+    <form method="post" action="/photo/{{ photo.id }}/override">
+      <label>Rating
+        <select name="rating">
+          <option value="">unchanged</option>
+          {% for value in [5, 4, 3, 2, 1] %}
+          <option value="{{ value }}">{{ value }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Decision
+        <select name="keep">
+          <option value="">unchanged</option>
+          <option value="keep">keep</option>
+          <option value="reject">reject</option>
+        </select>
+      </label>
+      <button type="submit">Save override</button>
+    </form>
+  </div>
+</div>
+
+<h2>Similar shots</h2>
+<ul class="grid">
+  {% for item in similar %}
+  <li class="card">
+    <a href="/photo/{{ item.id }}"><img src="/media/{{ item.id }}" alt="{{ item.path }}" loading="lazy"></a>
+    <div class="meta">{{ item.path }} - score {{ '%.2f'|format(item.score) }}</div>
+  </li>
+  {% else %}
+  <li>No similar shots.</li>
+  {% endfor %}
+</ul>
+{% if similar|length > 1 %}
+<p><a href="/compare?ids={% for item in similar %}{{ item.id }}{% if not loop.last %},{% endif %}{% endfor %}">compare similar shots</a></p>
+{% endif %}
+{% endblock %}

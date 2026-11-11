@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Library - Image Triage{% endblock %}
+{% block content %}
+<h1>Library</h1>
+<form method="get" action="/" class="filters" role="search">
+  <label>Search <input type="search" name="q" value="{{ filters.q or '' }}"></label>
+  <label>Rating
+    <select name="rating">
+      <option value="">any</option>
+      {% for value in [5, 4, 3, 2, 1] %}
+      <option value="{{ value }}" {% if filters.rating == value %}selected{% endif %}>{{ value }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Event
+    <select name="event_id">
+      <option value="">any</option>
+      {% for event in events %}
+      <option value="{{ event.id }}" {% if filters.event_id == event.id %}selected{% endif %}>{{ event.label }} ({{ event.photo_count }})</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Label <input name="label" value="{{ filters.label or '' }}"></label>
+  <label>Sort
+    <select name="sort">
+      <option value="taken" {% if sort == 'taken' %}selected{% endif %}>capture time</option>
+      <option value="score" {% if sort == 'score' %}selected{% endif %}>score</option>
+      <option value="rating" {% if sort == 'rating' %}selected{% endif %}>rating</option>
+      <option value="path" {% if sort == 'path' %}selected{% endif %}>path</option>
+    </select>
+  </label>
+  <button type="submit">Apply</button>
+</form>
+
+<p>{{ total }} photos{% if latest_run %} - latest run {{ latest_run.id }} ({{ latest_run.status.value }}){% endif %}</p>
+
+<ul class="grid">
+  {% for photo in photos %}
+  <li class="card">
+    <a href="/photo/{{ photo.id }}">
+      <img src="/media/{{ photo.id }}" alt="{{ photo.path }}" loading="lazy">
+    </a>
+    <div class="meta">
+      <div class="path" title="{{ photo.path }}">{{ photo.path }}</div>
+      <div>rating {{ photo.rating }}/5 - score {{ '%.2f'|format(photo.score) }}</div>
+      <div>group {{ photo.group_id }} - event {{ photo.event_id }}</div>
+    </div>
+  </li>
+  {% else %}
+  <li>No photos found.</li>
+  {% endfor %}
+</ul>
+
+<nav class="pagination" aria-label="Pagination">
+  {% if page > 1 %}<a href="/?page={{ page - 1 }}&sort={{ sort }}">previous</a>{% endif %}
+  <span>page {{ page }} / {{ pages }}</span>
+  {% if page < pages %}<a href="/?page={{ page + 1 }}&sort={{ sort }}">next</a>{% endif %}
+</nav>
+{% endblock %}

@@ -209,6 +209,21 @@ Usage: python -m image_triage benchmark [OPTIONS]
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
+### `gui`
+
+```text
+Usage: python -m image_triage gui [OPTIONS]                                                        
+                                                                                                    
+ Start the local FastAPI/htmx web interface.                                                        
+                                                                                                    
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
+│ --host          <str>   Bind address.                                                            │
+│ --port          <int>   Bind port.                                                               │
+│ --config        <path>  YAML config file.                                                        │
+│ --help          <bool>  Show this message and exit.                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
 ### `config`
 
 ```text

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Jobs - Image Triage{% endblock %}
+{% block content %}
+<h1>Jobs</h1>
+<form method="post" action="/jobs/start" class="filters">
+  <label>Job
+    <select name="kind">
+      <option value="analyze">analyze</option>
+      <option value="select">select</option>
+      <option value="export">export</option>
+    </select>
+  </label>
+  <label>Top N <input type="number" name="top_n" value="200" min="0"></label>
+  <button type="submit">Start</button>
+</form>
+<p><a href="/jobs">refresh</a></p>
+<table>
+  <tr><th>ID</th><th>Kind</th><th>Status</th><th>Progress</th><th>Result</th></tr>
+  {% for job in jobs %}
+  <tr>
+    <td>{{ job.id }}</td>
+    <td>{{ job.kind }}</td>
+    <td>{{ job.status }}</td>
+    <td>{{ '%.0f'|format(job.progress * 100) }}%</td>
+    <td>{{ job.result }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5">No jobs yet.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

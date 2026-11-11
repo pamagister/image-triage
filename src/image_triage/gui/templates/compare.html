@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Compare - Image Triage{% endblock %}
+{% block content %}
+<h1>Compare</h1>
+<div class="compare">
+  {% for photo in photos %}
+  <section class="compare-item">
+    <img src="/media/{{ photo.id }}" alt="{{ photo.path }}">
+    <h2>{{ photo.path }}</h2>
+    <table>
+      <tr><th>Score</th><td>{{ '%.3f'|format(photo.score) }}</td></tr>
+      <tr><th>Rating</th><td>{{ photo.rating }}/5</td></tr>
+      <tr><th>Sharpness</th><td>{{ '%.3f'|format(photo.metrics.sharpness) }}</td></tr>
+      <tr><th>Blur</th><td>{{ photo.metrics.blur_kind.value }}</td></tr>
+      <tr><th>Composition</th><td>{{ '%.3f'|format(photo.metrics.composition) }}</td></tr>
+      <tr><th>Aesthetic</th><td>{{ '%.3f'|format(photo.metrics.aesthetic) }}</td></tr>
+      <tr><th>Subject</th><td>{{ '%.3f'|format(photo.metrics.subject_score) }}</td></tr>
+    </table>
+    <p><a href="/photo/{{ photo.id }}">details</a></p>
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

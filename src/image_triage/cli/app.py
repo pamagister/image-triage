@@ -61,6 +61,7 @@ def _register_commands() -> None:
         ("report", "report"),
         ("run", "run"),
         ("benchmark", "benchmark"),
+        ("gui", "gui"),
     ):
         try:
             module = __import__(f"image_triage.cli.commands.{module_name}", fromlist=[command_name])
