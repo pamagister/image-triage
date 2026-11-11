@@ -14,6 +14,7 @@ from typing import Any
 
 import numpy as np
 from blake3 import blake3
+from imagehash import phash as perceptual_hash
 
 from image_triage.core.errors import InputError, PartialFailure
 from image_triage.core.models import (
@@ -85,6 +86,7 @@ def analysis_signature(settings: Settings) -> str:
     payload: dict[str, Any] = {
         "metric_version": METRIC_VERSION,
         "composition_version": COMPOSITION_VERSION,
+        "phash_version": "1.0.0",
         "preview_size": settings.analysis.preview_size,
         "draft": settings.analysis.draft,
         "yolo_enabled": settings.models.enabled,
@@ -166,6 +168,7 @@ def _analyze_one(
     return Photo(
         path=relative,
         digest=file_digest(path),
+        phash=str(perceptual_hash(preview)),
         taken=scan.taken,
         width=scan.width,
         height=scan.height,

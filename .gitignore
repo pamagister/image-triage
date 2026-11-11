@@ -207,3 +207,6 @@ cython_debug/
 
 # image-triage state
 .image-triage/
+
+# downloaded models
+res/

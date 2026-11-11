@@ -99,11 +99,13 @@ class ScoringSettings(BaseModel):
 
 
 class SimilaritySettings(BaseModel):
-    """Grouping thresholds."""
+    """Grouping and event thresholds."""
 
     max_hash_distance: int = Field(12, ge=0, le=64)
     max_time_gap_s: float = Field(10.0, ge=0.0)
     min_embedding_similarity: float = Field(0.97, ge=-1.0, le=1.0)
+    event_gap_s: float = Field(4 * 3600, ge=0.0)
+    gps_jump_km: float = Field(50.0, ge=0.0)
 
 
 class SelectionSettings(BaseModel):

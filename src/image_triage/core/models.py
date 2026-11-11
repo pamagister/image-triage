@@ -129,6 +129,7 @@ class Photo:
     id: int | None = None
     path: str = ""
     digest: str = ""
+    phash: str = ""
     taken: datetime | None = None
     width: int = 0
     height: int = 0
@@ -156,6 +157,7 @@ class Photo:
             "id": self.id,
             "path": self.path,
             "digest": self.digest,
+            "phash": self.phash,
             "taken": self.taken.isoformat() if self.taken else None,
             "width": self.width,
             "height": self.height,

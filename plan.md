@@ -429,17 +429,19 @@ any analysis work.
 
 ### Phase 3 – Grouping, Events and Scoring
 
+**Status:** `[x]` completed 2026-11-12
+
 **Objective:** Turn per-photo metrics into groups, events, scores and ratings.
 
-- [ ] P3-W01: Port and adapt `grouping/similarity.py`: digest, pHash, time gap, embedding cosine
+- [x] P3-W01: Port and adapt `grouping/similarity.py`: digest, pHash, time gap, embedding cosine
   similarity, union-find grouping, deterministic group ids.
-- [ ] P3-W02: Implement `grouping/events.py`: time-gap clustering, day boundary, GPS jump
+- [x] P3-W02: Implement `grouping/events.py`: time-gap clustering, day boundary, GPS jump
   threshold, event labels (folder/date/GPS cluster), persistence.
-- [ ] P3-W03: Implement `scoring/score.py`: weighted normalized score, blur gate, formula and
+- [x] P3-W03: Implement `scoring/score.py`: weighted normalized score, blur gate, formula and
   weight versioning, config hash, per-component breakdown.
-- [ ] P3-W04: Implement `scoring/rate.py`: best-per-group, `max_per_group`, star thresholds, blur
+- [x] P3-W04: Implement `scoring/rate.py`: best-per-group, `max_per_group`, star thresholds, blur
   handling.
-- [ ] P3-W05: Add the `score` CLI command with JSON breakdown; persist scores, ratings and
+- [x] P3-W05: Add the `score` CLI command with JSON breakdown; persist scores, ratings and
   versions.
 
 **Acceptance criteria**
@@ -685,3 +687,8 @@ commits, push/CI status, blockers and decisions._
   reuses all. Tests: 15 passed, ruff clean. Issue #7. Deviation: the planned 100-image Pixabay
   set is not present; the repository's 12 existing sample images plus synthetic fixtures are used.
   Next: Phase 3 (grouping, events, scoring).
+
+- 2026-11-12: Phase 3 completed. pHash/digest/time/embedding union-find grouping, time/day/GPS
+  events, weighted normalized scoring with blur gate, star ratings, group/event persistence and
+  score CLI. Sample set scored (12 groups, 1 event due to identical mtimes). Tests: 21 passed,
+  ruff clean. Issue #8. Next: Phase 4 (selection, reports, export).

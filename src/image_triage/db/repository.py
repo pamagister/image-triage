@@ -85,12 +85,13 @@ class Repository:
             cursor = self.connection.execute(
                 """
                 INSERT INTO photos (
-                    path, digest, taken, width, height, camera_make, camera_model,
+                    path, digest, phash, taken, width, height, camera_make, camera_model,
                     gps_lat, gps_lon, event_id, group_id, score, rating, flags,
                     model_signature, analyzed_at, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(path) DO UPDATE SET
                     digest=excluded.digest,
+                    phash=excluded.phash,
                     taken=excluded.taken,
                     width=excluded.width,
                     height=excluded.height,
@@ -108,6 +109,7 @@ class Repository:
                 (
                     photo.path,
                     photo.digest,
+                    photo.phash,
                     _iso(photo.taken) or "",
                     photo.width,
                     photo.height,
@@ -269,6 +271,7 @@ class Repository:
             id=int(row["id"]),
             path=row["path"],
             digest=row["digest"],
+            phash=row["phash"] or "",
             taken=_parse_dt(row["taken"]),
             width=int(row["width"] or 0),
             height=int(row["height"] or 0),

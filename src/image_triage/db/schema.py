@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS photos (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     path            TEXT NOT NULL UNIQUE,
     digest          TEXT NOT NULL,
+    phash           TEXT NOT NULL DEFAULT '',
     taken           TEXT NOT NULL,
     width           INTEGER NOT NULL DEFAULT 0,
     height          INTEGER NOT NULL DEFAULT 0,
