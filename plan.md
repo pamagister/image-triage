@@ -490,16 +490,18 @@ export in one deterministic pass.
 
 ### Phase 5 – Agent Interface, Configuration Docs and Cleanup
 
+**Status:** `[x]` completed 2026-11-12
+
 **Objective:** Make the CLI contract explicit and remove the legacy stack.
 
-- [ ] P5-W01: Publish JSON Schemas for report, selection plan and NDJSON events; add the `schema`
+- [x] P5-W01: Publish JSON Schemas for report, selection plan and NDJSON events; add the `schema`
   command.
-- [ ] P5-W02: Finalize exit codes, error JSON and partial-failure semantics; document `--strict`.
-- [ ] P5-W03: Replace the config-cli-gui documentation generator with a pydantic-based generator;
+- [x] P5-W02: Finalize exit codes, error JSON and partial-failure semantics; document `--strict`.
+- [x] P5-W03: Replace the config-cli-gui documentation generator with a pydantic-based generator;
   update `make syncdocs`, `config.yaml`, `docs/usage/cli.md`, `docs/usage/config.md`.
-- [ ] P5-W04: Rewrite user documentation in English: installation, quickstart, commands, scoring,
+- [x] P5-W04: Rewrite user documentation in English: installation, quickstart, commands, scoring,
   selection profiles, models, JSON for agents, GUI placeholder.
-- [ ] P5-W05: Remove legacy `config.py`, `gui.py` (tkinter), config-cli-gui code paths and obsolete
+- [x] P5-W05: Remove legacy `config.py`, `gui.py` (tkinter), config-cli-gui code paths and obsolete
   tests; update entry points (`image-triage-gui` now starts the web server).
 
 **Acceptance criteria**
@@ -700,3 +702,9 @@ commits, push/CI status, blockers and decisions._
   original export. select/plan/apply/export/report/run commands added. Full 12-photo run produced
   5 selections with report, CSV, previews and export in ~4 s; report is byte-identical on re-run.
   Tests: 30 passed, ruff clean. Issue #9. Next: Phase 5 (agent interface, config docs, cleanup).
+
+- 2026-11-12: Phase 5 completed. Published report/plan/NDJSON JSON Schemas and `schema` command;
+  stable exit-code and error-JSON contract tests; pydantic-based `make syncdocs` generator;
+  English README/docs rewritten; legacy config-cli-gui/ttkbootstrap stack and tests removed.
+  `mkdocs build` passes without dead-link warnings. Tests: 35 passed, ruff clean. Issue #10.
+  Next: Phase 6 (models, benchmark, performance/scale).

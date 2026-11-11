@@ -14,7 +14,8 @@ source_content = src.read_text(encoding="utf-8")
 dst.write_text(
     prefix
     + source_content.replace(r"](getting-started/", r"](docs/getting-started/").replace(
-        r"](develop/", r"](docs/develop/"
+        r"](develop/", r"](docs/develop/").replace(
+        r"](usage/", r"](docs/usage/"
     ),
     encoding="utf-8",
 )

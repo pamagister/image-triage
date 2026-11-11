@@ -29,7 +29,9 @@ def analyze(
 
     progress = None
     if ndjson:
-        progress = emit_ndjson
+
+        def progress(event: dict[str, object]) -> None:
+            emit_ndjson([event])
 
     repository = Repository.open(settings.database_path)
     try:
@@ -41,6 +43,12 @@ def analyze(
 
     if json_output:
         emit_json(result.to_dict())
+    elif ndjson:
+        typer.echo(
+            f"analyzed {result.analyzed}, reused {result.reused}, "
+            f"errors {len(result.errors)}, total {result.total}",
+            err=True,
+        )
     else:
         typer.echo(
             f"analyzed {result.analyzed}, reused {result.reused}, "

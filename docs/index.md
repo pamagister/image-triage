@@ -2,120 +2,149 @@
 [![GitHub release](https://img.shields.io/github/v/release/pamagister/image-triage)](https://github.com/pamagister/image-triage/releases)
 [![Read the Docs](https://readthedocs.org/projects/image-triage/badge/?version=stable)](https://image-triage.readthedocs.io/en/stable/)
 [![License](https://img.shields.io/github/license/pamagister/image-triage)](https://github.com/pamagister/image-triage/blob/main/LICENSE)
-[![GitHub issues](https://img.shields.io/github/issues/pamagister/image-triage)](https://github.com/pamagister/image-triage/issues)
-[![PyPI](https://img.shields.io/pypi/v/image-triage)](https://pypi.org/project/image-triage/)
-
+[![PyPI](https://img.shields.io/pypi/v/image-triage)](https://pypi.org/project/image-triage)
 
 # Image Triage
 
-Analysiert Fotos, gruppiert ähnliche Aufnahmen (Serien, Duplikate), wählt pro Gruppe die beste
-Variante, erkennt Objekte (YOLO), schreibt Sterne (1–5) und Objekt-Schlagworte als XMP und
-exportiert entweder alle guten Bilder oder die **N relevantesten** – breit gestreut über alle
-Unterordner und Motive. Originale werden nie gelöscht.
+Image Triage is a local-first, deterministic photo selection tool. It analyzes a photo library,
+groups similar shots, scores technical and aesthetic quality, and selects the best N photos with
+explainable quotas and diversity rules. Originals are never modified or deleted.
+
+## Features
+
+- Technical quality: sharpness, defocus versus motion blur, composition and subject placement.
+- Learned aesthetic score (small ONNX CNN) with a deterministic heuristic fallback.
+- YOLO26 subject detection, corpus-level label rarity and content embeddings.
+- Similarity grouping for duplicates and bursts (BLAKE3, pHash, time gap, embeddings).
+- Event detection from capture time, day boundaries and GPS jumps.
+- Deterministic "best N" selection with event/day/cluster quotas and MMR diversity.
+- Typer CLI with stable JSON/NDJSON output and documented exit codes.
+- Versioned SQLite state store for 6000+ photos.
+- Local FastAPI web GUI (later phase).
 
 ## Installation
 
-Läuft unter Windows und Linux (Python ≥ 3.12, [uv](https://docs.astral.sh/uv/)).
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync
-uv run image-triage-download-model       # YOLO-Modell nach res/yolo/ (oder Button in der GUI)
-
-# Optional: ExifTool zum Schreiben von Rating/Schlagworten direkt in Bilddateien
-winget install OliverBetz.ExifTool       # Windows
-sudo apt install libimage-exiftool-perl  # Debian/Ubuntu
+uv run image-triage doctor
 ```
 
-Das Modell (`res/yolo/yolo26n.onnx`, ~10 MB, Ultralytics YOLO26, AGPL-3.0) ist nicht im Repo.
-Der Pfad ist relativ zum Arbeitsverzeichnis. Wer die GUI nicht im Projektordner startet, setzt
-`models.object_detector` in den Settings auf einen absoluten Pfad. Ohne Modell: `--models-enabled false`.
-
-## Verwendung
-
-### Schnellstart: die besten 10 Bilder aus `images`
-
-Im Projektordner in einer normalen Eingabeaufforderung (cmd), PowerShell oder Linux-Shell:
-
-```bat
-uv run image-triage --input images --output selected --top-n 10
-```
-
-Die 10 Bilder landen in `selected\` (Ordnerstruktur bleibt erhalten). Die Originale werden dabei
-nicht verändert: Wiederverwendbare Analysewerte einschließlich erkannter Objekte werden
-standardmäßig in einer versteckten `.image-triage.yaml` pro Foto-Unterordner gespeichert. Sterne
-und Auswahl werden bei jedem Lauf anhand der aktuellen Fotos und Settings neu berechnet. Wer nur
-sehen will, was gewählt würde, hängt `--dry-run` an (Ausgewählte sind im Log mit `x` markiert).
-
-Rating und Schlagworte können optional direkt in die Fotos geschrieben werden. Dafür ExifTool
-installieren und `--write-xmp-rating true` und/oder `--write-keywords true` angeben. Der YAML-Cache
-wird auch dann angelegt und aktualisiert.
-
-### Weitere Beispiele
+The YOLO26 model is not committed. Install it explicitly when you want subject detection:
 
 ```bash
-# Die 100 relevantesten Fotos aus allen Unterordnern
-uv run image-triage --input Photos_of_2025 --output Best_of_2025 --top-n 100
-
-# Alle Fotos ab 4 Sternen, nur anzeigen
-uv run image-triage --input images --min-rating 4 --dry-run
-
-uv run image-triage --config config.yaml --input images
-
-# GUI
-uv run image-triage-gui
+uv run image-triage models install yolo
 ```
 
-Alle Parameter stehen in [`config.yaml`](config.yaml) (mit Kommentaren). Die wichtigsten sind
-auch als CLI-Option verfügbar (`uv run image-triage --help`), in der GUI unter *Settings*.
-CLI, GUI und Config-Datei werden über [config-cli-gui](https://github.com/pamagister/config-cli-gui)
-aus derselben Parameterdefinition (`src/image_triage/config.py`) erzeugt.
+Without the model, analysis still runs with sharpness, blur, composition, exposure, heuristic
+aesthetics and grouping based on pHash/time/digest.
 
-## Ablauf
-
-1. **Scan** – Bilder (`jpg`, `png`, `tif`, `webp`) rekursiv einlesen; der Output-Ordner wird ignoriert.
-   Aufnahmezeit: EXIF, sonst aus dem Dateinamen (`IMG_20150502_071410`, `2015-03-10 09.00.10`),
-   sonst Änderungsdatum.
-2. **Analyse** (auf 1024-px-Vorschau)
-   - Schärfe: Laplace-Varianz, 90. Perzentil über ein 4×4-Raster (scharfes Motiv vor unscharfem
-     Hintergrund zählt als scharf)
-   - Belichtung: Anteil ausgefressener Lichter/abgesoffener Schatten, extreme Helligkeit
-   - Objekte (YOLO26, 80 COCO-Klassen) ab `models.confidence`, dazu ein Inhalts-Embedding
-     (gemittelte Backbone-Features aus demselben Modelllauf)
-3. **Gruppierung** – identische Dateien (BLAKE3) sowie Aufnahmen mit ≤ `max_time_gap_s`
-   Sekunden Abstand, deren pHash-Abstand ≤ `max_hash_distance` **oder** deren Embedding-Ähnlichkeit
-   ≥ `min_embedding_similarity` ist (erkennt Serien auch, wenn sich jemand bewegt).
-4. **Score** (0–1) – gewichtetes Mittel aus
-   `min(1, Schärfe / sharpness_reference)`, Belichtung und Motiv. Das Motiv ist die beste Detektion
-   aus `subject_classes` (Personen, Tiere): Konfidenz × Größe, ab 5 % der Bildfläche voll.
-   Objekte sind bewusst nur ein Bonus (`object_weight`), damit Landschaften ohne Personen nicht
-   verlieren.
-5. **Rating**
-   | Sterne | Bedingung |
-   |---|---|
-   | ★★★★★ / ★★★★ / ★★★ | beste(s) `max_per_group` Bild(er) der Gruppe, je nach Score (`min_score_5`, `min_score_4`) |
-   | ★★ | scharf, aber schlechter als das beste Bild der Gruppe |
-   | ★ | unscharf (Schärfe < `blur_threshold`) |
-6. **Auswahl**
-   - `top_n` > 0: Kandidaten sind die besten Bilder jeder Gruppe (jedes Motiv nur einmal).
-     Jeder Ordner mit Bildern gilt als Ereignis (Urlaub, Feier, …) und bekommt Plätze im Verhältnis
-     zu seiner Zahl an Motiven, mindestens einen. Innerhalb eines Ereignisses wird gierig gewählt:
-     hoher Score, aber mit Abzug (`diversity`) für Bilder, deren Inhalt einem schon gewählten ähnelt.
-   - `top_n` = 0: alle Bilder ab `min_rating`.
-7. **Metadaten-Cache** – Analysewerte werden je Foto-Unterordner in `.image-triage.yaml` abgelegt.
-   Dateiname und BLAKE3-Hash identifizieren jedes Foto. Bei gleichem Hash werden die gespeicherten
-   Analysewerte wiederverwendet; bei geänderter Datei wird neu analysiert. Gruppierung, Bewertung
-   und Auswahl werden mit den aktuellen Fotos und Settings jedes Mal neu berechnet.
-8. **Optionales XMP** – nur wenn `metadata.write_xmp_rating` und/oder `metadata.write_keywords`
-   aktiviert sind, schreibt ExifTool `XMP:Rating` und erkannte Objekte als `XMP-dc:Subject`
-   (vorhandene Schlagworte bleiben erhalten, Duplikate werden vermieden). Bei RAW-Dateien kann
-   zusätzlich ein `.xmp`-Sidecar geschrieben werden.
-9. **Export** – Auswahl kopieren, hart- oder symbolisch verlinken (Ordnerstruktur bleibt erhalten,
-   vorhandene Dateien werden nicht überschrieben).
-
-`--dry-run` führt nur Analyse und Bewertung aus und loggt das Ergebnis (`x` = ausgewählt).
-
-## Tests
+## Quickstart
 
 ```bash
-uv run pytest
+# Analyze a library and export the best 200 photos.
+uv run image-triage run --input ~/Photos/2025 --output best-of-2025 --top-n 200
+
+# Inspect the machine-readable result.
+uv run image-triage run --input ~/Photos/2025 --output best-of-2025 --top-n 200 --json
 ```
+
+The output directory contains:
+
+- `report.json` - versioned report with per-photo metrics and score breakdown.
+- `selection.csv` - one row per photo for spreadsheets.
+- `originals/<relative path>` - copies/hard links/symlinks of the selected originals.
+- `<input>/.image-triage/previews/<digest>.webp` - WebP previews of selected photos.
+
+State is stored in `<input>/.image-triage/triage.db` (SQLite, WAL). Re-running reuses unchanged
+analysis and is deterministic for the same inputs, models, config and DB state.
+
+## Commands
+
+```text
+image-triage scan       --input ... [--json]
+image-triage analyze    --input ... [--profile ...] [--json] [--ndjson]
+image-triage score      [--input ...] [--json]
+image-triage select     --top-n 200 [--profile ...] [--json]
+image-triage plan       --input ... --output plan.json [--profile ...]
+image-triage apply      --input ... [--plan plan.json]
+image-triage export     --input ... --output ... [--mode copy|hardlink|symlink]
+image-triage report     [--input ...] [--format json|csv] [--output ...]
+image-triage run        --input ... [--top-n 200] [--profile ...] [--json]
+image-triage models     install|list [--model yolo|aesthetic]
+image-triage benchmark  [--input samples] [--json]
+image-triage doctor     [--json]
+image-triage schema     [--output schemas/report.schema.json]
+image-triage config     init|show|validate
+image-triage gui        [--host 127.0.0.1] [--port 8765]
+```
+
+Full CLI help is generated in [`docs/usage/cli.md`](usage/cli.md).
+
+## Pipeline
+
+1. **Scan** - recursive JPEG/PNG/TIFF/WebP discovery, EXIF capture time, GPS, dimensions and
+   BLAKE3 digest.
+2. **Analyze** - 1024 px preview, tile-based sharpness, blur classification, composition,
+   YOLO detections/embeddings, aesthetic score, subject rarity and exposure.
+3. **Group** - exact duplicates and visually similar shots close in time.
+4. **Events** - time-gap, day-boundary and GPS-jump clustering.
+5. **Score** - normalized weighted score with a blur gate; 1-5 star rating.
+6. **Select** - best per group, event quotas (Sainte-Laguë by default), per-day and per-cluster
+   caps, greedy MMR diversity.
+7. **Report/export** - JSON report, CSV, WebP previews and optional export.
+
+## Configuration
+
+Configuration uses `image-triage.yaml` with environment overrides. Precedence is:
+
+```text
+CLI options > IMAGE_TRIAGE_* environment variables > image-triage.yaml > defaults
+```
+
+```bash
+uv run image-triage config init
+uv run image-triage config show
+uv run image-triage config validate
+```
+
+The generated defaults are in `config.yaml`; all fields are documented in
+[`docs/usage/config.md`](usage/config.md). Selection profiles live in `profiles/`; the default is
+`profiles/best200.yaml`.
+
+## JSON for agents
+
+All commands that support `--json` write a stable JSON document to stdout; human logs go to stderr.
+`analyze --ndjson` streams one event per line. Exit codes are stable:
+
+| Code | Meaning |
+|---|---|
+| 0 | success |
+| 2 | usage/configuration error |
+| 3 | input error |
+| 4 | model/provider missing |
+| 5 | partial failure (only with `--strict`) |
+| 6 | internal error |
+
+See [`docs/usage/agents.md`](usage/agents.md) and the schemas published by `image-triage schema`.
+
+## Web GUI
+
+The local web GUI is implemented in a later phase. It will bind to `127.0.0.1` by default and
+provide library filtering, comparison, soft rating/keep-reject overrides, map/timeline views and
+run/export control.
+
+## Development
+
+```bash
+make install
+make test
+make lint
+make docs
+```
+
+## License
+
+Image Triage is distributed under the terms in `LICENSE`. The optional YOLO26 model is
+AGPL-3.0; its license obligation is documented in the model registry and documentation.

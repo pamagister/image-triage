@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pamagister/image-triage/schemas/ndjson.schema.json",
+  "title": "Image Triage NDJSON progress event",
+  "type": "object",
+  "required": ["event"],
+  "properties": {
+    "event": {"type": "string", "enum": ["start", "photo", "progress", "error", "summary"]},
+    "path": {"type": "string"},
+    "done": {"type": "integer", "minimum": 0},
+    "total": {"type": "integer", "minimum": 0},
+    "reused": {"type": ["boolean", "integer"]},
+    "error": {"type": "string"},
+    "run_id": {"type": "string"},
+    "analyzed": {"type": "integer", "minimum": 0},
+    "errors": {"type": "array"},
+    "warnings": {"type": "array"},
+    "provider": {"type": "string"},
+    "model_signature": {"type": "string"},
+    "metric_version": {"type": "string"},
+    "input": {"type": "string"}
+  }
+}

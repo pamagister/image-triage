@@ -72,6 +72,9 @@ docs = [
     "pygments>=2.19.1",
 ]
 
+[tool.setuptools.package-data]
+image_triage = ["report/schema/*.json", "gui/templates/*.html", "gui/static/*"]
+
 [tool.deptry.per_rule_ignores]
 DEP002 = ["lxml"]
 

@@ -1,79 +1,102 @@
-# Configuration Parameters
+# Configuration
 
-These parameters are available to configure the behavior of your application.
-Parameters marked as CLI parameters can also be set via the command line interface.
+Configuration precedence is **CLI options > `IMAGE_TRIAGE_*` environment variables > `image-triage.yaml` > defaults**. Nested environment variables use `__`, for example `IMAGE_TRIAGE_SCORING__SHARPNESS_WEIGHT=0.5`.
 
-## Configuration File Reference
+Generate a starter file with `image-triage config init`, inspect the effective values with `image-triage config show`, and validate them with `image-triage config validate`.
 
-The actual configuration is stored in [`config.yaml`](../../config.yaml). You can:
+The generated `config.yaml` contains the same defaults.
 
-- Edit the configuration file directly using your text editor
-- Use the `--config` command-line option to specify a custom config file
+## "app" {#app}
 
-## Category "app" {#app}
+| Name | Type | Default |
+|---|---|---|
+| log_level | str | `"INFO"` |
+| max_workers | UnionType[int, NoneType] | `null` |
+| strict | bool | `false` |
 
-| Name                   | Type | Description                                 | Default    | Choices                                                                                                                                               |
-|------------------------|------|---------------------------------------------|------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| date_format            | str  | Date format to use                          | '%Y-%m-%d' | -                                                                                                                                                     |
-| log_level              | str  | Logging level for the application           | 'INFO'     | ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']                                                                                                     |
-| log_file_max_size      | int  | Maximum log file size in MB before rotation | 2          | -                                                                                                                                                     |
-| enable_file_logging    | bool | Enable logging to file                      | True       | [True, False]                                                                                                                                         |
-| enable_console_logging | bool | Enable logging to console                   | True       | [True, False]                                                                                                                                         |
-| theme                  | str  | GUI theme setting supported by ttkbootstrap | 'darkly'   | ['cosmo', 'flatly', 'litera', 'minty', 'lumen', 'sandstone', 'yeti', 'pulse', 'united', 'darkly', 'superhero', 'solar', 'cyborg', 'vapor', 'simplex'] |
+## "input" {#input}
 
-## Category "general" {#general}
+| Name | Type | Default |
+|---|---|---|
+| root | Path | `.` |
+| db_path | UnionType[Path, NoneType] | `null` |
+| exclude | list[str] | `[".image-triage", "selected", "previews"]` |
+| follow_symlinks | bool | `false` |
 
-| Name    | Type | Description                                              | Default               | Choices       |
-|---------|------|----------------------------------------------------------|-----------------------|---------------|
-| input   | Path | Folder with photos (searched recursively)                | PosixPath('.')        | -             |
-| output  | Path | Folder the selected photos are exported to               | PosixPath('selected') | -             |
-| dry_run | bool | Only analyze and report, do not write metadata or export | False                 | [True, False] |
+## "analysis" {#analysis}
 
-## Category "selection" {#selection}
+| Name | Type | Default |
+|---|---|---|
+| preview_size | int | `1024` |
+| draft | bool | `true` |
+| batch_size | int | `4` |
+| yolo_enabled | bool | `true` |
+| yolo_confidence | float | `0.5` |
+| aesthetic_enabled | bool | `true` |
+| save_embeddings | bool | `true` |
 
-| Name          | Type  | Description                                                                                                          | Default | Choices                         |
-|---------------|-------|----------------------------------------------------------------------------------------------------------------------|---------|---------------------------------|
-| top_n         | int   | Export the N most relevant photos: best of each motif, spread over all subfolders (0 = export by min_rating instead) | 0       | -                               |
-| min_rating    | int   | Export photos with at least this many stars (if top_n is 0)                                                          | 4       | [1, 2, 3, 4, 5]                 |
-| max_per_group | int   | Number of best photos per similarity group that can get 3-5 stars                                                    | 1       | -                               |
-| export_mode   | str   | How photos are placed in the output folder                                                                           | 'copy'  | ['copy', 'hardlink', 'symlink'] |
-| diversity     | float | Top N: penalty for photos whose content resembles already selected ones (0 = rank by score only)                     | 0.5     | -                               |
+## "scoring" {#scoring}
 
-## Category "similarity" {#similarity}
+| Name | Type | Default |
+|---|---|---|
+| sharpness_weight | float | `0.45` |
+| composition_weight | float | `0.25` |
+| aesthetic_weight | float | `0.15` |
+| subject_weight | float | `0.15` |
+| blur_threshold | float | `0.15` |
+| min_score_5 | float | `0.75` |
+| min_score_4 | float | `0.45` |
+| sharpness_percentile | float | `90.0` |
+| subject_classes | list[str] | `["person", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "car", "bicycle", "motorcycle", "airplane", "boat"]` |
 
-| Name                     | Type  | Description                                                                                                                      | Default | Choices |
-|--------------------------|-------|----------------------------------------------------------------------------------------------------------------------------------|---------|---------|
-| max_hash_distance        | int   | Max. differing pHash bits (of 64) for two photos to count as similar                                                             | 20      | -       |
-| max_time_gap_s           | float | Max. seconds between two shots to be compared for similarity                                                                     | 10.0    | -       |
-| min_embedding_similarity | float | Shots taken close together also count as similar if their content embeddings (object model) have at least this cosine similarity | 0.97    | -       |
+## "similarity" {#similarity}
 
-## Category "scoring" {#scoring}
+| Name | Type | Default |
+|---|---|---|
+| max_hash_distance | int | `12` |
+| max_time_gap_s | float | `10.0` |
+| min_embedding_similarity | float | `0.97` |
+| event_gap_s | float | `14400` |
+| gps_jump_km | float | `50.0` |
 
-| Name                | Type  | Description                                                             | Default                                                           | Choices |
-|---------------------|-------|-------------------------------------------------------------------------|-------------------------------------------------------------------|---------|
-| sharpness_weight    | float | Weight of sharpness in the quality score                                | 0.6                                                               | -       |
-| exposure_weight     | float | Weight of exposure in the quality score                                 | 0.2                                                               | -       |
-| object_weight       | float | Weight of a large, clearly detected subject in the score (object model) | 0.2                                                               | -       |
-| subject_classes     | str   | Comma-separated object classes that count as subject                    | 'person,bird,cat,dog,horse,sheep,cow,elephant,bear,zebra,giraffe' | -       |
-| sharpness_reference | float | Sharpness value (Laplacian variance) that counts as fully sharp         | 250.0                                                             | -       |
-| blur_threshold      | float | Photos below this sharpness are rated as blurry (1 star)                | 30.0                                                              | -       |
-| min_score_5         | float | Min. score (0-1) of a group's best photo for 5 stars                    | 0.75                                                              | -       |
-| min_score_4         | float | Min. score (0-1) of a group's best photo for 4 stars (else 3)           | 0.5                                                               | -       |
+## "selection" {#selection}
 
-## Category "models" {#models}
+| Name | Type | Default |
+|---|---|---|
+| top_n | int | `200` |
+| diversity | float | `0.5` |
+| max_per_group | int | `1` |
+| max_per_day | int | `5` |
+| max_per_cluster | int | `3` |
+| event_quota | str | `"sainte_lague"` |
+| profiles_dir | Path | `profiles` |
+| profile | str | `"best200"` |
 
-| Name            | Type  | Description                                                       | Default                            | Choices       |
-|-----------------|-------|-------------------------------------------------------------------|------------------------------------|---------------|
-| enabled         | bool  | Detect objects (YOLO) for scoring, content diversity and keywords | True                               | [True, False] |
-| object_detector | Path  | YOLO26 ONNX model file                                            | PosixPath('res/yolo/yolo26n.onnx') | -             |
-| confidence      | float | Min. confidence (0-1) of an object detection                      | 0.5                                | -             |
+## "models" {#models}
 
-## Category "metadata" {#metadata}
+| Name | Type | Default |
+|---|---|---|
+| enabled | bool | `true` |
+| yolo_path | Path | `res/yolo/yolo26n.onnx` |
+| aesthetic_path | Path | `res/aesthetic/aesthetic.onnx` |
+| provider | str | `"CPUExecutionProvider"` |
+| auto_download | bool | `false` |
 
-| Name             | Type | Description                                                                                           | Default    | Choices       |
-|------------------|------|-------------------------------------------------------------------------------------------------------|------------|---------------|
-| write_xmp_rating | bool | Write the star rating as XMP Rating into the image files (disabled by default)                        | False      | [True, False] |
-| write_keywords   | bool | Write detected objects as XMP keywords (dc:subject), existing keywords are kept (disabled by default) | False      | [True, False] |
-| sidecar_for_raw  | bool | Also write the rating to an .xmp sidecar of a RAW file with the same name                             | True       | [True, False] |
-| exiftool_path    | str  | ExifTool executable (name on PATH or full path)                                                       | 'exiftool' | -             |
+## "report" {#report}
 
+| Name | Type | Default |
+|---|---|---|
+| include_gps | bool | `false` |
+| previews | bool | `true` |
+| preview_max_side | int | `1600` |
+| webp_quality | int | `80` |
+| csv_columns | UnionType[list[str], NoneType] | `null` |
+| export_mode | str | `"copy"` |
+
+## "gui" {#gui}
+
+| Name | Type | Default |
+|---|---|---|
+| host | str | `"127.0.0.1"` |
+| port | int | `8765` |
+| reload | bool | `false` |

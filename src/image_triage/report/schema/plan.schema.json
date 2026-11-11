@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pamagister/image-triage/schemas/plan.schema.json",
+  "title": "Image Triage selection plan",
+  "type": "object",
+  "required": ["schema_version", "run_id", "profile", "selections"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "run_id": {"type": "string"},
+    "profile": {
+      "type": "object",
+      "required": ["name", "top_n", "diversity", "event_quota"],
+      "properties": {
+        "name": {"type": "string"},
+        "top_n": {"type": "integer", "minimum": 0},
+        "diversity": {"type": "number", "minimum": 0, "maximum": 1},
+        "max_per_group": {"type": "integer", "minimum": 1},
+        "max_per_day": {"type": "integer", "minimum": 0},
+        "max_per_cluster": {"type": "integer", "minimum": 0},
+        "event_quota": {"type": "string", "enum": ["sainte_lague", "proportional", "equal"]}
+      }
+    },
+    "selections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["photo_id", "path", "rank", "score", "reason"],
+        "properties": {
+          "photo_id": {"type": ["integer", "null"]},
+          "path": {"type": "string"},
+          "rank": {"type": "integer", "minimum": 1},
+          "score": {"type": "number"},
+          "rating": {"type": "integer", "minimum": 0, "maximum": 5},
+          "reason": {"type": "string"},
+          "quota_rule": {"type": "string"}
+        }
+      }
+    }
+  }
+}

@@ -1,66 +1,47 @@
 # Installation
 
-
-## 🐍 PyPI
-
-### Install the package from PyPI
-
-Download from [PyPI](https://pypi.org/):
+## From PyPI
 
 ```bash
 pip install image-triage
+image-triage doctor
 ```
 
-### Run CLI from command line
-```bash
-image-triage [OPTIONS] path/to/file
-```
+## From source
 
-### Run GUI from command line
-```bash
-image-triage-gui
-```
-
-## 🔽 Executable
-
-Download the latest executable:
-
-- [⬇️ Download for Windows](https://github.com/pamagister/image-triage/releases/latest/download/installer-win.zip)
-- [⬇️ Download for macOS](https://github.com/pamagister/image-triage/releases/latest/download/package-macos.zip)
-
-
-## 👩🏼‍💻 Run from source
-
-### Clone the repository
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone
-```
-
-### Navigate to the project directory
-
-```bash
+git clone https://github.com/pamagister/image-triage.git
 cd image-triage
+uv sync
+uv run image-triage doctor
 ```
 
-### Install dependencies
+For development, install the dev and docs groups as well:
 
 ```bash
-uv venv
-uv pip install -e .[dev,docs]
+uv sync --all-groups
 ```
 
+## Optional models
 
-### Run with CLI from source
+Image analysis works without downloaded models, but YOLO subject detection and embeddings need
+the YOLO26 ONNX model:
 
 ```bash
-python -m image_triage.cli [OPTIONS] path/to/file
+uv run image-triage models install yolo
 ```
 
+The model is stored under `res/yolo/` by default and is never committed to the repository.
 
-### Run with GUI from source
+## Optional web GUI
+
+The local web GUI is started with:
 
 ```bash
-python -m image_triage.gui
+uv run image-triage gui
 ```
 
+It binds to `127.0.0.1:8765` by default and has no authentication; it is intended for a single
+local user.

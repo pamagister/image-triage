@@ -40,9 +40,13 @@ def get_settings(
 
 
 def _register_commands() -> None:
+    from image_triage.cli.commands import config as config_command
     from image_triage.cli.commands import doctor as doctor_command
+    from image_triage.cli.commands import schema as schema_command
 
     app.command("doctor")(doctor_command.doctor)
+    app.command("schema")(schema_command.schema)
+    app.add_typer(config_command.config_app, name="config")
 
     for module_name, command_name in (
         ("scan", "scan"),

@@ -1,71 +1,80 @@
+# image-triage configuration
+# Precedence: CLI options > IMAGE_TRIAGE_* environment variables > this file > defaults.
 app:
-  # Date format to use | type=str
-  date_format: '%Y-%m-%d'
-  # Logging level for the application | type=str | choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
   log_level: INFO
-  # Maximum log file size in MB before rotation | type=int
-  log_file_max_size: 2
-  # Enable logging to file | type=bool | choices=[True, False]
-  enable_file_logging: true
-  # Enable logging to console | type=bool | choices=[True, False]
-  enable_console_logging: true
-  # GUI theme setting supported by ttkbootstrap | type=str | choices=['cosmo', 'flatly', 'litera', 'minty', 'lumen', 'sandstone', 'yeti', 'pulse', 'united', 'darkly', 'superhero', 'solar', 'cyborg', 'vapor', 'simplex']
-  theme: darkly
-general:
-  # Folder with photos (searched recursively) | type=Path | [CLI]
-  input: .
-  # Folder the selected photos are exported to | type=Path | [CLI]
-  output: selected
-  # Only analyze and report, do not write metadata or export | type=bool | [CLI] | choices=[True, False]
-  dry_run: false
-selection:
-  # Export the N most relevant photos: best of each motif, spread over all subfolders (0 = export by min_rating instead) | type=int | [CLI]
-  top_n: 0
-  # Export photos with at least this many stars (if top_n is 0) | type=int | [CLI] | choices=[1, 2, 3, 4, 5]
-  min_rating: 4
-  # Number of best photos per similarity group that can get 3-5 stars | type=int | [CLI]
-  max_per_group: 1
-  # How photos are placed in the output folder | type=str | [CLI] | choices=['copy', 'hardlink', 'symlink']
-  export_mode: copy
-  # Top N: penalty for photos whose content resembles already selected ones (0 = rank by score only) | type=float
-  diversity: 0.5
-similarity:
-  # Max. differing pHash bits (of 64) for two photos to count as similar | type=int
-  max_hash_distance: 20
-  # Max. seconds between two shots to be compared for similarity | type=float
-  max_time_gap_s: 10.0
-  # Shots taken close together also count as similar if their content embeddings (object model) have at least this cosine similarity | type=float
-  min_embedding_similarity: 0.97
+  max_workers: null
+  strict: false
+input:
+  root: .
+  db_path: null
+  exclude:
+  - .image-triage
+  - selected
+  - previews
+  follow_symlinks: false
+analysis:
+  preview_size: 1024
+  draft: true
+  batch_size: 4
+  yolo_enabled: true
+  yolo_confidence: 0.5
+  aesthetic_enabled: true
+  save_embeddings: true
 scoring:
-  # Weight of sharpness in the quality score | type=float
-  sharpness_weight: 0.6
-  # Weight of exposure in the quality score | type=float
-  exposure_weight: 0.2
-  # Weight of a large, clearly detected subject in the score (object model) | type=float
-  object_weight: 0.2
-  # Comma-separated object classes that count as subject | type=str
-  subject_classes: person,bird,cat,dog,horse,sheep,cow,elephant,bear,zebra,giraffe
-  # Sharpness value (Laplacian variance) that counts as fully sharp | type=float
-  sharpness_reference: 250.0
-  # Photos below this sharpness are rated as blurry (1 star) | type=float
-  blur_threshold: 30.0
-  # Min. score (0-1) of a group's best photo for 5 stars | type=float
+  sharpness_weight: 0.45
+  composition_weight: 0.25
+  aesthetic_weight: 0.15
+  subject_weight: 0.15
+  blur_threshold: 0.15
   min_score_5: 0.75
-  # Min. score (0-1) of a group's best photo for 4 stars (else 3) | type=float
-  min_score_4: 0.5
+  min_score_4: 0.45
+  sharpness_percentile: 90.0
+  subject_classes:
+  - person
+  - bird
+  - cat
+  - dog
+  - horse
+  - sheep
+  - cow
+  - elephant
+  - bear
+  - zebra
+  - giraffe
+  - car
+  - bicycle
+  - motorcycle
+  - airplane
+  - boat
+similarity:
+  max_hash_distance: 12
+  max_time_gap_s: 10.0
+  min_embedding_similarity: 0.97
+  event_gap_s: 14400.0
+  gps_jump_km: 50.0
+selection:
+  top_n: 200
+  diversity: 0.5
+  max_per_group: 1
+  max_per_day: 5
+  max_per_cluster: 3
+  event_quota: sainte_lague
+  profiles_dir: profiles
+  profile: best200
 models:
-  # Detect objects (YOLO) for scoring, content diversity and keywords | type=bool | [CLI] | choices=[True, False]
   enabled: true
-  # YOLO26 ONNX model file | type=Path
-  object_detector: res/yolo/yolo26n.onnx
-  # Min. confidence (0-1) of an object detection | type=float
-  confidence: 0.5
-metadata:
-  # Write the star rating as XMP Rating into the image files (disabled by default) | type=bool | [CLI] | choices=[True, False]
-  write_xmp_rating: false
-  # Write detected objects as XMP keywords (dc:subject), existing keywords are kept (disabled by default) | type=bool | [CLI] | choices=[True, False]
-  write_keywords: false
-  # Also write the rating to an .xmp sidecar of a RAW file with the same name | type=bool | choices=[True, False]
-  sidecar_for_raw: true
-  # ExifTool executable (name on PATH or full path) | type=str
-  exiftool_path: exiftool
+  yolo_path: res/yolo/yolo26n.onnx
+  aesthetic_path: res/aesthetic/aesthetic.onnx
+  provider: CPUExecutionProvider
+  auto_download: false
+report:
+  include_gps: false
+  previews: true
+  preview_max_side: 1600
+  webp_quality: 80
+  csv_columns: null
+  export_mode: copy
+gui:
+  host: 127.0.0.1
+  port: 8765
+  reload: false
