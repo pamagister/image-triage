@@ -204,3 +204,6 @@ cython_debug/
 /release/config.yaml
 /release/image-triage.exe
 /release/README.md
+
+# image-triage state
+.image-triage/

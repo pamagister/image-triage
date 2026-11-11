@@ -357,24 +357,26 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 
 ### Phase 1 – Foundation: Settings, Domain Model, Database, CLI Skeleton
 
+**Status:** `[x]` completed 2026-11-12
+
 **Objective:** Establish the typed core, the SQLite state store and the Typer application before
 any analysis work.
 
-- [ ] P1-W01: Replace dependencies: remove `config-cli-gui` and `ttkbootstrap`; add `typer`,
+- [x] P1-W01: Replace dependencies: remove `config-cli-gui` and `ttkbootstrap`; add `typer`,
   `pydantic-settings`, `fastapi`, `jinja2`, `uvicorn` (GUI extra), `python-multipart`; keep
   `onnxruntime`, `opencv-python-headless`, `pillow`, `imagehash`, `blake3`, `numpy`, `pyyaml`.
   Update `pyproject.toml`, `uv.lock` and optional extras (`gui`, `gpu`).
-- [ ] P1-W02: Define domain models and enums in `core/models.py` (Photo, Detection, Metrics,
+- [x] P1-W02: Define domain models and enums in `core/models.py` (Photo, Detection, Metrics,
   Event, Group, Selection, Run, Override, BlurKind, ExportMode, Provider).
-- [ ] P1-W03: Implement `core/settings.py` with nested pydantic models, YAML source, env prefix
+- [x] P1-W03: Implement `core/settings.py` with nested pydantic models, YAML source, env prefix
   and defaults; add validation (weights, paths, thresholds).
-- [ ] P1-W04: Implement `db/schema.py` and `db/migrate.py`: tables, indexes, WAL, `schema_meta`,
+- [x] P1-W04: Implement `db/schema.py` and `db/migrate.py`: tables, indexes, WAL, `schema_meta`,
   forward migration runner.
-- [ ] P1-W05: Implement `db/repository.py`: typed CRUD and queries for photos, metrics, groups,
+- [x] P1-W05: Implement `db/repository.py`: typed CRUD and queries for photos, metrics, groups,
   events, runs, selections, overrides.
-- [ ] P1-W06: Implement `cli/app.py` Typer skeleton and `doctor` command (Python version, DB,
+- [x] P1-W06: Implement `cli/app.py` Typer skeleton and `doctor` command (Python version, DB,
   models, provider, sample images).
-- [ ] P1-W07: Implement `cli/output.py` and `core/errors.py`: text/json/ndjson renderers, stable
+- [x] P1-W07: Implement `cli/output.py` and `core/errors.py`: text/json/ndjson renderers, stable
   exit codes, error JSON on stderr.
 
 **Acceptance criteria**
@@ -670,3 +672,7 @@ commits, push/CI status, blockers and decisions._
 
 - 2026-11-11: Plan created from the user interview. No implementation started. All decisions in
   sections 1–3 are settled; open questions are listed in 6.4.
+- 2026-11-12: Phase 1 completed. Typed core, pydantic-settings with YAML/env/CLI precedence,
+  versioned SQLite schema (WAL, migrations), typed repository, Typer skeleton and `doctor`.
+  Legacy config-cli-gui/ttkbootstrap modules and their tests removed. Phase 1 tests: 7 passed,
+  ruff clean. Issue #6. Next: Phase 2 (ingest and analysis).

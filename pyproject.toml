@@ -9,23 +9,38 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "blake3>=1.0.10",
-    "config-cli-gui>=0.3.10",
+    "fastapi>=0.115.0",
     "imagehash>=4.3.2",
+    "jinja2>=3.1.0",
     "numpy>=2.5.3",
     "onnx>=1.23.2",
     "onnxruntime>=1.30.0",
     "opencv-python-headless>=5.0.0.93",
     "pillow>=12.3.0",
+    "pydantic-settings>=2.7.0",
+    "python-multipart>=0.0.9",
     "pyyaml>=6.0.2",
-    "ttkbootstrap>=1.10.1",
+    "typer>=0.15.0",
+    "uvicorn>=0.32.0",
+]
+
+[project.optional-dependencies]
+gui = [
+    "fastapi>=0.115.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.9",
+    "uvicorn>=0.32.0",
+]
+gpu = [
+    "onnxruntime-gpu>=1.20.0",
 ]
 
 [project.scripts]
-image-triage = "image_triage.cli:main"
-image-triage-download-model = "image_triage.models:main"
+image-triage = "image_triage.cli.app:main"
+image-triage-download-model = "image_triage.models.registry:main"
 
 [project.gui-scripts]
-image-triage-gui = "image_triage.gui:main"
+image-triage-gui = "image_triage.gui.app:main"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel", "setuptools_scm[toml]>=6.2"]
@@ -77,6 +92,9 @@ select = [
     "UP",  # pyupgrade
 ]
 ignore = ["E721", "UP015", "B009", "B905"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Option", "typer.Argument", "fastapi.Depends", "fastapi.Query"]
 
 [tool.ruff.format]
 quote-style = "double"
