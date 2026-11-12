@@ -229,6 +229,8 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 
 ### Phase 2 - Sharpness, Bokeh and Blur Gate
 
+**Status:** `[x]` completed (commits `5c33779`; CI green)
+
 **Objective:** make the quality score respect intentional subject/background separation and stop misclassifying shallow depth of field as blur.
 
 - [x] P2-W01: Add subject/saliency-aware sharpness computation using detection boxes and a saliency fallback.
@@ -248,6 +250,9 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 **Phase gate:** The scoring change is deterministic and covered by tests before the scan workflow is rebuilt.
 
 ### Phase 3 - Unified Scan and Library Freshness
+
+**Status:** `[x]` completed (commit `a351ab8`; CI green)
+
 
 **Objective:** make the GUI scan the library in one understandable action and make empty/stale state visible.
 
@@ -271,6 +276,9 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 
 ### Phase 4 - Library Filters, Sorting and Flat Tile View
 
+**Status:** `[x]` completed (commit `cb5f1e9`; CI green)
+
+
 **Objective:** provide a flat, filterable tile view with all relevant metadata and multi-select filters.
 
 - [x] P4-W01: Define a typed filter object covering rating, event, group, label, blur, flags, camera, date range, score/sharpness/aesthetic/subject ranges, search, sort and order.
@@ -291,6 +299,9 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 **Phase gate:** The library is usable as the main browsing and curation surface.
 
 ### Phase 5 - Selection, Export and Job UX
+
+**Status:** `[x]` completed (commit `87521b3`; CI green)
+
 
 **Objective:** let the user curate a temporary selection and export it or the current filtered view.
 
@@ -315,6 +326,9 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 
 ### Phase 6 - Documentation, End-to-End Verification and Release
 
+**Status:** `[x]` completed (commits `3c9968a`; CI green)
+
+
 **Objective:** document the new workflow and prove it works on real sample data.
 
 - [x] P6-W01: Update `docs/usage/gui.md` with the setup screen, scan workflow, filters, selection, export and activity page.
@@ -322,7 +336,7 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 - [x] P6-W03: Run `make fmt`, `make lint`, `make test`, `make deptry`, `mkdocs build`, wheel build and entry-point checks.
 - [x] P6-W04: Perform a manual end-to-end walkthrough on `images/pixabay`: empty scan, stale scan, multi-select filters, select-all/opt-out, selected export and filtered export.
 - [x] P6-W05: Verify bokeh handling with the provided lion image and synthetic blur fixtures.
-- [ ] P6-W06: Commit, push, open/close the tracking issue and confirm CI is green.
+- [x] P6-W06: Commit, push, open/close the tracking issue and confirm CI is green.
 
 **Acceptance criteria**
 
@@ -415,3 +429,8 @@ _Append a dated entry at each handoff: completed work, current state, next work 
 
 - 2026-11-12: Plan v2 created from the GUI defect report and user workflow decisions. No implementation started.
 - 2026-11-12 (Phase 1 complete): Fixed SQLite thread affinity (`check_same_thread=False`, per-request connections), media cache headers and 404s, safe scan exclusions for tool/cache/VCS directories, and the `/setup` library-root screen with a no-active-job guard. Tests: 51 passed, Ruff clean. Commits `4352109` and `a033fc8` pushed; CI run 43268588370 green. Issue #15 open (reused/created for the phase, to be closed with the phase-close commit). Next: Phase 2 (sharpness, bokeh and blur gate).
+- 2026-11-12 (Phases 2-6 complete): Subject/saliency-aware sharpness with a bokeh signal, blur gate limited to real motion/defocus blur, schema v2 migration, unified scan job with freshness detection and auto-scan, multi-select metadata filters with sorting and a flat tile view, ephemeral browser selection with select-all-filtered, selected and filtered export to a user-chosen directory, docs and end-to-end verification.
+
+  Verification: 68 tests pass, Ruff and deptry clean, `mkdocs build` succeeds, wheel installs with all three entry points. End-to-end walkthrough on `images/pixabay` (110 photos): auto-scan, no false stale banner, rating 4+3 = 106 of 110, opt-out selection, 105-file selected export, 47-file filtered export matching the 47 rating-4 photos, both guards returning 400, blank filters returning 200, and add/delete reconciliation removing exactly the deleted file. Bokeh on the real lion image: 0.849 whole-frame, 0.588 subject box, `none` blur; the same frame blurred scores bokeh 0.0 and `defocus`.
+
+  Commits `4352109`, `a033fc8`, `ec1b63c`, `5c33779`, `a351ab8`, `cb5f1e9`, `87521b3`, `3c9968a`; all pushed and CI green. Issue #15 closed. Next: none; v2 plan complete.
