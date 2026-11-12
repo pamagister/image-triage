@@ -207,6 +207,8 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 
 ### Phase 1 - Runtime Stabilisation and Library Root
 
+**Status:** `[x]` completed (commits `4352109`, `a033fc8`; issue #15; CI run 43268588370 green)
+
 **Objective:** make the GUI reliably serve images and operate on an explicitly selected library root.
 
 - [x] P1-W01: Fix SQLite thread affinity by opening per-request connections with `check_same_thread=False`; keep one connection per request and one per background job. Add a regression test that uses a connection from a different thread than the one that created it.
@@ -412,3 +414,4 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 _Append a dated entry at each handoff: completed work, current state, next work package, issue, commits, push/CI status, blockers and decisions._
 
 - 2026-11-12: Plan v2 created from the GUI defect report and user workflow decisions. No implementation started.
+- 2026-11-12 (Phase 1 complete): Fixed SQLite thread affinity (`check_same_thread=False`, per-request connections), media cache headers and 404s, safe scan exclusions for tool/cache/VCS directories, and the `/setup` library-root screen with a no-active-job guard. Tests: 51 passed, Ruff clean. Commits `4352109` and `a033fc8` pushed; CI run 43268588370 green. Issue #15 open (reused/created for the phase, to be closed with the phase-close commit). Next: Phase 2 (sharpness, bokeh and blur gate).
