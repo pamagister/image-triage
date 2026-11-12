@@ -34,6 +34,21 @@ folders also switches to that folder's own analysis history.
   A **scan** runs analysis, grouping, event detection and scoring in one step, so scores and
   ratings are available without a separate select job.
 
+## Selecting and exporting
+
+- Tick the checkbox on a tile to select it. The selection lives in `localStorage`, so it
+  survives filtering and pagination within the browser session; it is deliberately not stored
+  on the server.
+- **Select all filtered** replaces the selection with every photo matching the current filters,
+  across all pages. Individual checkboxes can then be unticked to opt out.
+- **Clear** empties the selection.
+- **Export selected** exports exactly the ticked photos. **Export all filtered** exports every
+  photo matching the current filters, not just the visible page.
+- The export form takes a target directory, defaulting to `export_YYYY-MM-DD_HH-MM` under the
+  server's working directory, and a mode (`copy`, `hardlink` or `symlink`). The target must be
+  outside the library root so exported copies are never re-analyzed.
+- Exports run as background jobs and report progress on the Activity page.
+
 ## Notes
 
 - Media is served from the original files or the selected-photo WebP previews, with a long
@@ -43,6 +58,7 @@ folders also switches to that folder's own analysis history.
   score is only gated for actual motion or defocus blur with sufficient confidence.
 - Overrides are soft signals stored in SQLite; they do not modify originals and are available to
   future selection runs.
-- Export jobs use the newest stored selection and fail clearly when no selection exists.
+- The library page selection is ephemeral by design: clearing browser storage or using another
+  browser starts a fresh selection.
 - Job execution uses a small background worker and the `jobs` table; the GUI never blocks the CLI.
 - The GUI has no authentication and should not be bound to a public interface.

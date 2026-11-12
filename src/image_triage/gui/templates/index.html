@@ -106,9 +106,37 @@
 
 <p>{{ total }} photos{% if filters %} matching {{ total }} of {{ status.stored }}{% endif %}{% if latest_run %} - latest run {{ latest_run.id }} ({{ latest_run.status.value }}){% endif %}</p>
 
+<p class="selection-bar" data-selection>
+  <span data-selected-count>0</span> selected
+  <button type="button" data-select-all>Select all filtered</button>
+  <button type="button" data-clear>Clear</button>
+</p>
+
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+<form method="post" action="/export" class="filters" data-export-form>
+  <input type="hidden" name="scope" value="selected" data-scope>
+  <input type="hidden" name="photo_ids" value="" data-photo-ids>
+  <label>Export target
+    <input type="text" name="output" value="{{ default_output }}" size="40">
+  </label>
+  <label>Mode
+    <select name="mode">
+      <option value="copy">copy</option>
+      <option value="hardlink">hardlink</option>
+      <option value="symlink">symlink</option>
+    </select>
+  </label>
+  <button type="submit" data-export-selected>Export selected</button>
+  <button type="submit" data-export-all>Export all filtered</button>
+</form>
+
 <ul class="grid">
   {% for photo in photos %}
   <li class="card" data-photo-id="{{ photo.id }}">
+    <label class="select-box">
+      <input type="checkbox" data-select-photo value="{{ photo.id }}">
+    </label>
     <a href="/photo/{{ photo.id }}">
       <img src="/media/{{ photo.id }}" alt="{{ photo.path }}" loading="lazy">
     </a>

@@ -252,6 +252,108 @@ def test_photo_ids_endpoint_spans_every_page(photo_dir: Path, tmp_path: Path, mo
         assert all_ids["ids"] != []
 
 
+def test_export_selected_copies_only_the_checked_photos(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    repository = Repository.open(settings.database_path)
+    try:
+        ids = [photo.id for photo in repository.all_photos()]
+    finally:
+        repository.close()
+    target = tmp_path / "export-out"
+
+    with client:
+        response = client.post(
+            "/export",
+            data={"scope": "selected", "photo_ids": f"{ids[0]},{ids[1]}", "output": str(target)},
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        job = _wait_for_terminal_job(client, settings)
+        assert job["status"] == "completed", job
+        assert job["result"]["exported"] == 2
+
+    copied = sorted(
+        path.relative_to(target).as_posix() for path in target.rglob("*") if path.is_file()
+    )
+    assert len(copied) == 2
+
+
+def test_export_all_uses_every_filtered_photo_across_pages(
+    photo_dir: Path, tmp_path: Path, monkeypatch
+) -> None:
+    settings = load_settings(
+        None,
+        {
+            "input": {"root": photo_dir, "db_path": tmp_path / "filtered.db"},
+            "models": {"enabled": False},
+        },
+    )
+    monkeypatch.setattr("image_triage.gui.app.PER_PAGE", 1)
+    target = tmp_path / "export-filtered"
+
+    with TestClient(create_app(settings)) as client:
+        client.post("/scan", follow_redirects=False)
+        assert _wait_for_terminal_job(client, settings)["status"] == "completed"
+
+        repository = Repository.open(settings.database_path)
+        try:
+            ratings = sorted({photo.rating for photo in repository.all_photos()})
+            # Pick a rating with more than one photo so a page-limited export would be short.
+            counts = {value: repository.count_photos(rating=value) for value in ratings}
+        finally:
+            repository.close()
+        candidates = [value for value in ratings if counts[value] > 1]
+        assert candidates, counts
+        rating = candidates[0]
+        expected = counts[rating]
+
+        # One photo per page, so a filtered export must go beyond the visible page.
+        assert client.get(f"/?rating={rating}").status_code == 200
+
+        response = client.post(
+            "/export",
+            data={"scope": "filtered", "output": str(target)},
+            follow_redirects=False,
+            params={"rating": rating},
+        )
+        assert response.status_code == 303
+        job = _wait_for_terminal_job(client, settings)
+        assert job["status"] == "completed", job
+        assert job["result"]["exported"] == expected
+
+    copied = [path for path in target.rglob("*") if path.is_file()]
+    assert len(copied) == expected
+
+
+def test_export_rejects_a_target_inside_the_library(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    with client:
+        response = client.post(
+            "/export",
+            data={"scope": "filtered", "output": str(photo_dir / "inside")},
+        )
+        assert response.status_code == 400
+        assert b"outside the library root" in response.content
+
+
+def test_export_selected_without_a_selection_is_reported(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    with client:
+        response = client.post(
+            "/export",
+            data={"scope": "selected", "photo_ids": "", "output": str(tmp_path / "none")},
+        )
+        assert response.status_code == 400
+        assert b"no photos are selected" in response.content
+
+
+def test_default_export_path_is_timestamped(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    with client:
+        page = client.get("/")
+        assert b"export_" in page.content
+
+
 def test_media_is_served_concurrently_and_reports_missing_files(
     photo_dir: Path, tmp_path: Path
 ) -> None:
@@ -472,14 +574,6 @@ def test_events_page_and_job_runner(photo_dir: Path, tmp_path: Path) -> None:
         assert client.get("/events").status_code == 200
         assert client.get("/jobs").status_code == 200
 
-        empty_export = client.post(
-            "/jobs/start", data={"kind": "export", "top_n": "1"}, follow_redirects=False
-        )
-        assert empty_export.status_code == 303
-        failed = _wait_for_terminal_job(client, settings)
-        assert failed["status"] == "failed"
-        assert "no selection found" in failed["result"]["error"]
-
         response = client.post(
             "/jobs/start", data={"kind": "select", "top_n": "1"}, follow_redirects=False
         )
@@ -488,11 +582,3 @@ def test_events_page_and_job_runner(photo_dir: Path, tmp_path: Path) -> None:
         job = _wait_for_terminal_job(client, settings)
         assert job["status"] == "completed", job
         assert job["result"]["selected"] == 1
-
-        response = client.post(
-            "/jobs/start", data={"kind": "export", "top_n": "1"}, follow_redirects=False
-        )
-        assert response.status_code == 303
-        exported = _wait_for_terminal_job(client, settings)
-        assert exported["status"] == "completed", exported
-        assert exported["result"]["exported"] == 1

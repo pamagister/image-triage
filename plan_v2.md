@@ -294,13 +294,13 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 
 **Objective:** let the user curate a temporary selection and export it or the current filtered view.
 
-- [ ] P5-W01: Add browser-local selection state (`localStorage`), a checkbox per tile, selected count, clear action and stale-ID handling.
-- [ ] P5-W02: Add `GET /api/photo-ids` returning all IDs matching the current filters for "select all filtered".
-- [ ] P5-W03: Add an export toolbar/form with target path, default timestamped path, copy/hardlink/symlink mode, and scope `selected` or `filtered`.
-- [ ] P5-W04: Implement selected export by IDs and filtered export by re-running the filter query across all pages; validate that the output directory is not inside the library root.
-- [ ] P5-W05: Run exports as background jobs with progress/result and show status on the library or activity page.
-- [ ] P5-W06: Handle empty selection, no matching filtered photos, invalid output paths and missing source files with clear messages.
-- [ ] P5-W07: Add tests for the photo-ids API, selected export, filtered export across pages, default output naming, output validation and job completion.
+- [x] P5-W01: Add browser-local selection state (`localStorage`), a checkbox per tile, selected count, clear action and stale-ID handling.
+- [x] P5-W02: Add `GET /api/photo-ids` returning all IDs matching the current filters for "select all filtered".
+- [x] P5-W03: Add an export toolbar/form with target path, default timestamped path, copy/hardlink/symlink mode, and scope `selected` or `filtered`.
+- [x] P5-W04: Implement selected export by IDs and filtered export by re-running the filter query across all pages; validate that the output directory is not inside the library root.
+- [x] P5-W05: Run exports as background jobs with progress/result and show status on the library or activity page.
+- [x] P5-W06: Handle empty selection, no matching filtered photos, invalid output paths and missing source files with clear messages.
+- [x] P5-W07: Add tests for the photo-ids API, selected export, filtered export across pages, default output naming, output validation and job completion.
 
 **Acceptance criteria**
 

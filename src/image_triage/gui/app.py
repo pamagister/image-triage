@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +65,20 @@ def _count_files(root: Path, exclude: tuple[str, ...]) -> int:
     return len(find_images(root, excluded))
 
 
+def _is_inside(candidate: Path, root: Path) -> bool:
+    """True when ``candidate`` is the library root or lives below it."""
+    try:
+        return candidate.resolve().is_relative_to(root)
+    except OSError:
+        return False
+
+
+def _default_output(cwd: Path, now: datetime | None = None) -> Path:
+    """Timestamped export directory under the server's working directory."""
+    stamp = (now or datetime.now()).strftime("%Y-%m-%d_%H-%M")
+    return cwd / f"export_{stamp}"
+
+
 def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]) -> None:
     repository = Repository.open(settings.database_path)
     last_progress = 0.0
@@ -112,14 +127,35 @@ def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]
             )
             summary = result.to_dict()
         elif kind == "export":
-            latest = repository.latest_selection_run()
-            if latest is None:
-                raise ValueError("no selection found; run select first")
-            photos = repository.get_selection(latest.id)
+            mode = ExportMode(payload.get("mode", settings.report.export_mode))
+            target = Path(payload["output"]).expanduser() if payload.get("output") else output
+            if _is_inside(target, root):
+                raise ValueError("the export target must be outside the library root")
+            scope = payload.get("scope", "filtered")
+            if scope == "selected":
+                photo_ids = [int(value) for value in payload.get("photo_ids", [])]
+                photos = [
+                    photo
+                    for photo in (repository.photo_by_id(pid) for pid in photo_ids)
+                    if photo is not None
+                ]
+            else:
+                photos = repository.list_photos(
+                    **{
+                        key: value
+                        for key, value in payload.get("filters", {}).items()
+                        if value not in (None, "", [])
+                    }
+                )
             if not photos:
-                raise ValueError("latest selection is empty; run select again")
-            exported = export_photos(photos, root, output, ExportMode(settings.report.export_mode))
-            summary = {"exported": len(exported), "output": str(output)}
+                raise ValueError(f"no photos to export for scope '{scope}'")
+            exported = export_photos(photos, root, target, mode)
+            summary = {
+                "exported": len(exported),
+                "output": str(target),
+                "mode": mode.value,
+                "scope": scope,
+            }
         else:
             raise ValueError(f"unknown job kind: {kind}")
         repository.update_job(job_id, status="completed", progress=1.0, result=summary)
@@ -207,23 +243,60 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         return RedirectResponse("/", status_code=303)
 
+    def _library_response(
+        request: Request,
+        repo: Repository,
+        *,
+        error: str = "",
+        status_code: int = 200,
+    ) -> HTMLResponse:
+        """Render the library page with the current filters and an optional message."""
+        query = parse_photo_query(request.query_params)
+        total = repo.count_photos(**query.filters)
+        pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
+        page = min(max(1, query.page), pages)
+        return TEMPLATES.TemplateResponse(
+            request,
+            "index.html",
+            {
+                "photos": repo.list_photos(
+                    **query.filters,
+                    sort=query.sort,
+                    order=query.order,
+                    limit=PER_PAGE,
+                    offset=(page - 1) * PER_PAGE,
+                ),
+                "events": repo.events(),
+                "groups": repo.group_options(),
+                "labels": repo.label_options(),
+                "blur_kinds": [kind.value for kind in BlurKind],
+                "total": total,
+                "page": page,
+                "pages": pages,
+                "sort": query.sort,
+                "order": query.order,
+                "latest_run": repo.latest_run(),
+                "filters": query.filters,
+                "search": query.search,
+                "base_query": query.base_query,
+                "active_jobs": _active_jobs(repo),
+                "status": library_status(_current_settings(request), repo),
+                "filter_options": repo.filter_options(),
+                "error": error,
+                "default_output": str(_default_output(Path.cwd())),
+            },
+            status_code=status_code,
+        )
+
+    def _export_error(request: Request, repo: Repository, message: str) -> HTMLResponse:
+        """Render the library page with an export error."""
+        return _library_response(request, repo, error=message, status_code=400)
+
     @app.get("/", response_class=HTMLResponse, response_model=None)
     def index(
         request: Request,
         repo: Repository = Depends(repository),
     ) -> HTMLResponse | RedirectResponse:
-        query = parse_photo_query(request.query_params)
-        total = repo.count_photos(**query.filters)
-        pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
-        page = min(max(1, query.page), pages)
-        photos = repo.list_photos(
-            **query.filters,
-            sort=query.sort,
-            order=query.order,
-            limit=PER_PAGE,
-            offset=(page - 1) * PER_PAGE,
-        )
-        latest = repo.latest_run()
         status = library_status(_current_settings(request), repo)
         # An empty library would otherwise render as a blank page; scan it once automatically.
         if status.empty and not _active_jobs(repo):
@@ -234,30 +307,53 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 daemon=True,
             ).start()
             return RedirectResponse("/jobs", status_code=303)
-        active_jobs = _active_jobs(repo)
-        return TEMPLATES.TemplateResponse(
-            request,
-            "index.html",
-            {
-                "photos": photos,
-                "events": repo.events(),
-                "groups": repo.group_options(),
-                "labels": repo.label_options(),
-                "blur_kinds": [kind.value for kind in BlurKind],
-                "total": total,
-                "page": page,
-                "pages": pages,
-                "sort": query.sort,
-                "order": query.order,
-                "latest_run": latest,
-                "filters": query.filters,
-                "search": query.search,
-                "base_query": query.base_query,
-                "active_jobs": active_jobs,
-                "status": status,
-                "filter_options": repo.filter_options(),
-            },
+        return _library_response(request, repo)
+
+    @app.post("/export", response_model=None)
+    def start_export(
+        request: Request,
+        repo: Repository = Depends(repository),
+        scope: str = Form("selected"),
+        output: str = Form(""),
+        mode: str = Form(""),
+        photo_ids: str = Form(""),
+    ) -> HTMLResponse | RedirectResponse:
+        """Export either the checked photos or the current filtered view as a background job."""
+        settings = _current_settings(request)
+        root = _input_root(settings)
+        query = parse_photo_query(request.query_params)
+
+        target = Path(output).expanduser() if output.strip() else _default_output(Path.cwd())
+        if _is_inside(target, root):
+            return _export_error(
+                request, repo, "the export target must be outside the library root"
+            )
+
+        if scope == "selected":
+            ids = [int(value) for value in photo_ids.split(",") if value.strip().isdigit()]
+            if not ids:
+                return _export_error(request, repo, "no photos are selected")
+            export_payload: dict[str, Any] = {"photo_ids": ids}
+        else:
+            if repo.count_photos(**query.filters) == 0:
+                return _export_error(request, repo, "no photos match the current filters")
+            export_payload = {"filters": query.filters}
+
+        export_mode = mode or settings.report.export_mode
+        payload: dict[str, Any] = {
+            "output": str(target),
+            "mode": export_mode,
+            "scope": scope,
+            **export_payload,
+        }
+        job_id = repo.create_job("export", payload)
+        thread = threading.Thread(
+            target=_run_job,
+            args=(settings, job_id, "export", payload),
+            daemon=True,
         )
+        thread.start()
+        return RedirectResponse("/jobs", status_code=303)
 
     @app.get("/api/photo-ids")
     def photo_ids(request: Request, repo: Repository = Depends(repository)) -> dict[str, Any]:
