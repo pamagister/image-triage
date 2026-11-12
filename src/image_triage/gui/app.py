@@ -20,10 +20,20 @@ from image_triage.core.settings import Settings, load_settings
 from image_triage.db.repository import Repository
 from image_triage.export.export import export_photos
 from image_triage.export.previews import preview_path
+from image_triage.io.scan import find_images
 
 BASE_DIR = Path(__file__).parent
 TEMPLATES = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 PER_PAGE = 60
+
+#: Jobs that write to the state database and therefore block a library-root change.
+ACTIVE_JOB_STATUSES = ("pending", "running")
+MEDIA_CACHE_CONTROL = "public, max-age=604800"
+
+
+def _current_settings(request: Request) -> Settings:
+    """Settings of the running app, including a library root chosen in the GUI."""
+    return request.app.state.settings
 
 
 def _input_root(settings: Settings) -> Path:
@@ -38,6 +48,18 @@ def _media_path(settings: Settings, photo: Photo) -> Path:
     if not resolved.is_relative_to(root):
         raise HTTPException(404, "photo not found")
     return resolved
+
+
+def _active_jobs(repository: Repository) -> list[dict[str, Any]]:
+    return [job for job in repository.list_jobs() if job["status"] in ACTIVE_JOB_STATUSES]
+
+
+def _count_files(root: Path, exclude: tuple[str, ...]) -> int:
+    """Number of supported images below ``root`` after configured exclusions."""
+    if not root.is_dir():
+        return 0
+    excluded = tuple(root / name for name in exclude)
+    return len(find_images(root, excluded))
 
 
 def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]) -> None:
@@ -94,21 +116,81 @@ def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Build the FastAPI application around a settings object."""
-    settings = settings or load_settings()
     app = FastAPI(title="Image Triage", version="1.0")
-    app.state.settings = settings
+    app.state.settings = settings or load_settings()
     app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
-    def repository() -> Repository:
-        repo = Repository.open(settings.database_path)
+    def repository(request: Request) -> Repository:
+        """One connection per request; never shared with another request or job thread."""
+        repo = Repository.open(_current_settings(request).database_path)
         try:
             yield repo
         finally:
             repo.close()
 
     @app.get("/health")
-    def health() -> dict[str, Any]:
-        return {"ok": True, "input": str(_input_root(settings))}
+    def health(request: Request) -> dict[str, Any]:
+        return {"ok": True, "input": str(_input_root(_current_settings(request)))}
+
+    @app.get("/setup", response_class=HTMLResponse)
+    def setup_form(request: Request) -> HTMLResponse:
+        settings = _current_settings(request)
+        root = _input_root(settings)
+        return TEMPLATES.TemplateResponse(
+            request,
+            "setup.html",
+            {
+                "root": root,
+                "root_exists": root.is_dir(),
+                "file_count": _count_files(root, tuple(settings.input.exclude)),
+                "database_path": settings.database_path,
+                "error": request.query_params.get("error"),
+            },
+        )
+
+    @app.post("/setup", response_model=None)
+    def setup(
+        request: Request,
+        repo: Repository = Depends(repository),
+        root: str = Form(...),
+    ) -> HTMLResponse | RedirectResponse:
+        """Switch the library root; rejected while a job reads or writes the state database."""
+        settings = _current_settings(request)
+        candidate = Path(root).expanduser()
+        if not candidate.is_dir():
+            return TEMPLATES.TemplateResponse(
+                request,
+                "setup.html",
+                {
+                    "root": candidate,
+                    "root_exists": False,
+                    "file_count": 0,
+                    "database_path": settings.database_path,
+                    "error": f"not a directory: {candidate}",
+                },
+                status_code=400,
+            )
+        active = _active_jobs(repo)
+        if active:
+            running = ", ".join(f"{job['kind']} #{job['id']}" for job in active)
+            return TEMPLATES.TemplateResponse(
+                request,
+                "setup.html",
+                {
+                    "root": _input_root(settings),
+                    "root_exists": True,
+                    "file_count": _count_files(
+                        _input_root(settings), tuple(settings.input.exclude)
+                    ),
+                    "database_path": settings.database_path,
+                    "error": f"cannot change the library while a job is active: {running}",
+                },
+                status_code=409,
+            )
+        app.state.settings = settings.model_copy(
+            update={"input": settings.input.model_copy(update={"root": candidate.resolve()})}
+        )
+        return RedirectResponse("/", status_code=303)
 
     @app.get("/", response_class=HTMLResponse)
     def index(
@@ -178,6 +260,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     "min_score": min_score,
                 },
                 "base_query": base_query,
+                "active_jobs": _active_jobs(repo),
             },
         )
 
@@ -246,6 +329,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/jobs/start")
     def start_job(
+        request: Request,
         repo: Repository = Depends(repository),
         kind: str = Form(...),
         top_n: int = Form(200),
@@ -253,7 +337,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         job_id = repo.create_job(kind, {"top_n": top_n})
         thread = threading.Thread(
             target=_run_job,
-            args=(settings, job_id, kind, {"top_n": top_n}),
+            args=(_current_settings(request), job_id, kind, {"top_n": top_n}),
             daemon=True,
         )
         thread.start()
@@ -278,14 +362,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return RedirectResponse(f"/photo/{photo_id}", status_code=303)
 
     @app.get("/media/{photo_id}")
-    def media(photo_id: int, repo: Repository = Depends(repository)) -> FileResponse:
+    def media(
+        request: Request, photo_id: int, repo: Repository = Depends(repository)
+    ) -> FileResponse:
         photo = repo.photo_by_id(photo_id)
         if photo is None:
             raise HTTPException(404, "photo not found")
-        path = _media_path(settings, photo)
+        path = _media_path(_current_settings(request), photo)
         if not path.is_file():
             raise HTTPException(404, "photo file not found")
-        return FileResponse(path)
+        return FileResponse(path, headers={"Cache-Control": MEDIA_CACHE_CONTROL})
 
     return app
 

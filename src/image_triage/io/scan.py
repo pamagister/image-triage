@@ -13,6 +13,36 @@ from PIL import Image, ImageOps
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
 RAW_EXTENSIONS = {".cr2", ".cr3", ".nef", ".arw", ".raf", ".orf", ".rw2", ".dng"}
 
+#: Directory names that never contain a user's photos: virtualenvs, VCS data, coverage
+#: output, caches, build output and tool state. They are skipped in addition to the
+#: configured ``input.exclude`` entries so pointing the GUI at a project root stays safe.
+DEFAULT_EXCLUDED_DIRS = frozenset(
+    {
+        ".git",
+        ".hg",
+        ".svn",
+        ".venv",
+        "venv",
+        ".tox",
+        ".nox",
+        ".idea",
+        ".vscode",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".ipynb_checkpoints",
+        "__pycache__",
+        "htmlcov",
+        "node_modules",
+        "site-packages",
+        ".image-triage",
+        "selected",
+        "previews",
+        "dist",
+        "build",
+    }
+)
+
 _EXIF_IFD = 0x8769
 _DATETIME_ORIGINAL = 36867
 _SUBSEC_ORIGINAL = 37521
@@ -125,7 +155,12 @@ def scan_file(path: Path) -> ScanInfo:
 
 
 def find_images(root: Path, exclude: tuple[Path, ...] = ()) -> list[Path]:
-    """Return analyzable images below ``root``, sorted deterministically."""
+    """Return analyzable images below ``root``, sorted deterministically.
+
+    ``exclude`` entries are resolved paths or path fragments that are skipped. In addition,
+    the tool and VCS directories listed in :data:`DEFAULT_EXCLUDED_DIRS` are never entered,
+    so scanning a project root does not pick up virtualenv, coverage or build artifacts.
+    """
     resolved_exclude = tuple(path.resolve() for path in exclude)
     files: list[Path] = []
     for path in root.rglob("*"):
@@ -134,6 +169,8 @@ def find_images(root: Path, exclude: tuple[Path, ...] = ()) -> list[Path]:
         try:
             resolved = path.resolve()
         except OSError:
+            continue
+        if any(part in DEFAULT_EXCLUDED_DIRS for part in path.relative_to(root).parts[:-1]):
             continue
         if any(resolved.is_relative_to(excluded) for excluded in resolved_exclude):
             continue

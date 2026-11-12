@@ -210,11 +210,11 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 **Objective:** make the GUI reliably serve images and operate on an explicitly selected library root.
 
 - [x] P1-W01: Fix SQLite thread affinity by opening per-request connections with `check_same_thread=False`; keep one connection per request and one per background job. Add a regression test that uses a connection from a different thread than the one that created it.
-- [ ] P1-W02: Verify `/media/{id}` under the live ASGI server and concurrent requests; handle missing files and invalid IDs with 404 responses. Add cache headers for previews.
-- [ ] P1-W03: Add safe scan exclusions for hidden and tool directories. Extend `find_images`/scanning so repository, virtualenv, coverage, cache and IDE directories are skipped by default.
-- [ ] P1-W04: Add a GUI setup screen with a server-side folder-path form. Show the active root, file count and state-DB path. Validate the directory and update `app.state.settings` without deleting existing state.
-- [ ] P1-W05: Make route settings dynamic (`request.app.state.settings`) and reject root changes while a scan/select/export job is active.
-- [ ] P1-W06: Add tests for media, setup/root switching, exclusions and the no-active-job guard.
+- [x] P1-W02: Verify `/media/{id}` under the live ASGI server and concurrent requests; handle missing files and invalid IDs with 404 responses. Add cache headers for previews.
+- [x] P1-W03: Add safe scan exclusions for hidden and tool directories. Extend `find_images`/scanning so repository, virtualenv, coverage, cache and IDE directories are skipped by default.
+- [x] P1-W04: Add a GUI setup screen with a server-side folder-path form. Show the active root, file count and state-DB path. Validate the directory and update `app.state.settings` without deleting existing state.
+- [x] P1-W05: Make route settings dynamic (`request.app.state.settings`) and reject root changes while a scan/select/export job is active.
+- [x] P1-W06: Add tests for media, setup/root switching, exclusions and the no-active-job guard.
 
 **Acceptance criteria**
 
