@@ -1,6 +1,6 @@
 # Image Triage – Implementation Plan
 
-**Status:** `[x]` implementation complete (Phases 1-8)
+**Status:** `[x]` implementation complete (Phases 1-9)
 **Created:** 2026-11-11
 **Target:** a local-first, deterministic photo triage tool that reduces a full year of photos
 (e.g. 6000 images) to the best 200, usable from the CLI, by agents, and later from a web GUI.
@@ -601,7 +601,7 @@ documentation agree.
 
 ### Phase 9 – GUI Startup and Requirements Hardening
 
-**Status:** `[-]` in progress
+**Status:** `[x]` completed 2026-11-12
 **Issue:** [#14](https://github.com/pamagister/image-triage/issues/14)
 
 **Objective:** Close the remaining gaps found in a requirements audit of the Phase 8 web GUI,
@@ -787,3 +787,10 @@ commits, push/CI status, blockers and decisions._
   with a background worker. `image-triage gui` starts uvicorn; GUI TestClient tests and a live
   health/index check pass. Deviations: pagination instead of virtual scrolling, and an SVG GPS
   scatter instead of Leaflet tiles to keep the GUI offline. Issue #13. All phases complete.
+
+- 2026-11-12: Phase 9 completed. Added `python -m image_triage.gui`, completed date/minimum-score
+  filters with filter-preserving pagination, fixed export jobs to use the newest non-empty
+  selection, added analysis progress and running-job refresh, displayed stored overrides, made the
+  events GPS query lightweight and degenerate-range safe, and removed the obsolete test image
+  directories. All three launch paths returned HTTP 200 from `/health`; 46 tests, ruff, deptry,
+  mkdocs and wheel/entry-point checks pass. Issue #14, commit 5770fad, CI green.
