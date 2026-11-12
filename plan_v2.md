@@ -317,11 +317,11 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 
 **Objective:** document the new workflow and prove it works on real sample data.
 
-- [ ] P6-W01: Update `docs/usage/gui.md` with the setup screen, scan workflow, filters, selection, export and activity page.
-- [ ] P6-W02: Update `docs/getting-started/install.md` and any generated README content through `make syncdocs` where required.
-- [ ] P6-W03: Run `make fmt`, `make lint`, `make test`, `make deptry`, `mkdocs build`, wheel build and entry-point checks.
-- [ ] P6-W04: Perform a manual end-to-end walkthrough on `images/pixabay`: empty scan, stale scan, multi-select filters, select-all/opt-out, selected export and filtered export.
-- [ ] P6-W05: Verify bokeh handling with the provided lion image and synthetic blur fixtures.
+- [x] P6-W01: Update `docs/usage/gui.md` with the setup screen, scan workflow, filters, selection, export and activity page.
+- [x] P6-W02: Update `docs/getting-started/install.md` and any generated README content through `make syncdocs` where required.
+- [x] P6-W03: Run `make fmt`, `make lint`, `make test`, `make deptry`, `mkdocs build`, wheel build and entry-point checks.
+- [x] P6-W04: Perform a manual end-to-end walkthrough on `images/pixabay`: empty scan, stale scan, multi-select filters, select-all/opt-out, selected export and filtered export.
+- [x] P6-W05: Verify bokeh handling with the provided lion image and synthetic blur fixtures.
 - [ ] P6-W06: Commit, push, open/close the tracking issue and confirm CI is green.
 
 **Acceptance criteria**

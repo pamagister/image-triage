@@ -46,4 +46,5 @@ image-triage-gui  # after installation
 ```
 
 It binds to `127.0.0.1:8765` by default and has no authentication; it is intended for a single
-local user.
+local user. On first start it asks for the photo library folder, then scans it, so no CLI run is
+required before the library appears. See [the GUI guide](../usage/gui.md) for the full workflow.
