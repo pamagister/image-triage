@@ -238,8 +238,25 @@ class Repository:
         ).fetchall()
         return [self._row_to_photo(row) for row in rows]
 
+    def analyzed_paths(self) -> dict[str, str | None]:
+        """Map of stored relative path to its ``analyzed_at`` timestamp."""
+        rows = self.connection.execute("SELECT path, analyzed_at FROM photos").fetchall()
+        return {row["path"]: row["analyzed_at"] for row in rows}
+
+    def delete_missing_photos(self, keep: set[str]) -> list[str]:
+        """Delete photos whose path is no longer present and return the removed paths."""
+        rows = self.connection.execute("SELECT id, path FROM photos").fetchall()
+        removed = [row["path"] for row in rows if row["path"] not in keep]
+        if not removed:
+            return []
+        with self.connection:
+            self.connection.executemany(
+                "DELETE FROM photos WHERE id = ?",
+                [(row["id"],) for row in rows if row["path"] not in keep],
+            )
+        return sorted(removed)
+
     def gps_points(self) -> list[dict[str, Any]]:
-        """Return lightweight GPS points for the events scatter plot."""
         rows = self.connection.execute(
             """
             SELECT id, path, gps_lat, gps_lon

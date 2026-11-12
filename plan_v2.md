@@ -251,13 +251,13 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 
 **Objective:** make the GUI scan the library in one understandable action and make empty/stale state visible.
 
-- [ ] P3-W01: Add a library-status function returning files, stored, new, missing, changed, empty, current and stale counts.
-- [ ] P3-W02: Add a `scan` job that runs analyze, grouping/events and scoring in one background job with progress reporting.
-- [ ] P3-W03: Add safe reconciliation: remove DB rows for paths missing after a completed scan, and report what was removed.
-- [ ] P3-W04: Auto-start a scan when the library is empty; show a stale-library banner with new/changed/missing counts and a "Scan library" button when stale.
-- [ ] P3-W05: Show scan progress on the library page or a dedicated activity page; prevent duplicate concurrent scans with a job guard.
-- [ ] P3-W06: Rename the confusing Jobs page to Activity and separate scan, select and export history; keep manual controls but make the primary workflow scan-first.
-- [ ] P3-W07: Add tests for empty auto-scan, stale banner, current library, missing-file reconciliation and scan job completion.
+- [x] P3-W01: Add a library-status function returning files, stored, new, missing, changed, empty, current and stale counts.
+- [x] P3-W02: Add a `scan` job that runs analyze, grouping/events and scoring in one background job with progress reporting.
+- [x] P3-W03: Add safe reconciliation: remove DB rows for paths missing after a completed scan, and report what was removed.
+- [x] P3-W04: Auto-start a scan when the library is empty; show a stale-library banner with new/changed/missing counts and a "Scan library" button when stale.
+- [x] P3-W05: Show scan progress on the library page or a dedicated activity page; prevent duplicate concurrent scans with a job guard.
+- [x] P3-W06: Rename the confusing Jobs page to Activity and separate scan, select and export history; keep manual controls but make the primary workflow scan-first.
+- [x] P3-W07: Add tests for empty auto-scan, stale banner, current library, missing-file reconciliation and scan job completion.
 
 **Acceptance criteria**
 

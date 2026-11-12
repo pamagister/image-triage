@@ -53,6 +53,111 @@ def _wait_for_terminal_job(client: TestClient, settings, timeout: float = 15.0) 
     raise AssertionError("job did not reach a terminal state")
 
 
+def test_empty_library_auto_scans_and_reports_no_active_job(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    settings = load_settings(
+        None,
+        {
+            "input": {"root": photo_dir, "db_path": tmp_path / "auto.db"},
+            "models": {"enabled": False},
+        },
+    )
+    with TestClient(create_app(settings)) as client:
+        response = client.get("/", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/jobs"
+
+    job = _wait_for_terminal_job(client, settings)
+    assert job["kind"] == "scan"
+    assert job["status"] == "completed", job
+    assert job["result"]["scored"] == 4
+
+    library = client.get("/")
+    assert library.status_code == 200
+    assert b"Library is out of date" not in library.content
+    assert b"No analysis yet" not in library.content
+
+
+def test_stale_library_reports_new_changed_and_missing(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    with client:
+        (photo_dir / "added.jpg").write_bytes((photo_dir / "burst_sharp.jpg").read_bytes())
+        (photo_dir / "sub" / "other.jpg").unlink()
+
+        response = client.get("/")
+        assert response.status_code == 200
+        assert b"Library is out of date" in response.content
+        assert b"1 missing" in response.content
+
+        scanned = client.post("/scan", follow_redirects=False)
+        assert scanned.status_code == 303
+        job = _wait_for_terminal_job(client, settings)
+        assert job["kind"] == "scan" and job["status"] == "completed", job
+
+        repository = Repository.open(settings.database_path)
+        try:
+            paths = {photo.path for photo in repository.all_photos()}
+        finally:
+            repository.close()
+        assert "sub/other.jpg" not in paths
+        assert "added.jpg" in paths
+
+        assert client.get("/").status_code == 200
+        assert b"Library is out of date" not in client.get("/").content
+
+
+def test_scan_job_scores_without_a_separate_select(photo_dir: Path, tmp_path: Path) -> None:
+    settings = load_settings(
+        None,
+        {
+            "input": {"root": photo_dir, "db_path": tmp_path / "score.db"},
+            "models": {"enabled": False},
+        },
+    )
+    with TestClient(create_app(settings)) as client:
+        client.post("/scan", follow_redirects=False)
+        job = _wait_for_terminal_job(client, settings)
+        assert job["status"] == "completed", job
+
+        repository = Repository.open(settings.database_path)
+        try:
+            photos = repository.all_photos()
+        finally:
+            repository.close()
+        assert len(photos) == 4
+        assert all(photo.rating > 0 for photo in photos)
+        assert all(photo.group_id is not None for photo in photos)
+        assert all(photo.event_id is not None for photo in photos)
+
+
+def test_duplicate_scan_requests_do_not_start_parallel_jobs(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    repository = Repository.open(settings.database_path)
+    try:
+        repository.create_job("scan", {})
+    finally:
+        repository.close()
+
+    with client:
+        response = client.get("/", follow_redirects=False)
+        # An active job suppresses the auto-scan redirect.
+        assert response.status_code == 200
+
+        blocked = client.post("/scan", follow_redirects=False)
+        assert blocked.status_code == 303
+        assert blocked.headers["location"] == "/jobs"
+
+    repository = Repository.open(settings.database_path)
+    try:
+        scans = [job for job in repository.list_jobs() if job["kind"] == "scan"]
+    finally:
+        repository.close()
+    assert len(scans) == 1
+
+
 def test_media_is_served_concurrently_and_reports_missing_files(
     photo_dir: Path, tmp_path: Path
 ) -> None:

@@ -10,24 +10,34 @@ uv run python -m image_triage.gui
 # or, after installation: image-triage-gui
 ```
 
-The GUI reads the same SQLite state store as the CLI. Run `analyze` and `score` (or a full
-`run`) first, then open `http://127.0.0.1:8765`.
+The GUI reads the same SQLite state store as the CLI. On first start it asks for the photo
+library folder; the state database lives in `<library>/.image-triage/triage.db`, so switching
+folders also switches to that folder's own analysis history.
 
 ## Pages
 
-- **Library** - paginated grid with search, rating, event, label, capture-date and minimum-score
-  filters plus sorting; pagination and sort links preserve the active filters.
-- **Photo detail** - image, metrics, composition breakdown, detections, similar shots, the current
-  soft rating/keep/reject override and a form to change it.
+- **Setup** - choose the library folder. Shows the active root, the number of images found and
+  the state database path. A change is rejected while a job is running. Hidden and tool
+  directories (`.git`, `.venv`, `htmlcov`, caches, IDE folders) are never scanned.
+- **Library** - flat grid of every analyzed photo. An empty library is scanned automatically;
+  when files were added, changed or removed the page shows a stale-library banner with a
+  **Scan library** button. Filter by search, rating, event, label, capture date and minimum
+  score, sort the result, and page through it with the active filters preserved.
+- **Photo detail** - image, global and subject sharpness, bokeh, blur, composition breakdown,
+  detections, similar shots, the current soft rating/keep/reject override and a form to change it.
 - **Compare** - side-by-side view of similar shots with their metric tables.
 - **Events** - timeline and a lightweight GPS scatter plot (no external map tiles).
-- **Jobs** - start analyze/select/export jobs, poll their status and inspect results. Analysis
-  jobs report progress and the page refreshes while work is active.
+- **Activity** - start scan/analyze/select/export jobs, poll their status and inspect results.
+  A **scan** runs analysis, grouping, event detection and scoring in one step, so scores and
+  ratings are available without a separate select job.
 
 ## Notes
 
-- Media is served from the original files or the selected-photo WebP previews. The server checks
-  that every requested path stays inside the input root.
+- Media is served from the original files or the selected-photo WebP previews, with a long
+  cache lifetime. The server checks that every requested path stays inside the input root.
+- Sharpness is measured on the subject region when detections exist, with a saliency window as
+  fallback. Intentional bokeh is reported separately and is not treated as a blur defect; the
+  score is only gated for actual motion or defocus blur with sufficient confidence.
 - Overrides are soft signals stored in SQLite; they do not modify originals and are available to
   future selection runs.
 - Export jobs use the newest stored selection and fail clearly when no selection exists.

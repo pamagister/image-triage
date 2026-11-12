@@ -20,7 +20,10 @@ from image_triage.core.settings import Settings, load_settings
 from image_triage.db.repository import Repository
 from image_triage.export.export import export_photos
 from image_triage.export.previews import preview_path
+from image_triage.grouping.build import build_groups_and_events
+from image_triage.gui.library_status import library_status, scan_paths
 from image_triage.io.scan import find_images
+from image_triage.scoring.score import score_library
 
 BASE_DIR = Path(__file__).parent
 TEMPLATES = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -83,7 +86,20 @@ def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]
                 repository.update_job(job_id, status="running", progress=fraction)
                 last_progress = fraction
 
-        if kind == "analyze":
+        if kind == "scan":
+            analysis = analyze_library(settings, repository, progress=report_progress)
+            root, paths = scan_paths(settings)
+            removed = repository.delete_missing_photos(
+                {path.relative_to(root).as_posix() for path in paths}
+            )
+            build_groups_and_events(repository, settings)
+            score_library(repository, settings)
+            summary = {
+                "analysis": analysis.to_dict(),
+                "scored": repository.count_photos(),
+                "removed": removed,
+            }
+        elif kind == "analyze":
             result = analyze_library(settings, repository, progress=report_progress)
             summary = result.to_dict()
         elif kind == "select":
@@ -222,6 +238,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             **filters, sort=sort, limit=PER_PAGE, offset=(page - 1) * PER_PAGE
         )
         latest = repo.latest_run()
+        status = library_status(_current_settings(request), repo)
+        # An empty library would otherwise render as a blank page; scan it once automatically.
+        if status.empty and not _active_jobs(repo):
+            job_id = repo.create_job("scan", {})
+            threading.Thread(
+                target=_run_job,
+                args=(_current_settings(request), job_id, "scan", {}),
+                daemon=True,
+            ).start()
+            return RedirectResponse("/jobs", status_code=303)
         filter_values = {
             "rating": rating,
             "event_id": event_id,
@@ -261,6 +287,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 },
                 "base_query": base_query,
                 "active_jobs": _active_jobs(repo),
+                "status": status,
             },
         )
 
@@ -326,6 +353,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/jobs", response_class=HTMLResponse)
     def jobs(request: Request, repo: Repository = Depends(repository)) -> HTMLResponse:
         return TEMPLATES.TemplateResponse(request, "jobs.html", {"jobs": repo.list_jobs()})
+
+    @app.post("/scan", response_model=None)
+    def start_scan(
+        request: Request, repo: Repository = Depends(repository)
+    ) -> HTMLResponse | RedirectResponse:
+        """Start the unified scan job, or report the job that is already running."""
+        active = _active_jobs(repo)
+        if active:
+            return RedirectResponse("/jobs", status_code=303)
+        job_id = repo.create_job("scan", {})
+        thread = threading.Thread(
+            target=_run_job,
+            args=(_current_settings(request), job_id, "scan", {}),
+            daemon=True,
+        )
+        thread.start()
+        return RedirectResponse("/jobs", status_code=303)
 
     @app.post("/jobs/start")
     def start_job(

@@ -79,6 +79,19 @@ button {
   cursor: pointer;
 }
 
+.banner {
+  background: #fffaf0;
+  border: 1px solid #f6c26b;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+}
+
+.banner form.inline {
+  display: inline;
+  margin: 0;
+}
+
 .error {
   color: #9b2c2c;
   background: #fff5f5;

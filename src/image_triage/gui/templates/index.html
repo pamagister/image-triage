@@ -2,6 +2,33 @@
 {% block title %}Library - Image Triage{% endblock %}
 {% block content %}
 <h1>Library</h1>
+
+{% if status.stale %}
+<div class="banner" role="status">
+  <strong>Library is out of date.</strong>
+  {{ status.new }} new, {{ status.changed }} changed, {{ status.missing }} missing
+  ({{ status.files }} files on disk, {{ status.stored }} analyzed).
+  <form method="post" action="/scan" class="inline">
+    <button type="submit">Scan library</button>
+  </form>
+</div>
+{% elif status.empty %}
+<div class="banner" role="status">
+  <strong>No analysis yet.</strong>
+  {{ status.files }} files found.
+  <form method="post" action="/scan" class="inline">
+    <button type="submit">Scan library</button>
+  </form>
+</div>
+{% endif %}
+
+{% if active_jobs %}
+<p class="banner" role="status">
+  {{ active_jobs | length }} job(s) running.
+  <a href="/jobs">show progress</a>
+</p>
+{% endif %}
+
 <form method="get" action="/" class="filters" role="search">
   <label>Search <input type="search" name="q" value="{{ filters.q or '' }}"></label>
   <label>Rating
