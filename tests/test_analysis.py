@@ -43,6 +43,48 @@ def test_blur_classification_distinguishes_motion_and_defocus() -> None:
     assert analyze_sharpness(_gray(defocus)).blur_kind is BlurKind.DEFOCUS
 
 
+def _sharp_subject_on_blurred_background() -> np.ndarray:
+    """A detailed subject in the centre over a deliberately blurred background."""
+    scene = _scene(7)
+    background = cv2.GaussianBlur(scene, (0, 0), 9)
+    height, width = background.shape[:2]
+    subject = scene[height // 4 : 3 * height // 4, width // 4 : 3 * width // 4]
+    background[height // 4 : 3 * height // 4, width // 4 : 3 * width // 4] = subject
+    return background
+
+
+def test_sharp_subject_over_blurred_background_is_not_a_blur_defect() -> None:
+    scene = _gray(_scene(1))
+    subject_box = [(0.25, 0.25, 0.75, 0.75)]
+
+    bokeh = analyze_sharpness(_gray(_sharp_subject_on_blurred_background()), subject_box)
+    uniform = analyze_sharpness(cv2.GaussianBlur(scene, (0, 0), 6))
+
+    assert bokeh.blur_kind is BlurKind.NONE
+    assert bokeh.bokeh > 0.0
+    assert bokeh.subject_raw > uniform.raw
+    assert uniform.blur_kind is BlurKind.DEFOCUS
+
+
+def test_subject_sharpness_ignores_a_soft_background() -> None:
+    image = _sharp_subject_on_blurred_background()
+    gray = _gray(image)
+    box = [(0.25, 0.25, 0.75, 0.75)]
+
+    subject = analyze_sharpness(gray, box)
+    without_box = analyze_sharpness(gray)
+
+    # The whole frame looks soft, but the measured subject region is sharp.
+    assert subject.subject_raw > without_box.raw
+    assert subject.blur_confidence == 0.0
+
+
+def test_bokeh_is_zero_when_nothing_is_sharp() -> None:
+    uniform = cv2.GaussianBlur(_gray(_scene(2)), (0, 0), 8)
+    result = analyze_sharpness(uniform, [(0.3, 0.3, 0.7, 0.7)])
+    assert result.bokeh == 0.0
+
+
 def test_composition_is_normalized_and_has_breakdown() -> None:
     scene = _scene(2)
     score, components = composition_score(_gray(scene))

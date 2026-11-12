@@ -25,7 +25,6 @@ scoring:
   composition_weight: 0.25
   aesthetic_weight: 0.15
   subject_weight: 0.15
-  blur_threshold: 0.15
   min_score_5: 0.75
   min_score_4: 0.45
   sharpness_percentile: 90.0

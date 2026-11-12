@@ -30,12 +30,16 @@ def _clamp01(value: float) -> float:
 def score_photo(photo: Photo, settings: Settings) -> ScoreResult:
     """Compute the weighted score for one photo.
 
-    All components are normalised to 0..1. Blur below the configured threshold applies
-    a gate: the score is halved and the photo is marked blurry.
+    All components are normalised to 0..1. Sharpness uses the subject/saliency region when
+    one was measured so a sharp subject in front of a soft background is not penalised.
+
+    Only an actual motion or defocus blur with sufficient confidence applies the gate: the
+    score is halved and the photo is marked blurry. Low global sharpness alone never gates,
+    because shallow depth of field is a deliberate aesthetic choice, not a defect.
     """
     scoring = settings.scoring
     raw_components = {
-        "sharpness": _clamp01(photo.metrics.sharpness),
+        "sharpness": _clamp01(photo.metrics.sharpness_subject or photo.metrics.sharpness),
         "composition": _clamp01(photo.metrics.composition),
         "aesthetic": _clamp01(photo.metrics.aesthetic),
         "subject": _clamp01(
@@ -52,8 +56,9 @@ def score_photo(photo: Photo, settings: Settings) -> ScoreResult:
     weights = {name: value / weight_sum for name, value in weights.items()}
     contributions = {name: weights[name] * raw_components[name] for name in raw_components}
     score = sum(contributions.values())
-    blurry = photo.metrics.sharpness < scoring.blur_threshold or (
-        photo.metrics.blur_kind is not BlurKind.NONE and photo.metrics.blur_confidence >= 0.5
+    blur_kind = photo.metrics.blur_kind
+    blurry = (
+        blur_kind in {BlurKind.MOTION, BlurKind.DEFOCUS} and photo.metrics.blur_confidence >= 0.5
     )
     if blurry:
         score *= 0.5
@@ -69,8 +74,9 @@ def score_photo(photo: Photo, settings: Settings) -> ScoreResult:
 def rate_photos(photos: list[Photo], settings: Settings) -> None:
     """Assign 1-5 stars using the best photos per similarity group.
 
-    Blurry photos receive 1 star. Sharp non-best photos receive 2. The best
-    ``max_per_group`` sharp photos receive 5/4/3 according to the score thresholds.
+    Photos with a real motion or defocus blur receive 1 star. Sharp non-best photos receive
+    2. The best ``max_per_group`` sharp photos receive 5/4/3 according to the score
+    thresholds.
     """
     groups: dict[int, list[Photo]] = defaultdict(list)
     for photo in photos:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 INITIAL_SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_meta (
@@ -151,6 +151,13 @@ CREATE INDEX IF NOT EXISTS idx_photo_groups_group ON photo_groups(group_id);
 CREATE INDEX IF NOT EXISTS idx_photo_events_event ON photo_events(event_id);
 CREATE INDEX IF NOT EXISTS idx_selections_run ON selections(run_id, rank);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, id);
+"""
+
+#: Version 1 databases gain the subject-sharpness and bokeh metrics.
+METRICS_V2 = """
+ALTER TABLE metrics ADD COLUMN sharpness_subject REAL NOT NULL DEFAULT 0;
+ALTER TABLE metrics ADD COLUMN sharpness_subject_raw REAL NOT NULL DEFAULT 0;
+ALTER TABLE metrics ADD COLUMN bokeh REAL NOT NULL DEFAULT 0;
 """
 
 

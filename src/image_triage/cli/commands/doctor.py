@@ -9,9 +9,9 @@ from pathlib import Path
 import typer
 
 from image_triage.cli.output import emit_json, print_table
-from image_triage.core.models import SCHEMA_VERSION
 from image_triage.core.settings import Settings
 from image_triage.db.repository import Repository
+from image_triage.db.schema import SCHEMA_VERSION
 
 
 def _check(name: str, ok: bool, detail: object) -> dict[str, object]:

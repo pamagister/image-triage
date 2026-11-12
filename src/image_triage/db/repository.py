@@ -131,13 +131,17 @@ class Repository:
             self.connection.execute(
                 """
                 INSERT INTO metrics (
-                    photo_id, sharpness, sharpness_raw, blur_kind, blur_confidence, composition,
-                    composition_components, aesthetic, aesthetic_source, subject_score,
-                    subject_rarity, exposure, metric_version
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    photo_id, sharpness, sharpness_raw, sharpness_subject, sharpness_subject_raw,
+                    bokeh, blur_kind, blur_confidence, composition, composition_components,
+                    aesthetic, aesthetic_source, subject_score, subject_rarity, exposure,
+                    metric_version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(photo_id) DO UPDATE SET
                     sharpness=excluded.sharpness,
                     sharpness_raw=excluded.sharpness_raw,
+                    sharpness_subject=excluded.sharpness_subject,
+                    sharpness_subject_raw=excluded.sharpness_subject_raw,
+                    bokeh=excluded.bokeh,
                     blur_kind=excluded.blur_kind,
                     blur_confidence=excluded.blur_confidence,
                     composition=excluded.composition,
@@ -153,6 +157,9 @@ class Repository:
                     photo.id,
                     photo.metrics.sharpness,
                     photo.metrics.sharpness_raw,
+                    photo.metrics.sharpness_subject,
+                    photo.metrics.sharpness_subject_raw,
+                    photo.metrics.bokeh,
                     photo.metrics.blur_kind.value,
                     photo.metrics.blur_confidence,
                     photo.metrics.composition,
@@ -204,7 +211,8 @@ class Repository:
     def photo_by_id(self, photo_id: int) -> Photo | None:
         row = self.connection.execute(
             """
-            SELECT p.*, m.sharpness, m.sharpness_raw, m.blur_kind, m.blur_confidence,
+            SELECT p.*, m.sharpness, m.sharpness_raw, m.sharpness_subject, m.sharpness_subject_raw,
+                   m.bokeh, m.blur_kind, m.blur_confidence,
                    m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
                    m.subject_score, m.subject_rarity, m.exposure
             FROM photos p
@@ -219,7 +227,8 @@ class Repository:
         """Return every photo ordered by capture time and path."""
         rows = self.connection.execute(
             """
-            SELECT p.*, m.sharpness, m.sharpness_raw, m.blur_kind, m.blur_confidence,
+            SELECT p.*, m.sharpness, m.sharpness_raw, m.sharpness_subject, m.sharpness_subject_raw,
+                   m.bokeh, m.blur_kind, m.blur_confidence,
                    m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
                    m.subject_score, m.subject_rarity, m.exposure
             FROM photos p
@@ -255,6 +264,9 @@ class Repository:
         metrics = Metrics(
             sharpness=float(row["sharpness"] or 0.0),
             sharpness_raw=float(row["sharpness_raw"] or 0.0),
+            sharpness_subject=float(row["sharpness_subject"] or 0.0),
+            sharpness_subject_raw=float(row["sharpness_subject_raw"] or 0.0),
+            bokeh=float(row["bokeh"] or 0.0),
             blur_kind=BlurKind(row["blur_kind"] or "none"),
             blur_confidence=float(row["blur_confidence"] or 0.0),
             composition=float(row["composition"] or 0.0),
@@ -420,7 +432,8 @@ class Repository:
             "rating": "p.rating DESC, p.score DESC, p.taken",
         }.get(sort, "p.taken, p.path")
         sql = """
-            SELECT p.*, m.sharpness, m.sharpness_raw, m.blur_kind, m.blur_confidence,
+            SELECT p.*, m.sharpness, m.sharpness_raw, m.sharpness_subject, m.sharpness_subject_raw,
+                   m.bokeh, m.blur_kind, m.blur_confidence,
                    m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
                    m.subject_score, m.subject_rarity, m.exposure
             FROM photos p
@@ -446,12 +459,15 @@ class Repository:
                 ],
             )
 
-    def update_sharpness(self, entries: Iterable[tuple[int, float]]) -> None:
-        """Update the corpus-normalized sharpness for many photos."""
+    def update_sharpness(self, entries: Iterable[tuple[int, float, float]]) -> None:
+        """Update corpus-normalized global and subject sharpness for many photos."""
         with self.connection:
             self.connection.executemany(
-                "UPDATE metrics SET sharpness = ? WHERE photo_id = ?",
-                [(value, photo_id) for photo_id, value in entries],
+                "UPDATE metrics SET sharpness = ?, sharpness_subject = ? WHERE photo_id = ?",
+                [
+                    (global_value, subject_value, photo_id)
+                    for photo_id, global_value, subject_value in entries
+                ],
             )
 
     def update_subject_metrics(self, entries: Iterable[tuple[int, float, float, float]]) -> None:
@@ -639,7 +655,8 @@ class Repository:
     def get_selection(self, run_id: str) -> list[Photo]:
         rows = self.connection.execute(
             """
-            SELECT p.*, m.sharpness, m.sharpness_raw, m.blur_kind, m.blur_confidence,
+            SELECT p.*, m.sharpness, m.sharpness_raw, m.sharpness_subject, m.sharpness_subject_raw,
+                   m.bokeh, m.blur_kind, m.blur_confidence,
                    m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
                    m.subject_score, m.subject_rarity, m.exposure, s.rank, s.reason, s.quota_rule
             FROM selections s

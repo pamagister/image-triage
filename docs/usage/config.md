@@ -43,7 +43,6 @@ The generated `config.yaml` contains the same defaults.
 | composition_weight | float | `0.25` |
 | aesthetic_weight | float | `0.15` |
 | subject_weight | float | `0.15` |
-| blur_threshold | float | `0.15` |
 | min_score_5 | float | `0.75` |
 | min_score_4 | float | `0.45` |
 | sharpness_percentile | float | `90.0` |

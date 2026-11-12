@@ -231,12 +231,12 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 
 **Objective:** make the quality score respect intentional subject/background separation and stop misclassifying shallow depth of field as blur.
 
-- [ ] P2-W01: Add subject/saliency-aware sharpness computation using detection boxes and a saliency fallback.
-- [ ] P2-W02: Add a bokeh signal from background softness versus subject sharpness; treat it as neutral/positive.
-- [ ] P2-W03: Change the blur gate so only motion/defocus blur with sufficient confidence is penalised; low global sharpness alone no longer halves the score.
-- [ ] P2-W04: Update `Metrics`, scoring breakdown, report and GUI labels to expose sharpness, subject sharpness, bokeh and blur confidence.
-- [ ] P2-W05: Bump `METRIC_VERSION`, `SCORING_VERSION` and the analysis signature so existing libraries are recomputed once on the next scan.
-- [ ] P2-W06: Add synthetic regression tests for sharp subject/blurred background, motion blur, defocus blur and a fully sharp control image.
+- [x] P2-W01: Add subject/saliency-aware sharpness computation using detection boxes and a saliency fallback.
+- [x] P2-W02: Add a bokeh signal from background softness versus subject sharpness; treat it as neutral/positive.
+- [x] P2-W03: Change the blur gate so only motion/defocus blur with sufficient confidence is penalised; low global sharpness alone no longer halves the score.
+- [x] P2-W04: Update `Metrics`, scoring breakdown, report and GUI labels to expose sharpness, subject sharpness, bokeh and blur confidence.
+- [x] P2-W05: Bump `METRIC_VERSION`, `SCORING_VERSION` and the analysis signature so existing libraries are recomputed once on the next scan.
+- [x] P2-W06: Add synthetic regression tests for sharp subject/blurred background, motion blur, defocus blur and a fully sharp control image.
 
 **Acceptance criteria**
 

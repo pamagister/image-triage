@@ -8,7 +8,8 @@
   <div>
     <h2>Score {{ '%.3f'|format(photo.score) }} - rating {{ photo.rating }}/5</h2>
     <table>
-      <tr><th>Sharpness</th><td>{{ '%.3f'|format(photo.metrics.sharpness) }}</td></tr>
+      <tr><th>Sharpness</th><td>{{ '%.3f'|format(photo.metrics.sharpness) }} (subject {{ '%.3f'|format(photo.metrics.sharpness_subject) }})</td></tr>
+      <tr><th>Bokeh</th><td>{{ '%.2f'|format(photo.metrics.bokeh) }}</td></tr>
       <tr><th>Blur</th><td>{{ photo.metrics.blur_kind.value }} ({{ '%.2f'|format(photo.metrics.blur_confidence) }})</td></tr>
       <tr><th>Composition</th><td>{{ '%.3f'|format(photo.metrics.composition) }}</td></tr>
       <tr><th>Aesthetic</th><td>{{ '%.3f'|format(photo.metrics.aesthetic) }} ({{ photo.metrics.aesthetic_source }})</td></tr>

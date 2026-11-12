@@ -127,6 +127,42 @@ def test_score_is_deterministic_and_blurred_photos_are_gated() -> None:
     assert score_photo(blurry, settings).score < first.score
 
 
+def test_low_sharpness_alone_does_not_gate_but_real_blur_does() -> None:
+    """Shallow depth of field is not a defect; actual motion/defocus blur still gates."""
+    settings = load_settings(None)
+    bokeh = _photo(
+        "bokeh.jpg",
+        sharpness=0.02,
+        sharpness_subject=0.85,
+        composition=0.7,
+        aesthetic=0.6,
+        subject_score=0.5,
+    )
+    motion = _photo(
+        "motion.jpg",
+        sharpness=0.02,
+        sharpness_subject=0.02,
+        blur_kind=BlurKind.MOTION,
+        blur_confidence=0.9,
+        composition=0.7,
+        aesthetic=0.6,
+    )
+    low_confidence = _photo(
+        "soft.jpg",
+        sharpness=0.02,
+        sharpness_subject=0.02,
+        blur_kind=BlurKind.DEFOCUS,
+        blur_confidence=0.2,
+        composition=0.7,
+        aesthetic=0.6,
+    )
+
+    assert score_photo(bokeh, settings).blurry is False
+    assert score_photo(motion, settings).blurry is True
+    assert score_photo(low_confidence, settings).blurry is False
+    assert score_photo(motion, settings).score < score_photo(bokeh, settings).score
+
+
 def test_rating_rules() -> None:
     settings = load_settings(None)
     photos = [

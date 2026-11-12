@@ -18,6 +18,7 @@ from imagehash import phash as perceptual_hash
 from image_triage.core.errors import InputError, PartialFailure
 from image_triage.core.models import (
     METRIC_VERSION,
+    SCORING_VERSION,
     BlurKind,
     Detection,
     Metrics,
@@ -85,6 +86,7 @@ def analysis_signature(settings: Settings) -> str:
     payload: dict[str, Any] = {
         "metric_version": METRIC_VERSION,
         "composition_version": COMPOSITION_VERSION,
+        "scoring_version": SCORING_VERSION,
         "phash_version": "1.0.0",
         "preview_size": settings.analysis.preview_size,
         "draft": settings.analysis.draft,
@@ -134,7 +136,6 @@ def _analyze_one(
     scan = scan_file(path)
     preview = decode_preview(path, settings.analysis.preview_size, settings.analysis.draft)
     gray = np.asarray(preview.convert("L"))
-    sharpness = analyze_sharpness(gray)
     detections: list[Detection] = []
     embedding: list[float] | None = None
     if detector is not None:
@@ -142,6 +143,7 @@ def _analyze_one(
         detections = detected.detections
         if settings.analysis.save_embeddings:
             embedding = detected.embedding.astype(np.float32).tolist()
+    sharpness = analyze_sharpness(gray, [item.box for item in detections])
     composition, components = composition_score(gray, detections)
     aesthetic = aesthetic_score(
         preview,
@@ -152,6 +154,9 @@ def _analyze_one(
     metrics = Metrics(
         sharpness=0.0,
         sharpness_raw=sharpness.raw,
+        sharpness_subject=0.0,
+        sharpness_subject_raw=sharpness.subject_raw,
+        bokeh=sharpness.bokeh,
         blur_kind=sharpness.blur_kind,
         blur_confidence=sharpness.blur_confidence,
         composition=composition,
@@ -202,13 +207,21 @@ def _scan_paths(settings: Settings) -> tuple[Path, list[Path]]:
 def _normalize_metrics(repository: Repository, settings: Settings) -> None:
     photos = repository.all_photos()
     raw_values = [photo.metrics.sharpness_raw or photo.metrics.sharpness for photo in photos]
+    subject_values = [
+        photo.metrics.sharpness_subject_raw or photo.metrics.sharpness_subject for photo in photos
+    ]
     reference = (
         float(np.percentile(raw_values, settings.scoring.sharpness_percentile))
         if raw_values
         else 0.0
     )
+    subject_reference = (
+        float(np.percentile(subject_values, settings.scoring.sharpness_percentile))
+        if subject_values
+        else 0.0
+    )
     counts = label_counts(photos)
-    sharpness_updates: list[tuple[int, float]] = []
+    sharpness_updates: list[tuple[int, float, float]] = []
     subject_updates: list[tuple[int, float, float, float]] = []
     for photo in photos:
         if photo.id is None:
@@ -216,9 +229,16 @@ def _normalize_metrics(repository: Repository, settings: Settings) -> None:
         raw = photo.metrics.sharpness_raw or photo.metrics.sharpness
         normalized = float(np.clip(raw / reference, 0.0, 1.0)) if reference > 0 else 0.0
         photo.metrics.sharpness = normalized
+        raw_subject = photo.metrics.sharpness_subject_raw
+        normalized_subject = (
+            float(np.clip(raw_subject / subject_reference, 0.0, 1.0))
+            if subject_reference > 0
+            else normalized
+        )
+        photo.metrics.sharpness_subject = normalized_subject
         rarity = subject_rarity(photo.detections, counts)
         photo.metrics.subject_rarity = rarity
-        sharpness_updates.append((photo.id, normalized))
+        sharpness_updates.append((photo.id, normalized, normalized_subject))
         subject_updates.append(
             (photo.id, photo.metrics.subject_score, rarity, photo.metrics.aesthetic_source)
         )

@@ -60,7 +60,6 @@ class ScoringSettings(BaseModel):
     composition_weight: float = Field(0.25, ge=0.0)
     aesthetic_weight: float = Field(0.15, ge=0.0)
     subject_weight: float = Field(0.15, ge=0.0)
-    blur_threshold: float = Field(0.15, ge=0.0, le=1.0)
     min_score_5: float = Field(0.75, ge=0.0, le=1.0)
     min_score_4: float = Field(0.45, ge=0.0, le=1.0)
     sharpness_percentile: float = Field(90.0, ge=50.0, le=100.0)

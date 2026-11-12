@@ -78,7 +78,7 @@ def test_fresh_database_has_wal_and_schema(tmp_path: Path) -> None:
         version = repository.connection.execute(
             "SELECT value FROM schema_meta WHERE key = 'schema_version'"
         ).fetchone()[0]
-        assert version == "1"
+        assert version == "2"
         assert repository.connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         assert repository.connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
         assert repository.count_photos() == 0

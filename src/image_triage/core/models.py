@@ -6,10 +6,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
-SCHEMA_VERSION = 1
-SCORING_VERSION = "1.0.0"
+SCORING_VERSION = "1.1.0"
 SELECTION_VERSION = "1.0.0"
-METRIC_VERSION = "1.0.0"
+METRIC_VERSION = "1.1.0"
 GROUP_VERSION = "1.0.0"
 EVENT_VERSION = "1.0.0"
 
@@ -94,6 +93,9 @@ class Metrics:
 
     sharpness: float = 0.0
     sharpness_raw: float = 0.0
+    sharpness_subject: float = 0.0
+    sharpness_subject_raw: float = 0.0
+    bokeh: float = 0.0
     blur_kind: BlurKind = BlurKind.NONE
     blur_confidence: float = 0.0
     composition: float = 0.0
@@ -108,6 +110,9 @@ class Metrics:
         return {
             "sharpness": round(float(self.sharpness), 6),
             "sharpness_raw": round(float(self.sharpness_raw), 6),
+            "sharpness_subject": round(float(self.sharpness_subject), 6),
+            "sharpness_subject_raw": round(float(self.sharpness_subject_raw), 6),
+            "bokeh": round(float(self.bokeh), 6),
             "blur_kind": self.blur_kind.value,
             "blur_confidence": round(float(self.blur_confidence), 6),
             "composition": round(float(self.composition), 6),
