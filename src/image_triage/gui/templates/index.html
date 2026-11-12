@@ -21,6 +21,9 @@
     </select>
   </label>
   <label>Label <input name="label" value="{{ filters.label or '' }}"></label>
+  <label>From <input type="date" name="date_from" value="{{ filters.date_from or '' }}"></label>
+  <label>To <input type="date" name="date_to" value="{{ filters.date_to or '' }}"></label>
+  <label>Min score <input type="number" name="min_score" value="{{ filters.min_score if filters.min_score is not none else '' }}" min="0" max="1" step="0.01"></label>
   <label>Sort
     <select name="sort">
       <option value="taken" {% if sort == 'taken' %}selected{% endif %}>capture time</option>
@@ -52,8 +55,8 @@
 </ul>
 
 <nav class="pagination" aria-label="Pagination">
-  {% if page > 1 %}<a href="/?page={{ page - 1 }}&sort={{ sort }}">previous</a>{% endif %}
+  {% if page > 1 %}<a href="/?{{ base_query }}{% if base_query %}&amp;{% endif %}page={{ page - 1 }}">previous</a>{% endif %}
   <span>page {{ page }} / {{ pages }}</span>
-  {% if page < pages %}<a href="/?page={{ page + 1 }}&sort={{ sort }}">next</a>{% endif %}
+  {% if page < pages %}<a href="/?{{ base_query }}{% if base_query %}&amp;{% endif %}page={{ page + 1 }}">next</a>{% endif %}
 </nav>
 {% endblock %}

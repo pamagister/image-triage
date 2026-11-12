@@ -599,6 +599,49 @@ documentation agree.
 
 **Final phase gate:** The GUI is usable end to end on the sample library and all checks pass.
 
+### Phase 9 – GUI Startup and Requirements Hardening
+
+**Status:** `[-]` in progress
+**Issue:** [#14](https://github.com/pamagister/image-triage/issues/14)
+
+**Objective:** Close the remaining gaps found in a requirements audit of the Phase 8 web GUI,
+especially the documented module launcher, library filters, job semantics, override display and
+events-page scalability.
+
+- [x] P9-W01: Remove the obsolete tracked sample directories `images/testimages_3/`,
+  `images/testimages_4/` and `images/testimages_5/` after confirming that no source, test or
+  documentation references them.
+- [x] P9-W02: Add `python -m image_triage.gui` support and verify all documented launch paths
+  (`python -m image_triage.gui`, `image-triage gui`, installed `image-triage-gui`) start the same
+  local server.
+- [x] P9-W03: Complete the library filter surface with date-from, date-to and minimum-score
+  filters; make sorting and pagination preserve every active filter.
+- [x] P9-W04: Fix GUI job semantics: export the latest selection rather than the latest run, fail
+  clearly when no selection exists, report useful analysis progress, and refresh running jobs.
+- [x] P9-W05: Show the current rating and keep/reject override on the photo page and keep the form
+  state consistent with the stored values.
+- [x] P9-W06: Query only GPS-bearing photo columns for the events scatter and handle one-point and
+  zero-span ranges without collapsing the marker into a corner.
+- [x] P9-W07: Add regression tests for the module launcher, filters/pagination, job export behavior
+  and override display; update GUI documentation and run the full verification suite.
+
+**Acceptance criteria**
+
+- The module launcher and console launchers start the same application and fail with a useful
+  message when GUI dependencies are unavailable.
+- All documented filters work together, and pagination/sort links retain them.
+- Photo detail displays the persisted override state; saving an override still round-trips.
+- GUI export uses the newest non-empty selection and reports an error for an empty library.
+- Running jobs expose progress and update without a manual restart.
+- The events page does not materialize full photo records and remains usable for sparse or
+  degenerate GPS data.
+- The obsolete sample directories are gone and the repository has no references to them.
+- `pytest`, ruff, deptry, mkdocs and package entry-point checks pass.
+
+**Phase gate:** The GUI is startable through every documented entry point and its core browsing,
+comparison, curation and job workflows satisfy the Phase 8 acceptance criteria at the documented
+scale.
+
 ---
 
 ## 5. Acceptance Criteria and Verification Expectations

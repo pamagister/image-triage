@@ -37,10 +37,12 @@ The model is stored under `res/yolo/` by default and is never committed to the r
 
 ## Optional web GUI
 
-The local web GUI is started with:
+The local web GUI is started with any of these equivalent commands:
 
 ```bash
+uv run python -m image_triage.gui
 uv run image-triage gui
+image-triage-gui  # after installation
 ```
 
 It binds to `127.0.0.1:8765` by default and has no authentication; it is intended for a single

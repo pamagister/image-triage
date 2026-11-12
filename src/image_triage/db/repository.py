@@ -229,6 +229,26 @@ class Repository:
         ).fetchall()
         return [self._row_to_photo(row) for row in rows]
 
+    def gps_points(self) -> list[dict[str, Any]]:
+        """Return lightweight GPS points for the events scatter plot."""
+        rows = self.connection.execute(
+            """
+            SELECT id, path, gps_lat, gps_lon
+            FROM photos
+            WHERE gps_lat IS NOT NULL AND gps_lon IS NOT NULL
+            ORDER BY taken, path
+            """
+        ).fetchall()
+        return [
+            {
+                "id": int(row["id"]),
+                "path": row["path"],
+                "lat": float(row["gps_lat"]),
+                "lon": float(row["gps_lon"]),
+            }
+            for row in rows
+        ]
+
     def _row_to_photo(self, row: sqlite3.Row) -> Photo:
         flags = json.loads(row["flags"] or "[]")
         components = json.loads(row["composition_components"] or "{}")
@@ -317,10 +337,10 @@ class Repository:
             )
             params.append(label)
         if date_from:
-            where.append("p.taken >= ?")
+            where.append("date(p.taken) >= ?")
             params.append(date_from)
         if date_to:
-            where.append("p.taken <= ?")
+            where.append("date(p.taken) <= ?")
             params.append(date_to)
         if min_score is not None:
             where.append("p.score >= ?")
@@ -590,6 +610,20 @@ class Repository:
     def latest_run(self) -> Run | None:
         row = self.connection.execute(
             "SELECT id FROM runs ORDER BY started_at DESC, id DESC LIMIT 1"
+        ).fetchone()
+        return self.get_run(row["id"]) if row else None
+
+    def latest_selection_run(self) -> Run | None:
+        """Return the newest run that actually stored a selection."""
+        row = self.connection.execute(
+            """
+            SELECT r.id
+            FROM runs r
+            JOIN selections s ON s.run_id = r.id
+            GROUP BY r.id
+            ORDER BY MAX(r.started_at) DESC, r.id DESC
+            LIMIT 1
+            """
         ).fetchone()
         return self.get_run(row["id"]) if row else None
 

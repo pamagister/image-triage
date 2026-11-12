@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import threading
+from datetime import date
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -40,12 +42,27 @@ def _media_path(settings: Settings, photo: Photo) -> Path:
 
 def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]) -> None:
     repository = Repository.open(settings.database_path)
+    last_progress = 0.0
     try:
-        repository.update_job(job_id, status="running", progress=0.1)
+        repository.update_job(job_id, status="running", progress=0.05)
         root = _input_root(settings)
         output = root / ".image-triage" / "gui-runs" / str(job_id)
+
+        def report_progress(event: dict[str, Any]) -> None:
+            nonlocal last_progress
+            if event.get("event") not in {"photo", "progress"}:
+                return
+            total = int(event.get("total") or 0)
+            done = int(event.get("done") or 0)
+            if total <= 0:
+                return
+            fraction = min(0.99, 0.05 + 0.9 * done / total)
+            if fraction >= last_progress + 0.01 or done == total:
+                repository.update_job(job_id, status="running", progress=fraction)
+                last_progress = fraction
+
         if kind == "analyze":
-            result = analyze_library(settings, repository)
+            result = analyze_library(settings, repository, progress=report_progress)
             summary = result.to_dict()
         elif kind == "select":
             result = run_pipeline(
@@ -54,11 +71,16 @@ def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]
                 output=output,
                 top_n=int(payload.get("top_n", settings.selection.top_n)),
                 export=False,
+                progress=report_progress,
             )
             summary = result.to_dict()
         elif kind == "export":
-            latest = repository.latest_run()
-            photos = repository.get_selection(latest.id) if latest else []
+            latest = repository.latest_selection_run()
+            if latest is None:
+                raise ValueError("no selection found; run select first")
+            photos = repository.get_selection(latest.id)
+            if not photos:
+                raise ValueError("latest selection is empty; run select again")
             exported = export_photos(photos, root, output, ExportMode(settings.report.export_mode))
             summary = {"exported": len(exported), "output": str(output)}
         else:
@@ -96,6 +118,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         event_id: int | None = None,
         label: str | None = None,
         q: str | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        min_score: float | None = None,
         sort: str = "taken",
         page: int = 1,
     ) -> HTMLResponse:
@@ -103,6 +128,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "rating": rating,
             "event_id": event_id,
             "label": label,
+            "date_from": date_from.isoformat() if date_from else None,
+            "date_to": date_to.isoformat() if date_to else None,
+            "min_score": min_score,
             "search": q,
         }
         total = repo.count_photos(**filters)
@@ -112,6 +140,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             **filters, sort=sort, limit=PER_PAGE, offset=(page - 1) * PER_PAGE
         )
         latest = repo.latest_run()
+        filter_values = {
+            "rating": rating,
+            "event_id": event_id,
+            "label": label,
+            "q": q,
+            "date_from": date_from,
+            "date_to": date_to,
+            "min_score": min_score,
+            "sort": sort,
+        }
+        base_query = urlencode(
+            [
+                (key, value.isoformat() if isinstance(value, date) else str(value))
+                for key, value in filter_values.items()
+                if value is not None and value != ""
+            ]
+        )
         return TEMPLATES.TemplateResponse(
             request,
             "index.html",
@@ -123,7 +168,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "pages": pages,
                 "sort": sort,
                 "latest_run": latest,
-                "filters": {"rating": rating, "event_id": event_id, "label": label, "q": q},
+                "filters": {
+                    "rating": rating,
+                    "event_id": event_id,
+                    "label": label,
+                    "q": q,
+                    "date_from": date_from,
+                    "date_to": date_to,
+                    "min_score": min_score,
+                },
+                "base_query": base_query,
             },
         )
 
@@ -142,7 +196,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return TEMPLATES.TemplateResponse(
             request,
             "photo.html",
-            {"photo": photo, "similar": similar, "overrides": repo.get_overrides()},
+            {
+                "photo": photo,
+                "similar": similar,
+                "override": next(
+                    (item for item in repo.get_overrides() if item.photo_id == photo_id),
+                    None,
+                ),
+            },
         )
 
     @app.get("/compare", response_class=HTMLResponse)
@@ -162,27 +223,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/events", response_class=HTMLResponse)
     def events(request: Request, repo: Repository = Depends(repository)) -> HTMLResponse:
         event_list = repo.events()
-        points = []
-        for photo in repo.all_photos():
-            if photo.gps_lat is not None and photo.gps_lon is not None:
-                points.append(
-                    {
-                        "lat": photo.gps_lat,
-                        "lon": photo.gps_lon,
-                        "label": photo.path,
-                        "id": photo.id,
-                    }
-                )
+        points = repo.gps_points()
         if points:
             min_lat = min(point["lat"] for point in points)
             max_lat = max(point["lat"] for point in points)
             min_lon = min(point["lon"] for point in points)
             max_lon = max(point["lon"] for point in points)
-            lat_span = max(1e-9, max_lat - min_lat)
-            lon_span = max(1e-9, max_lon - min_lon)
+            lat_span = max_lat - min_lat
+            lon_span = max_lon - min_lon
             for point in points:
-                point["x"] = (point["lon"] - min_lon) / lon_span * 100
-                point["y"] = (max_lat - point["lat"]) / lat_span * 100
+                point["x"] = (point["lon"] - min_lon) / lon_span * 100 if lon_span else 50.0
+                point["y"] = (max_lat - point["lat"]) / lat_span * 100 if lat_span else 50.0
         return TEMPLATES.TemplateResponse(
             request,
             "events.html",

@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Jobs - Image Triage{% endblock %}
+{% block head %}
+{% if jobs | selectattr('status', 'in', ['pending', 'running']) | list %}<meta http-equiv="refresh" content="2">{% endif %}
+{% endblock %}
 {% block content %}
 <h1>Jobs</h1>
 <form method="post" action="/jobs/start" class="filters">

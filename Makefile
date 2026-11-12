@@ -57,7 +57,7 @@ test: lint        ## Run tests and generate coverage report.
 .PHONY: build-win
 build-win:    ## Build the CLI and GUI executables for Windows.
 	uv run pyinstaller --onefile --paths src --name image-triage src/image_triage/__main__.py
-	uv run pyinstaller --onefile --windowed --paths src --name image-triage-gui src/image_triage/gui.py
+	uv run pyinstaller --onefile --windowed --paths src --name image-triage-gui src/image_triage/gui/__main__.py
 	rm -rf release
 	mkdir release
 	cp dist/image-triage.exe release
@@ -68,7 +68,7 @@ build-win:    ## Build the CLI and GUI executables for Windows.
 .PHONY: build-linux
 build-linux:    ## Build the CLI and GUI executables for Linux.
 	uv run pyinstaller --onefile --paths src --name image-triage src/image_triage/__main__.py
-	uv run pyinstaller --onefile --windowed --paths src --name image-triage-gui src/image_triage/gui.py
+	uv run pyinstaller --onefile --windowed --paths src --name image-triage-gui src/image_triage/gui/__main__.py
 
 	rm -rf release
 	mkdir release
@@ -81,7 +81,7 @@ build-linux:    ## Build the CLI and GUI executables for Linux.
 .PHONY: build-macos
 build-macos:    ## Build the CLI executable and GUI app bundle for macOS.
 	uv run pyinstaller --onefile --paths src --name image-triage src/image_triage/__main__.py
-	uv run pyinstaller --windowed --paths src --name "Image Triage" src/image_triage/gui.py
+	uv run pyinstaller --windowed --paths src --name "Image Triage" src/image_triage/gui/__main__.py
 
 	echo "Preparing release files"
 	# Prepare ZIP file for release

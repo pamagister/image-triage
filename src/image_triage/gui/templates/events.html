@@ -8,7 +8,7 @@
   <rect x="0" y="0" width="100" height="100" fill="#f4f4f4" stroke="#ccc"></rect>
   {% for point in points %}
   <circle cx="{{ '%.2f'|format(point.x) }}" cy="{{ '%.2f'|format(point.y) }}" r="1.2" fill="#2b6cb0">
-    <title>{{ point.label }}</title>
+    <title>{{ point.path }}</title>
   </circle>
   {% endfor %}
 </svg>

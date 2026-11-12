@@ -32,20 +32,25 @@
       {% endfor %}
     </ul>
     <h3>Soft override</h3>
+    {% if override %}
+    <p>Current: rating {{ override.rating if override.rating is not none else 'unchanged' }},
+      decision {{ 'keep' if override.keep is true else ('reject' if override.keep is false else 'unchanged') }}
+      ({{ override.source.value }})</p>
+    {% endif %}
     <form method="post" action="/photo/{{ photo.id }}/override">
       <label>Rating
         <select name="rating">
-          <option value="">unchanged</option>
+          <option value="" {% if not override or override.rating is none %}selected{% endif %}>unchanged</option>
           {% for value in [5, 4, 3, 2, 1] %}
-          <option value="{{ value }}">{{ value }}</option>
+          <option value="{{ value }}" {% if override and override.rating == value %}selected{% endif %}>{{ value }}</option>
           {% endfor %}
         </select>
       </label>
       <label>Decision
         <select name="keep">
-          <option value="">unchanged</option>
-          <option value="keep">keep</option>
-          <option value="reject">reject</option>
+          <option value="" {% if not override or override.keep is none %}selected{% endif %}>unchanged</option>
+          <option value="keep" {% if override and override.keep is true %}selected{% endif %}>keep</option>
+          <option value="reject" {% if override and override.keep is false %}selected{% endif %}>reject</option>
         </select>
       </label>
       <button type="submit">Save override</button>

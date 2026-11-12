@@ -137,8 +137,9 @@ See [`docs/usage/agents.md`](usage/agents.md) and the schemas published by `imag
 The local web GUI is implemented with FastAPI, Jinja and htmx. Start it with:
 
 ```bash
-uv sync --extra gui
-uv run image-triage gui
+uv sync
+uv run python -m image_triage.gui
+# or: uv run image-triage gui
 ```
 
 It provides library filtering, photo detail, comparison, soft rating/keep-reject overrides, an
