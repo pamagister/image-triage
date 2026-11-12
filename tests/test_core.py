@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -81,6 +82,24 @@ def test_fresh_database_has_wal_and_schema(tmp_path: Path) -> None:
         assert repository.connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         assert repository.connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
         assert repository.count_photos() == 0
+    finally:
+        repository.close()
+
+
+def test_connection_is_usable_from_another_thread(tmp_path: Path) -> None:
+    """FastAPI closes a request-scoped repository in a different threadpool worker."""
+    repository = Repository.open(tmp_path / "state.db")
+    try:
+        repository.upsert_photo(_photo())
+        results: list[int] = []
+
+        def read_rows() -> None:
+            results.append(repository.count_photos())
+
+        thread = threading.Thread(target=read_rows)
+        thread.start()
+        thread.join()
+        assert results == [1]
     finally:
         repository.close()
 

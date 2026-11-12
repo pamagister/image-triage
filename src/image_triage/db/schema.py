@@ -155,10 +155,16 @@ CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, id);
 
 
 def connect(db_path: str | Path) -> sqlite3.Connection:
-    """Open a SQLite connection with WAL, foreign keys and a busy timeout enabled."""
+    """Open a SQLite connection with WAL, foreign keys and a busy timeout enabled.
+
+    FastAPI runs sync endpoints in a threadpool, so a connection created while serving one
+    request can be used by a worker thread of another request. ``check_same_thread=False``
+    permits that, and callers must keep the rule of one connection per request or job so a
+    single connection is never used concurrently.
+    """
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(path, timeout=30.0)
+    connection = sqlite3.connect(path, timeout=30.0, check_same_thread=False)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA foreign_keys=ON")
