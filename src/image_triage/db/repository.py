@@ -339,32 +339,77 @@ class Repository:
     def _photo_filters(
         self,
         *,
-        rating: int | None = None,
-        event_id: int | None = None,
-        group_id: int | None = None,
-        label: str | None = None,
+        rating: int | Sequence[int] | None = None,
+        event_id: int | Sequence[int] | None = None,
+        group_id: int | Sequence[int] | None = None,
+        label: str | Sequence[str] | None = None,
         date_from: str | None = None,
         date_to: str | None = None,
         min_score: float | None = None,
         search: str | None = None,
         selected_run: str | None = None,
+        blur: str | Sequence[str] | None = None,
+        flags: str | Sequence[str] | None = None,
+        camera_make: str | Sequence[str] | None = None,
+        camera_model: str | Sequence[str] | None = None,
+        score_max: float | None = None,
+        sharpness_min: float | None = None,
+        aesthetic_min: float | None = None,
+        subject_min: float | None = None,
     ) -> tuple[list[str], list[Any]]:
+        def values(value: object) -> list[Any]:
+            """Accept a scalar or a sequence and return a non-empty list."""
+            if value is None:
+                return []
+            if isinstance(value, (str, int, float)):
+                return [] if value == "" else [value]
+            return [item for item in value if item is not None and item != ""]  # type: ignore[union-attr]
+
+        def quoted(column: str, items: list[Any]) -> str:
+            placeholders = ", ".join("?" for _ in items)
+            return f"{column} IN ({placeholders})"
+
         where: list[str] = []
         params: list[Any] = []
-        if rating is not None:
-            where.append("p.rating = ?")
-            params.append(rating)
-        if event_id is not None:
-            where.append("p.event_id = ?")
-            params.append(event_id)
-        if group_id is not None:
-            where.append("p.group_id = ?")
-            params.append(group_id)
-        if label:
+        ratings = values(rating)
+        if ratings:
+            where.append(quoted("p.rating", ratings))
+            params.extend(ratings)
+        event_ids = values(event_id)
+        if event_ids:
+            where.append(quoted("p.event_id", event_ids))
+            params.extend(event_ids)
+        group_ids = values(group_id)
+        if group_ids:
+            where.append(quoted("p.group_id", group_ids))
+            params.extend(group_ids)
+        labels = values(label)
+        if labels:
             where.append(
-                "EXISTS (SELECT 1 FROM detections d WHERE d.photo_id = p.id AND d.label = ?)"
+                "EXISTS (SELECT 1 FROM detections d WHERE d.photo_id = p.id AND "
+                + quoted("d.label", labels)
+                + ")"
             )
-            params.append(label)
+            params.extend(labels)
+        blur_kinds = values(blur)
+        if blur_kinds:
+            where.append(quoted("m.blur_kind", blur_kinds))
+            params.extend(blur_kinds)
+        photo_flags = values(flags)
+        if photo_flags:
+            clauses = " OR ".join(
+                "EXISTS (SELECT 1 FROM json_each(p.flags) WHERE value = ?)" for _ in photo_flags
+            )
+            where.append(f"({clauses})")
+            params.extend(photo_flags)
+        makes = values(camera_make)
+        if makes:
+            where.append(quoted("p.camera_make", makes))
+            params.extend(makes)
+        models = values(camera_model)
+        if models:
+            where.append(quoted("p.camera_model", models))
+            params.extend(models)
         if date_from:
             where.append("date(p.taken) >= ?")
             params.append(date_from)
@@ -374,6 +419,18 @@ class Repository:
         if min_score is not None:
             where.append("p.score >= ?")
             params.append(min_score)
+        if score_max is not None:
+            where.append("p.score <= ?")
+            params.append(score_max)
+        if sharpness_min is not None:
+            where.append("COALESCE(m.sharpness_subject, m.sharpness) >= ?")
+            params.append(sharpness_min)
+        if aesthetic_min is not None:
+            where.append("m.aesthetic >= ?")
+            params.append(aesthetic_min)
+        if subject_min is not None:
+            where.append("m.subject_score >= ?")
+            params.append(subject_min)
         if search:
             where.append("p.path LIKE ?")
             params.append(f"%{search}%")
@@ -387,15 +444,23 @@ class Repository:
     def count_photos(
         self,
         *,
-        rating: int | None = None,
-        event_id: int | None = None,
-        group_id: int | None = None,
-        label: str | None = None,
+        rating: int | Sequence[int] | None = None,
+        event_id: int | Sequence[int] | None = None,
+        group_id: int | Sequence[int] | None = None,
+        label: str | Sequence[str] | None = None,
         date_from: str | None = None,
         date_to: str | None = None,
         min_score: float | None = None,
         search: str | None = None,
         selected_run: str | None = None,
+        blur: str | Sequence[str] | None = None,
+        flags: str | Sequence[str] | None = None,
+        camera_make: str | Sequence[str] | None = None,
+        camera_model: str | Sequence[str] | None = None,
+        score_max: float | None = None,
+        sharpness_min: float | None = None,
+        aesthetic_min: float | None = None,
+        subject_min: float | None = None,
     ) -> int:
         """Count photos matching the GUI/CLI filters."""
         where, params = self._photo_filters(
@@ -408,8 +473,16 @@ class Repository:
             min_score=min_score,
             search=search,
             selected_run=selected_run,
+            blur=blur,
+            flags=flags,
+            camera_make=camera_make,
+            camera_model=camera_model,
+            score_max=score_max,
+            sharpness_min=sharpness_min,
+            aesthetic_min=aesthetic_min,
+            subject_min=subject_min,
         )
-        sql = "SELECT COUNT(*) AS n FROM photos p"
+        sql = "SELECT COUNT(*) AS n FROM photos p LEFT JOIN metrics m ON m.photo_id = p.id"
         if where:
             sql += " WHERE " + " AND ".join(where)
         return int(self.connection.execute(sql, params).fetchone()["n"])
@@ -417,16 +490,25 @@ class Repository:
     def list_photos(
         self,
         *,
-        rating: int | None = None,
-        event_id: int | None = None,
-        group_id: int | None = None,
-        label: str | None = None,
+        rating: int | Sequence[int] | None = None,
+        event_id: int | Sequence[int] | None = None,
+        group_id: int | Sequence[int] | None = None,
+        label: str | Sequence[str] | None = None,
         date_from: str | None = None,
         date_to: str | None = None,
         min_score: float | None = None,
         search: str | None = None,
         selected_run: str | None = None,
+        blur: str | Sequence[str] | None = None,
+        flags: str | Sequence[str] | None = None,
+        camera_make: str | Sequence[str] | None = None,
+        camera_model: str | Sequence[str] | None = None,
+        score_max: float | None = None,
+        sharpness_min: float | None = None,
+        aesthetic_min: float | None = None,
+        subject_min: float | None = None,
         sort: str = "taken",
+        order: str = "asc",
         limit: int | None = None,
         offset: int = 0,
     ) -> list[Photo]:
@@ -441,13 +523,29 @@ class Repository:
             min_score=min_score,
             search=search,
             selected_run=selected_run,
+            blur=blur,
+            flags=flags,
+            camera_make=camera_make,
+            camera_model=camera_model,
+            score_max=score_max,
+            sharpness_min=sharpness_min,
+            aesthetic_min=aesthetic_min,
+            subject_min=subject_min,
         )
-        order = {
-            "taken": "p.taken, p.path",
-            "path": "p.path",
-            "score": "p.score DESC, p.taken, p.path",
-            "rating": "p.rating DESC, p.score DESC, p.taken",
-        }.get(sort, "p.taken, p.path")
+        direction = "ASC" if order.lower().startswith("asc") else "DESC"
+        # ``key`` is the leading column, ``tie_breakers`` keep the order deterministic.
+        columns = {
+            "taken": ("p.taken", ["p.path"]),
+            "path": ("p.path", []),
+            "score": ("p.score", ["p.taken", "p.path"]),
+            "rating": ("p.rating", ["p.score", "p.taken"]),
+            "sharpness": ("COALESCE(m.sharpness_subject, m.sharpness)", ["p.taken", "p.path"]),
+            "bokeh": ("m.bokeh", ["p.taken", "p.path"]),
+            "aesthetic": ("m.aesthetic", ["p.taken", "p.path"]),
+            "subject": ("m.subject_score", ["p.taken", "p.path"]),
+        }
+        key, tie_breakers = columns.get(sort, columns["taken"])
+        order_by = ", ".join([f"{key} {direction}", *tie_breakers])
         sql = """
             SELECT p.*, m.sharpness, m.sharpness_raw, m.sharpness_subject, m.sharpness_subject_raw,
                    m.bokeh, m.blur_kind, m.blur_confidence,
@@ -458,12 +556,90 @@ class Repository:
             """
         if where:
             sql += " WHERE " + " AND ".join(where)
-        sql += f" ORDER BY {order}"
+        sql += f" ORDER BY {order_by}"
         if limit is not None:
             sql += " LIMIT ? OFFSET ?"
             params.extend([limit, offset])
         rows = self.connection.execute(sql, params).fetchall()
         return [self._row_to_photo(row) for row in rows]
+
+    def photo_ids(
+        self,
+        *,
+        rating: int | Sequence[int] | None = None,
+        event_id: int | Sequence[int] | None = None,
+        group_id: int | Sequence[int] | None = None,
+        label: str | Sequence[str] | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        min_score: float | None = None,
+        search: str | None = None,
+        blur: str | Sequence[str] | None = None,
+        flags: str | Sequence[str] | None = None,
+        camera_make: str | Sequence[str] | None = None,
+        camera_model: str | Sequence[str] | None = None,
+        score_max: float | None = None,
+        sharpness_min: float | None = None,
+        aesthetic_min: float | None = None,
+        subject_min: float | None = None,
+    ) -> list[int]:
+        """All photo ids matching the filters, regardless of pagination."""
+        where, params = self._photo_filters(
+            rating=rating,
+            event_id=event_id,
+            group_id=group_id,
+            label=label,
+            date_from=date_from,
+            date_to=date_to,
+            min_score=min_score,
+            search=search,
+            blur=blur,
+            flags=flags,
+            camera_make=camera_make,
+            camera_model=camera_model,
+            score_max=score_max,
+            sharpness_min=sharpness_min,
+            aesthetic_min=aesthetic_min,
+            subject_min=subject_min,
+        )
+        sql = "SELECT p.id FROM photos p LEFT JOIN metrics m ON m.photo_id = p.id"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        sql += " ORDER BY p.taken, p.path"
+        return [int(row["id"]) for row in self.connection.execute(sql, params).fetchall()]
+
+    def filter_options(self) -> dict[str, list[Any]]:
+        """Distinct values available for the multi-select filter controls."""
+        makes = [
+            row["value"]
+            for row in self.connection.execute(
+                "SELECT DISTINCT camera_make AS value FROM photos "
+                "WHERE camera_make IS NOT NULL AND camera_make != '' ORDER BY value"
+            )
+        ]
+        models = [
+            row["value"]
+            for row in self.connection.execute(
+                "SELECT DISTINCT camera_model AS value FROM photos "
+                "WHERE camera_model IS NOT NULL AND camera_model != '' ORDER BY value"
+            )
+        ]
+        return {"camera_make": makes, "camera_model": models}
+
+    def group_options(self) -> list[dict[str, Any]]:
+        """Similarity groups with their member counts, for the group filter."""
+        rows = self.connection.execute(
+            "SELECT g.id, g.member_count FROM groups g ORDER BY g.id"
+        ).fetchall()
+        return [{"id": int(row["id"]), "count": int(row["member_count"])} for row in rows]
+
+    def label_options(self) -> list[dict[str, Any]]:
+        """Detection labels with their photo counts, for the label filter."""
+        rows = self.connection.execute(
+            "SELECT label, COUNT(DISTINCT photo_id) AS n FROM detections "
+            "GROUP BY label ORDER BY n DESC, label"
+        ).fetchall()
+        return [{"label": row["label"], "count": int(row["n"])} for row in rows]
 
     def update_scores(self, entries: Iterable[tuple[int, float, int, str]]) -> None:
         """Update score, rating and flags for many photos."""

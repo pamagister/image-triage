@@ -273,12 +273,12 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 
 **Objective:** provide a flat, filterable tile view with all relevant metadata and multi-select filters.
 
-- [ ] P4-W01: Define a typed filter object covering rating, event, group, label, blur, flags, camera, date range, score/sharpness/aesthetic/subject ranges, search, sort and order.
-- [ ] P4-W02: Extend repository filtering with `IN` clauses for multi-value filters and add the missing sort options; keep count/list queries consistent.
-- [ ] P4-W03: Rebuild the filter form with multi-select controls, Apply/Reset, active-filter chips and a visible result count.
-- [ ] P4-W04: Render a flat responsive tile grid with image, path, rating, score, sharpness, blur, composition, aesthetic, subject, event, group, capture time, dimensions and flags.
-- [ ] P4-W05: Make empty optional query values safe server-side and client-side; ensure pagination and sort links preserve all active filters.
-- [ ] P4-W06: Add tests for multi-select rating (4 and 5), combined filters, empty fields, sorting and pagination.
+- [x] P4-W01: Define a typed filter object covering rating, event, group, label, blur, flags, camera, date range, score/sharpness/aesthetic/subject ranges, search, sort and order.
+- [x] P4-W02: Extend repository filtering with `IN` clauses for multi-value filters and add the missing sort options; keep count/list queries consistent.
+- [x] P4-W03: Rebuild the filter form with multi-select controls, Apply/Reset, active-filter chips and a visible result count.
+- [x] P4-W04: Render a flat responsive tile grid with image, path, rating, score, sharpness, blur, composition, aesthetic, subject, event, group, capture time, dimensions and flags.
+- [x] P4-W05: Make empty optional query values safe server-side and client-side; ensure pagination and sort links preserve all active filters.
+- [x] P4-W06: Add tests for multi-select rating (4 and 5), combined filters, empty fields, sorting and pagination.
 
 **Acceptance criteria**
 

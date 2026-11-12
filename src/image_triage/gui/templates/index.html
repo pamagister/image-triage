@@ -30,50 +30,95 @@
 {% endif %}
 
 <form method="get" action="/" class="filters" role="search">
-  <label>Search <input type="search" name="q" value="{{ filters.q or '' }}"></label>
+  <label>Search <input type="search" name="q" value="{{ search or '' }}"></label>
   <label>Rating
-    <select name="rating">
-      <option value="">any</option>
+    <select name="rating" multiple size="5">
       {% for value in [5, 4, 3, 2, 1] %}
-      <option value="{{ value }}" {% if filters.rating == value %}selected{% endif %}>{{ value }}</option>
+      <option value="{{ value }}" {% if value in filters.get('rating', []) %}selected{% endif %}>{{ value }}</option>
       {% endfor %}
     </select>
   </label>
   <label>Event
-    <select name="event_id">
-      <option value="">any</option>
+    <select name="event_id" multiple size="4">
       {% for event in events %}
-      <option value="{{ event.id }}" {% if filters.event_id == event.id %}selected{% endif %}>{{ event.label }} ({{ event.photo_count }})</option>
+      <option value="{{ event.id }}" {% if event.id in filters.get('event_id', []) %}selected{% endif %}>{{ event.label }} ({{ event.photo_count }})</option>
       {% endfor %}
     </select>
   </label>
-  <label>Label <input name="label" value="{{ filters.label or '' }}"></label>
-  <label>From <input type="date" name="date_from" value="{{ filters.date_from or '' }}"></label>
-  <label>To <input type="date" name="date_to" value="{{ filters.date_to or '' }}"></label>
-  <label>Min score <input type="number" name="min_score" value="{{ filters.min_score if filters.min_score is not none else '' }}" min="0" max="1" step="0.01"></label>
+  <label>Group
+    <select name="group_id" multiple size="4">
+      {% for group in groups %}
+      <option value="{{ group.id }}" {% if group.id in filters.get('group_id', []) %}selected{% endif %}>#{{ group.id }} ({{ group.count }})</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Label
+    <select name="label" multiple size="4">
+      {% for item in labels %}
+      <option value="{{ item.label }}" {% if item.label in filters.get('label', []) %}selected{% endif %}>{{ item.label }} ({{ item.count }})</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Blur
+    <select name="blur" multiple size="4">
+      {% for kind in blur_kinds %}
+      <option value="{{ kind }}" {% if kind in filters.get('blur', []) %}selected{% endif %}>{{ kind }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Camera make
+    <select name="camera_make" multiple size="3">
+      {% for make in filter_options.camera_make %}
+      <option value="{{ make }}" {% if make in filters.get('camera_make', []) %}selected{% endif %}>{{ make }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Camera model
+    <select name="camera_model" multiple size="3">
+      {% for model in filter_options.camera_model %}
+      <option value="{{ model }}" {% if model in filters.get('camera_model', []) %}selected{% endif %}>{{ model }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>From <input type="date" name="date_from" value="{{ filters.get('date_from', '') }}"></label>
+  <label>To <input type="date" name="date_to" value="{{ filters.get('date_to', '') }}"></label>
+  <label>Min score <input type="number" name="min_score" step="0.01" min="0" max="1" value="{{ filters.get('min_score', '') }}"></label>
+  <label>Max score <input type="number" name="score_max" step="0.01" min="0" max="1" value="{{ filters.get('score_max', '') }}"></label>
+  <label>Min sharpness <input type="number" name="sharpness_min" step="0.01" min="0" max="1" value="{{ filters.get('sharpness_min', '') }}"></label>
+  <label>Min aesthetic <input type="number" name="aesthetic_min" step="0.01" min="0" max="1" value="{{ filters.get('aesthetic_min', '') }}"></label>
+  <label>Min subject <input type="number" name="subject_min" step="0.01" min="0" max="1" value="{{ filters.get('subject_min', '') }}"></label>
   <label>Sort
     <select name="sort">
-      <option value="taken" {% if sort == 'taken' %}selected{% endif %}>capture time</option>
-      <option value="score" {% if sort == 'score' %}selected{% endif %}>score</option>
-      <option value="rating" {% if sort == 'rating' %}selected{% endif %}>rating</option>
-      <option value="path" {% if sort == 'path' %}selected{% endif %}>path</option>
+      {% for key, title in [('taken','capture time'),('score','score'),('rating','rating'),('sharpness','sharpness'),('bokeh','bokeh'),('aesthetic','aesthetic'),('subject','subject'),('path','path')] %}
+      <option value="{{ key }}" {% if sort == key %}selected{% endif %}>{{ title }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Order
+    <select name="order">
+      <option value="desc" {% if order == 'desc' %}selected{% endif %}>descending</option>
+      <option value="asc" {% if order == 'asc' %}selected{% endif %}>ascending</option>
     </select>
   </label>
   <button type="submit">Apply</button>
+  <a class="button-link" href="/">Reset</a>
 </form>
 
-<p>{{ total }} photos{% if latest_run %} - latest run {{ latest_run.id }} ({{ latest_run.status.value }}){% endif %}</p>
+<p>{{ total }} photos{% if filters %} matching {{ total }} of {{ status.stored }}{% endif %}{% if latest_run %} - latest run {{ latest_run.id }} ({{ latest_run.status.value }}){% endif %}</p>
 
 <ul class="grid">
   {% for photo in photos %}
-  <li class="card">
+  <li class="card" data-photo-id="{{ photo.id }}">
     <a href="/photo/{{ photo.id }}">
       <img src="/media/{{ photo.id }}" alt="{{ photo.path }}" loading="lazy">
     </a>
     <div class="meta">
       <div class="path" title="{{ photo.path }}">{{ photo.path }}</div>
       <div>rating {{ photo.rating }}/5 - score {{ '%.2f'|format(photo.score) }}</div>
+      <div>sharpness {{ '%.2f'|format(photo.metrics.sharpness) }} / subject {{ '%.2f'|format(photo.metrics.sharpness_subject) }}</div>
+      <div>bokeh {{ '%.2f'|format(photo.metrics.bokeh) }} - blur {{ photo.metrics.blur_kind.value }} ({{ '%.2f'|format(photo.metrics.blur_confidence) }})</div>
       <div>group {{ photo.group_id }} - event {{ photo.event_id }}</div>
+      <div>taken {{ photo.taken.strftime('%Y-%m-%d %H:%M') if photo.taken else 'unknown' }}</div>
     </div>
   </li>
   {% else %}

@@ -61,6 +61,20 @@ h1 { font-size: 1.6rem; }
   color: var(--muted);
 }
 
+.filters select[multiple] {
+  min-width: 9rem;
+  font-size: 0.85rem;
+}
+
+.button-link {
+  align-self: end;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--fg);
+  text-decoration: none;
+}
+
 input,
 select,
 button {

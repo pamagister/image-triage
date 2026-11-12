@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import threading
-from datetime import date
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -15,13 +13,14 @@ from fastapi.templating import Jinja2Templates
 
 from image_triage.analysis.analyze import analyze_library
 from image_triage.analysis.pipeline import run_pipeline
-from image_triage.core.models import ExportMode, OverrideSource, Photo
+from image_triage.core.models import BlurKind, ExportMode, OverrideSource, Photo
 from image_triage.core.settings import Settings, load_settings
 from image_triage.db.repository import Repository
 from image_triage.export.export import export_photos
 from image_triage.export.previews import preview_path
 from image_triage.grouping.build import build_groups_and_events
 from image_triage.gui.library_status import library_status, scan_paths
+from image_triage.gui.query import parse_photo_query
 from image_triage.io.scan import find_images
 from image_triage.scoring.score import score_library
 
@@ -208,34 +207,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         return RedirectResponse("/", status_code=303)
 
-    @app.get("/", response_class=HTMLResponse)
+    @app.get("/", response_class=HTMLResponse, response_model=None)
     def index(
         request: Request,
         repo: Repository = Depends(repository),
-        rating: int | None = None,
-        event_id: int | None = None,
-        label: str | None = None,
-        q: str | None = None,
-        date_from: date | None = None,
-        date_to: date | None = None,
-        min_score: float | None = None,
-        sort: str = "taken",
-        page: int = 1,
-    ) -> HTMLResponse:
-        filters = {
-            "rating": rating,
-            "event_id": event_id,
-            "label": label,
-            "date_from": date_from.isoformat() if date_from else None,
-            "date_to": date_to.isoformat() if date_to else None,
-            "min_score": min_score,
-            "search": q,
-        }
-        total = repo.count_photos(**filters)
+    ) -> HTMLResponse | RedirectResponse:
+        query = parse_photo_query(request.query_params)
+        total = repo.count_photos(**query.filters)
         pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
-        page = min(max(1, page), pages)
+        page = min(max(1, query.page), pages)
         photos = repo.list_photos(
-            **filters, sort=sort, limit=PER_PAGE, offset=(page - 1) * PER_PAGE
+            **query.filters,
+            sort=query.sort,
+            order=query.order,
+            limit=PER_PAGE,
+            offset=(page - 1) * PER_PAGE,
         )
         latest = repo.latest_run()
         status = library_status(_current_settings(request), repo)
@@ -248,48 +234,37 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 daemon=True,
             ).start()
             return RedirectResponse("/jobs", status_code=303)
-        filter_values = {
-            "rating": rating,
-            "event_id": event_id,
-            "label": label,
-            "q": q,
-            "date_from": date_from,
-            "date_to": date_to,
-            "min_score": min_score,
-            "sort": sort,
-        }
-        base_query = urlencode(
-            [
-                (key, value.isoformat() if isinstance(value, date) else str(value))
-                for key, value in filter_values.items()
-                if value is not None and value != ""
-            ]
-        )
+        active_jobs = _active_jobs(repo)
         return TEMPLATES.TemplateResponse(
             request,
             "index.html",
             {
                 "photos": photos,
                 "events": repo.events(),
+                "groups": repo.group_options(),
+                "labels": repo.label_options(),
+                "blur_kinds": [kind.value for kind in BlurKind],
                 "total": total,
                 "page": page,
                 "pages": pages,
-                "sort": sort,
+                "sort": query.sort,
+                "order": query.order,
                 "latest_run": latest,
-                "filters": {
-                    "rating": rating,
-                    "event_id": event_id,
-                    "label": label,
-                    "q": q,
-                    "date_from": date_from,
-                    "date_to": date_to,
-                    "min_score": min_score,
-                },
-                "base_query": base_query,
-                "active_jobs": _active_jobs(repo),
+                "filters": query.filters,
+                "search": query.search,
+                "base_query": query.base_query,
+                "active_jobs": active_jobs,
                 "status": status,
+                "filter_options": repo.filter_options(),
             },
         )
+
+    @app.get("/api/photo-ids")
+    def photo_ids(request: Request, repo: Repository = Depends(repository)) -> dict[str, Any]:
+        """All photo ids matching the current filters, across every page."""
+        query = parse_photo_query(request.query_params)
+        ids = repo.photo_ids(**query.filters)
+        return {"ids": ids, "total": len(ids)}
 
     @app.get("/photo/{photo_id}", response_class=HTMLResponse)
     def photo_detail(

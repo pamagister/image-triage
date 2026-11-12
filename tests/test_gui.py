@@ -158,6 +158,100 @@ def test_duplicate_scan_requests_do_not_start_parallel_jobs(
     assert len(scans) == 1
 
 
+def test_multi_select_rating_filter_returns_both_values(photo_dir: Path, tmp_path: Path) -> None:
+    settings = load_settings(
+        None,
+        {
+            "input": {"root": photo_dir, "db_path": tmp_path / "multi.db"},
+            "models": {"enabled": False},
+        },
+    )
+    with TestClient(create_app(settings)) as client:
+        client.post("/scan", follow_redirects=False)
+        _wait_for_terminal_job(client, settings)
+
+        repository = Repository.open(settings.database_path)
+        try:
+            ratings = sorted({photo.rating for photo in repository.all_photos()})
+        finally:
+            repository.close()
+        assert len(ratings) >= 1
+
+        all_ids = client.get("/api/photo-ids").json()["ids"]
+        assert len(all_ids) == 4
+
+        # Selecting every rating at once must return every photo.
+        query = "&".join(f"rating={value}" for value in ratings)
+        multi = client.get(f"/api/photo-ids?{query}").json()
+        assert sorted(multi["ids"]) == sorted(all_ids)
+
+        # A single value returns strictly fewer, proving the values are not merged.
+        single = client.get(f"/api/photo-ids?rating={ratings[0]}").json()
+        assert 0 < single["total"] <= len(all_ids)
+
+        # A combination that matches nothing is still a valid, non-error response.
+        none = client.get("/api/photo-ids?rating=5&min_score=0.99").json()
+        assert none["total"] == 0
+
+
+def test_empty_filter_fields_do_not_return_a_validation_error(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    with client:
+        response = client.get(
+            "/?rating=&event_id=&group_id=&label=&blur=&date_from=&date_to="
+            "&min_score=&score_max=&sharpness_min=&aesthetic_min=&subject_min="
+            "&camera_make=&camera_model=&q=&sort=&order=&page="
+        )
+        assert response.status_code == 200
+        assert b"detail" not in response.content
+        assert b"No photos found." not in response.content
+        assert b"4 photos" in response.content
+
+
+def test_filters_combine_and_sorting_is_applied(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    with client:
+        repository = Repository.open(settings.database_path)
+        try:
+            photos = repository.all_photos()
+        finally:
+            repository.close()
+
+        # Combine a rating with a score floor that cannot exclude anything.
+        top_rating = max(photo.rating for photo in photos)
+        combined = client.get(f"/api/photo-ids?rating={top_rating}&min_score=0")
+        assert combined.status_code == 200
+        expected = [photo.id for photo in photos if photo.rating == top_rating]
+        assert sorted(combined.json()["ids"]) == sorted(expected)
+        assert combined.json()["total"] == len(expected)
+
+        # A contradictory combination is a valid, empty result rather than an error.
+        contradictory = client.get(f"/api/photo-ids?rating={top_rating}&min_score=0.99")
+        assert contradictory.status_code == 200
+        assert contradictory.json()["total"] <= len(expected)
+
+        # Sorting is applied and the direction changes the order.
+        descending = client.get("/?sort=score&order=desc").content
+        ascending = client.get("/?sort=score&order=asc").content
+        assert descending != ascending
+        assert b'<option value="score" selected' in descending
+        assert b'<option value="desc" selected' in descending
+        assert b'<option value="asc" selected' in ascending
+
+
+def test_photo_ids_endpoint_spans_every_page(photo_dir: Path, tmp_path: Path, monkeypatch) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    monkeypatch.setattr("image_triage.gui.app.PER_PAGE", 1)
+    with client:
+        first_page = client.get("/?sort=path").content
+        assert b"page=2" in first_page
+        all_ids = client.get("/api/photo-ids").json()
+        assert all_ids["total"] == 4
+        assert all_ids["ids"] != []
+
+
 def test_media_is_served_concurrently_and_reports_missing_files(
     photo_dir: Path, tmp_path: Path
 ) -> None:

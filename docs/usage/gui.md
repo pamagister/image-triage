@@ -21,8 +21,11 @@ folders also switches to that folder's own analysis history.
   directories (`.git`, `.venv`, `htmlcov`, caches, IDE folders) are never scanned.
 - **Library** - flat grid of every analyzed photo. An empty library is scanned automatically;
   when files were added, changed or removed the page shows a stale-library banner with a
-  **Scan library** button. Filter by search, rating, event, label, capture date and minimum
-  score, sort the result, and page through it with the active filters preserved.
+  **Scan library** button. Filter by search, rating, event, group, label, blur, camera make and
+  model (all multi-select), capture-date range, score/sharpness/aesthetic/subject ranges; sort by
+  capture time, score, rating, sharpness, bokeh, aesthetic or subject in either direction, and
+  page through the result with the active filters preserved. Every tile shows score, rating,
+  global and subject sharpness, bokeh, blur, group, event and capture time.
 - **Photo detail** - image, global and subject sharpness, bokeh, blur, composition breakdown,
   detections, similar shots, the current soft rating/keep/reject override and a form to change it.
 - **Compare** - side-by-side view of similar shots with their metric tables.
