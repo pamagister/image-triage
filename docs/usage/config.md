@@ -1,6 +1,6 @@
 # Configuration
 
-Configuration precedence is **CLI options > `IMAGE_TRIAGE_*` environment variables > `image-triage.yaml` > defaults**. Nested environment variables use `__`, for example `IMAGE_TRIAGE_SCORING__SHARPNESS_WEIGHT=0.5`.
+Configuration precedence is **CLI options > `IMAGE_TRIAGE_*` environment variables > project `image-triage.yaml` > central appdata `config.yaml` > defaults**. Nested environment variables use `__`, for example `IMAGE_TRIAGE_SCORING__SHARPNESS_WEIGHT=0.5`.
 
 Generate a starter file with `image-triage config init`, inspect the effective values with `image-triage config show`, and validate them with `image-triage config validate`.
 
@@ -14,12 +14,22 @@ The generated `config.yaml` contains the same defaults.
 | max_workers | UnionType[int, NoneType] | `null` |
 | strict | bool | `false` |
 
+## "storage" {#storage}
+
+| Name | Type | Default |
+|---|---|---|
+| config_dir | UnionType[Path, NoneType] | `null` |
+| data_dir | UnionType[Path, NoneType] | `null` |
+| cache_dir | UnionType[Path, NoneType] | `null` |
+
 ## "input" {#input}
 
 | Name | Type | Default |
 |---|---|---|
 | root | Path | `.` |
+| roots | list[Path] | `[]` |
 | db_path | UnionType[Path, NoneType] | `null` |
+| cache_dir | UnionType[Path, NoneType] | `null` |
 | exclude | list[str] | `[".image-triage", "selected", "previews"]` |
 | follow_symlinks | bool | `false` |
 
@@ -93,6 +103,25 @@ The generated `config.yaml` contains the same defaults.
 | csv_columns | UnionType[list[str], NoneType] | `null` |
 | export_mode | str | `"copy"` |
 
+## "export" {#export}
+
+| Name | Type | Default |
+|---|---|---|
+| mode | str | `"copy"` |
+| layout | str | `"flat"` |
+| rerender | bool | `false` |
+| max_long_edge | UnionType[int, NoneType] | `null` |
+| jpeg_quality | int | `85` |
+| destination | UnionType[Path, NoneType] | `null` |
+
+## "blur" {#blur}
+
+| Name | Type | Default |
+|---|---|---|
+| sharp_reference | float | `120.0` |
+| blur_reference | float | `5.0` |
+| floor | float | `0.02` |
+
 ## "gui" {#gui}
 
 | Name | Type | Default |
@@ -100,3 +129,5 @@ The generated `config.yaml` contains the same defaults.
 | host | str | `"127.0.0.1"` |
 | port | int | `8765` |
 | reload | bool | `false` |
+| default_view | str | `"flat"` |
+| tile_fields | list[str] | `["score", "rating", "taken"]` |

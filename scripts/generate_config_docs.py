@@ -55,7 +55,7 @@ def generate_config_doc() -> None:
         "# Configuration",
         "",
         "Configuration precedence is **CLI options > `IMAGE_TRIAGE_*` environment variables > "
-        "`image-triage.yaml` > defaults**. Nested environment variables use `__`, for example "
+        "project `image-triage.yaml` > central appdata `config.yaml` > defaults**. Nested environment variables use `__`, for example "
         "`IMAGE_TRIAGE_SCORING__SHARPNESS_WEIGHT=0.5`.",
         "",
         "Generate a starter file with `image-triage config init`, inspect the effective values "

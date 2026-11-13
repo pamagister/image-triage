@@ -7,6 +7,14 @@ import pytest
 from PIL import Image
 
 
+@pytest.fixture(autouse=True)
+def isolate_appdata(tmp_path, monkeypatch):
+    """Keep tests away from the developer's real appdata directories."""
+    monkeypatch.setenv("IMAGE_TRIAGE_CONFIG_DIR", str(tmp_path / "appdata" / "config"))
+    monkeypatch.setenv("IMAGE_TRIAGE_DATA_DIR", str(tmp_path / "appdata" / "data"))
+    monkeypatch.setenv("IMAGE_TRIAGE_CACHE_DIR", str(tmp_path / "appdata" / "cache"))
+
+
 def _scene(seed: int) -> np.ndarray:
     """Random rectangles: a detailed, sharp test scene."""
     rng = np.random.default_rng(seed)

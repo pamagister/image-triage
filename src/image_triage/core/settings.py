@@ -1,15 +1,17 @@
 """Typed configuration loaded from defaults, YAML, environment and CLI overrides.
 
-Precedence is: explicit CLI overrides > environment variables > YAML file > defaults.
-Environment variables use the ``IMAGE_TRIAGE_`` prefix and ``__`` between nested fields,
-for example ``IMAGE_TRIAGE_SCORING__SHARPNESS_WEIGHT=0.5``.
+Precedence is: explicit CLI overrides > environment variables > project YAML >
+central appdata YAML > defaults. Environment variables use the ``IMAGE_TRIAGE_`` prefix
+and ``__`` between nested fields, for example
+``IMAGE_TRIAGE_SCORING__SHARPNESS_WEIGHT=0.5``.
 """
 
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from blake3 import blake3
 from pydantic import BaseModel, Field, model_validator
@@ -19,6 +21,8 @@ from pydantic_settings import (
     SettingsConfigDict,
     YamlConfigSettingsSource,
 )
+
+from image_triage.core import appdata
 
 DEFAULT_CONFIG_NAME = "image-triage.yaml"
 ENV_PREFIX = "IMAGE_TRIAGE_"
@@ -32,11 +36,21 @@ class AppSettings(BaseModel):
     strict: bool = False
 
 
+class StorageSettings(BaseModel):
+    """Central appdata locations. ``None`` selects the platform default."""
+
+    config_dir: Path | None = None
+    data_dir: Path | None = None
+    cache_dir: Path | None = None
+
+
 class InputSettings(BaseModel):
-    """Input library and state database location."""
+    """Watched library roots and state database location."""
 
     root: Path = Path(".")
+    roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
+    cache_dir: Path | None = None
     exclude: list[str] = Field(default_factory=lambda: [".image-triage", "selected", "previews"])
     follow_symlinks: bool = False
 
@@ -131,6 +145,31 @@ class ModelsSettings(BaseModel):
     auto_download: bool = False
 
 
+class ExportSettings(BaseModel):
+    """Default export behavior used by the GUI and CLI."""
+
+    mode: str = Field("copy", pattern="^(copy|hardlink|symlink)$")
+    layout: str = Field("flat", pattern="^(flat|tree)$")
+    rerender: bool = False
+    max_long_edge: int | None = Field(None, ge=64, le=20000)
+    jpeg_quality: int = Field(85, ge=1, le=100)
+    destination: Path | None = None
+
+
+class BlurSettings(BaseModel):
+    """Calibration references for the absolute blur score."""
+
+    sharp_reference: float = Field(120.0, gt=0.0)
+    blur_reference: float = Field(5.0, gt=0.0)
+    floor: float = Field(0.02, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _references(self) -> BlurSettings:
+        if self.blur_reference >= self.sharp_reference:
+            raise ValueError("blur_reference must be smaller than sharp_reference")
+        return self
+
+
 class ReportSettings(BaseModel):
     """Report and preview generation."""
 
@@ -143,11 +182,13 @@ class ReportSettings(BaseModel):
 
 
 class GuiSettings(BaseModel):
-    """Local web GUI binding."""
+    """Local web GUI binding and library presentation."""
 
     host: str = "127.0.0.1"
     port: int = Field(8765, ge=1, le=65535)
     reload: bool = False
+    default_view: str = Field("flat", pattern="^(flat|folders)$")
+    tile_fields: list[str] = Field(default_factory=lambda: ["score", "rating", "taken"])
 
 
 class Settings(BaseSettings):
@@ -162,6 +203,7 @@ class Settings(BaseSettings):
     )
 
     app: AppSettings = Field(default_factory=AppSettings)
+    storage: StorageSettings = Field(default_factory=StorageSettings)
     input: InputSettings = Field(default_factory=InputSettings)
     analysis: AnalysisSettings = Field(default_factory=AnalysisSettings)
     scoring: ScoringSettings = Field(default_factory=ScoringSettings)
@@ -169,6 +211,8 @@ class Settings(BaseSettings):
     selection: SelectionSettings = Field(default_factory=SelectionSettings)
     models: ModelsSettings = Field(default_factory=ModelsSettings)
     report: ReportSettings = Field(default_factory=ReportSettings)
+    export: ExportSettings = Field(default_factory=ExportSettings)
+    blur: BlurSettings = Field(default_factory=BlurSettings)
     gui: GuiSettings = Field(default_factory=GuiSettings)
 
     @classmethod
@@ -189,12 +233,46 @@ class Settings(BaseSettings):
         )
 
     @property
+    def config_path(self) -> Path:
+        """Absolute path of the central YAML configuration."""
+        if self.storage.config_dir is not None:
+            return (self.storage.config_dir / appdata.CONFIG_FILE_NAME).expanduser().resolve()
+        return appdata.config_file().resolve()
+
+    @property
     def database_path(self) -> Path:
         """Absolute path of the SQLite state database."""
         configured = self.input.db_path
         if configured is not None:
             return configured.expanduser().resolve()
-        return (self.input.root / ".image-triage" / "triage.db").expanduser().resolve()
+        if self.storage.data_dir is not None:
+            return (self.storage.data_dir / appdata.DATABASE_FILE_NAME).expanduser().resolve()
+        return appdata.database_file().resolve()
+
+    @property
+    def cache_path(self) -> Path:
+        """Absolute path of the derived-data cache."""
+        configured = self.input.cache_dir
+        if configured is not None:
+            return configured.expanduser().resolve()
+        if self.storage.cache_dir is not None:
+            return (self.storage.cache_dir).expanduser().resolve()
+        return appdata.cache_dir().resolve()
+
+    @property
+    def watched_roots(self) -> list[Path]:
+        """Configured roots, falling back to the single legacy ``input.root``."""
+        roots = [path.expanduser().resolve() for path in self.input.roots if str(path).strip()]
+        if roots:
+            return roots
+        return [self.input.root.expanduser().resolve()]
+
+    def export_destination(self, now: datetime | None = None) -> Path:
+        """Default timestamped export directory under appdata."""
+        if self.export.destination is not None:
+            return self.export.destination.expanduser().resolve()
+        stamp = (now or datetime.now()).strftime("%Y-%m-%d_%H-%M")
+        return appdata.default_export_root() / f"export_{stamp}"
 
     def fingerprint(self) -> str:
         """Stable hash of the effective configuration, used for reproducibility."""
@@ -228,24 +306,41 @@ def load_settings(
     """Load settings with documented precedence.
 
     Args:
-        config_path: YAML file to read. Defaults to ``image-triage.yaml`` in the CWD.
+        config_path: Project YAML file. Defaults to ``image-triage.yaml`` in the CWD.
+            The central appdata configuration is always layered underneath it.
         overrides: Nested CLI overrides (highest priority).
         **kwargs: Additional explicit values, merged with ``overrides``.
 
     Returns:
         A validated :class:`Settings` instance.
     """
-    yaml_file = Path(config_path) if config_path is not None else Path(DEFAULT_CONFIG_NAME)
+    project = Path(config_path) if config_path is not None else Path(DEFAULT_CONFIG_NAME)
+    layer_paths = [appdata.config_file(), project]
     merged = dict(overrides or {})
     merged.update(kwargs)
 
     class ConfiguredSettings(Settings):
-        model_config = SettingsConfigDict(
-            env_prefix=ENV_PREFIX,
-            env_nested_delimiter="__",
-            extra="ignore",
-            yaml_file=str(yaml_file),
-            yaml_file_encoding="utf-8",
-        )
+        _yaml_paths: ClassVar[list[Path]] = layer_paths
+
+        @classmethod
+        def settings_customise_sources(
+            cls,
+            settings_cls: type[BaseSettings],
+            init_settings: PydanticBaseSettingsSource,
+            env_settings: PydanticBaseSettingsSource,
+            dotenv_settings: PydanticBaseSettingsSource,
+            file_secret_settings: PydanticBaseSettingsSource,
+        ) -> tuple[PydanticBaseSettingsSource, ...]:
+            return (
+                init_settings,
+                env_settings,
+                YamlConfigSettingsSource(
+                    settings_cls,
+                    yaml_file=cls._yaml_paths,
+                    deep_merge=True,
+                    yaml_file_encoding="utf-8",
+                ),
+                file_secret_settings,
+            )
 
     return ConfiguredSettings(**merged)

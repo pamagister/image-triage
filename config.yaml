@@ -4,9 +4,15 @@ app:
   log_level: INFO
   max_workers: null
   strict: false
+storage:
+  config_dir: null
+  data_dir: null
+  cache_dir: null
 input:
   root: .
+  roots: []
   db_path: null
+  cache_dir: null
   exclude:
   - .image-triage
   - selected
@@ -74,7 +80,23 @@ report:
   webp_quality: 80
   csv_columns: null
   export_mode: copy
+export:
+  mode: copy
+  layout: flat
+  rerender: false
+  max_long_edge: null
+  jpeg_quality: 85
+  destination: null
+blur:
+  sharp_reference: 120.0
+  blur_reference: 5.0
+  floor: 0.02
 gui:
   host: 127.0.0.1
   port: 8765
   reload: false
+  default_view: flat
+  tile_fields:
+  - score
+  - rating
+  - taken
