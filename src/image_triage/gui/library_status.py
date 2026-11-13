@@ -1,8 +1,9 @@
 """Detect whether a photo library is empty, current or stale across all roots.
 
-The check is advisory: it compares stored locations and file mtimes against the analysis
-timestamp. A full scan still recomputes digests, so a change that preserves mtime is only
-picked up by an explicit scan.
+The check is advisory: it compares the files on disk with the mtime recorded by the last
+scan. A full scan still recomputes digests, so a change that preserves mtime is only picked
+up by an explicit scan. Locations migrated from the legacy single-root schema have no stored
+mtime and fall back to their analysis timestamp.
 """
 
 from __future__ import annotations
@@ -80,16 +81,21 @@ def library_status(settings: Settings, repository: Repository) -> LibraryStatus:
         if not value["available"]:
             changed.add(key)
             continue
-        analyzed_at = _analyzed_at(value["analyzed_at"])
-        if analyzed_at is None:
-            changed.add(key)
-            continue
         root, relative = key
         try:
             modified = datetime.fromtimestamp((Path(root) / relative).stat().st_mtime)
         except OSError:
             continue
-        if modified.timestamp() > analyzed_at.timestamp() + 1.0:
+        stored_mtime = value["mtime"]
+        if stored_mtime is None:
+            analyzed_at = _analyzed_at(value["analyzed_at"])
+            if analyzed_at is None:
+                changed.add(key)
+                continue
+            reference = analyzed_at.timestamp()
+        else:
+            reference = float(stored_mtime)
+        if abs(modified.timestamp() - reference) > 1.0:
             changed.add(key)
     missing = {key for key in known - files if stored_map[key]["available"]}
     return LibraryStatus(

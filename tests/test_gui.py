@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import runpy
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -105,6 +106,56 @@ def test_stale_library_reports_new_changed_and_missing(photo_dir: Path, tmp_path
 
         assert client.get("/").status_code == 200
         assert b"Library is out of date" not in client.get("/").content
+
+
+def test_scan_clears_an_mtime_only_change(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    target = photo_dir / "burst_sharp.jpg"
+    future = datetime.now(UTC).timestamp() + 60
+    os.utime(target, (future, future))
+
+    with client:
+        response = client.get("/")
+        assert response.status_code == 200
+        assert b"1 changed" in response.content
+
+        scanned = client.post("/scan", follow_redirects=False)
+        assert scanned.status_code == 303
+        job = _wait_for_terminal_job(client, settings)
+        assert job["kind"] == "scan" and job["status"] == "completed", job
+        assert job["result"]["analysis"]["reused"] == 4
+
+        page = client.get("/")
+        assert page.status_code == 200
+        assert b"Library is out of date" not in page.content
+
+
+def test_library_status_falls_back_to_analyzed_at_without_a_stored_mtime(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    repository = Repository.open(settings.database_path)
+    try:
+        stored = repository.location_paths()
+        key = (str(photo_dir.resolve()), "burst_sharp.jpg")
+        location = repository.location_by_id(stored[key]["id"])
+        assert location is not None
+        repository.upsert_location(
+            location.photo_id,
+            location.root_path,
+            location.relative_path,
+            analyzed_at=location.analyzed_at.isoformat() if location.analyzed_at else None,
+        )
+    finally:
+        repository.close()
+
+    future = datetime.now(UTC).timestamp() + 60
+    os.utime(photo_dir / "burst_sharp.jpg", (future, future))
+
+    with client:
+        response = client.get("/")
+        assert response.status_code == 200
+        assert b"1 changed" in response.content
 
 
 def test_scan_job_scores_without_a_separate_select(photo_dir: Path, tmp_path: Path) -> None:
