@@ -45,7 +45,7 @@ h1 { font-size: 1.6rem; }
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-  align-items: end;
+  align-items: flex-start;
   margin: 1rem 0;
   padding: 1rem;
   background: #fff;
@@ -67,7 +67,7 @@ h1 { font-size: 1.6rem; }
 }
 
 .button-link {
-  align-self: end;
+  align-self: flex-start;
   padding: 0.45rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: 5px;
@@ -112,6 +112,79 @@ button {
   border: 1px solid #feb2b2;
   border-radius: 8px;
   padding: 0.75rem 1rem;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.view-toggle a {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  text-decoration: none;
+  color: var(--accent);
+  background: #fff;
+}
+
+.view-toggle a[aria-current="page"] {
+  font-weight: 600;
+  border-color: var(--accent);
+}
+
+.library-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.library-layout > .grid {
+  grid-column: 2;
+}
+
+.folder-tree {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.folder-tree h2 {
+  font-size: 1rem;
+  margin-top: 0;
+}
+
+.folder-tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.folder-tree li {
+  padding: 0.15rem 0;
+}
+
+.folder-tree label {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.folder-tree .count {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 800px) {
+  .library-layout { grid-template-columns: 1fr; }
+  .library-layout > .grid { grid-column: 1; }
+  .folder-tree { position: static; }
 }
 
 .grid {
@@ -167,8 +240,13 @@ button {
   color: var(--muted);
 }
 
-.path {
+.name {
   color: var(--fg);
+  font-weight: 600;
+}
+
+.path {
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

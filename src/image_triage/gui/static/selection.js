@@ -34,6 +34,28 @@
     return params.toString();
   }
 
+  function updateFolderStates() {
+    document.querySelectorAll("[data-folder-select]").forEach(function (box) {
+      var root = box.getAttribute("data-root");
+      var folder = box.getAttribute("data-folder");
+      var boxes = Array.from(
+        document.querySelectorAll("[data-select-photo]")
+      ).filter(function (item) {
+        var card = item.closest(".card");
+        return (
+          card &&
+          card.getAttribute("data-root") === root &&
+          card.getAttribute("data-folder") === folder
+        );
+      });
+      var checked = boxes.filter(function (item) {
+        return item.checked;
+      }).length;
+      box.checked = boxes.length > 0 && checked === boxes.length;
+      box.indeterminate = checked > 0 && checked < boxes.length;
+    });
+  }
+
   function applySelection(selected) {
     var chosen = new Set(selected);
     document.querySelectorAll("[data-select-photo]").forEach(function (box) {
@@ -43,6 +65,7 @@
     if (counter) {
       counter.textContent = String(chosen.size);
     }
+    updateFolderStates();
   }
 
   function toggle(id, on) {
@@ -83,6 +106,23 @@
       var box = event.target.closest("[data-select-photo]");
       if (box) {
         toggle(Number(box.value), box.checked);
+        return;
+      }
+      var folder = event.target.closest("[data-folder-select]");
+      if (folder) {
+        var root = folder.getAttribute("data-root");
+        var target = folder.getAttribute("data-folder");
+        document.querySelectorAll("[data-select-photo]").forEach(function (item) {
+          var card = item.closest(".card");
+          if (
+            card &&
+            card.getAttribute("data-root") === root &&
+            card.getAttribute("data-folder") === target
+          ) {
+            toggle(Number(item.value), folder.checked);
+          }
+        });
+        applySelection(readSelected());
       }
     });
 

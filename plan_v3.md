@@ -1,6 +1,6 @@
 # Image Triage v3 - Multi-Root Library, Content Identity and Folder Workflow
 
-**Status:** `[ ]` planned
+**Status:** `[-]` in progress
 **Created:** 2026-11-12
 **Supersedes:** the GUI parts of `plan_v2.md` (completed). `plan_v2.md` remains the historical record.
 **Target:** turn the local GUI into a multi-root, content-addressed photo library with folder navigation, tri-state selection, flat/tree export with optional re-rendering, a configurable tile/metadata layout, and a calibrated blur score.
@@ -212,8 +212,8 @@ Proposed calibration:
 
 - `detail` is the subject-region Laplacian variance when detections exist, otherwise the global high-percentile value.
 - `blur_score = clamp(0.02 + 0.98 * (log(sharp_ref) - log(detail)) / (log(sharp_ref) - log(blur_ref)), 0, 1)`
-- `sharp_ref = 1000.0`, `blur_ref = 5.0`.
-- A sharp photo lands around 0.02-0.25; a soft or blurred photo lands around 0.6-1.0.
+- `sharp_ref = 120.0`, `blur_ref = 5.0` (calibrated against the sample library so sharp photo fixtures score below 0.3).
+- A sharp photo lands around 0.02-0.3; a soft or blurred photo lands around 0.6-1.0.
 - The score has no dead zone: every analyzed photo receives a value.
 - `blur_kind` and `blur_confidence` remain for defect classification and for the existing motion/defocus gate.
 - The scoring gate is unchanged: only motion or defocus with confidence >= 0.5 halves the score.
@@ -247,16 +247,18 @@ Behavior:
 
 ## 4. Phases and work packages
 
-### Phase 1 - Foundation: appdata, configuration and content-addressed schema
+### Phase 1 - Foundation: appdata, configuration and content-addressed schema `[-]`
+
+Tracking issue: #16
 
 **Objective:** establish central storage and the data model before changing the UI.
 
-- [ ] P1-W01: Add appdata path helpers for config, data and cache, with environment overrides and platform-specific defaults.
-- [ ] P1-W02: Extend the settings model with `roots`, storage paths, export defaults, GUI tile fields and blur references; update precedence and `make syncdocs`.
-- [ ] P1-W03: Add schema v3: `roots`, `photo_locations`, content-addressed `photos`, `metrics.blur_score`, and a forward migration from v2.
-- [ ] P1-W04: Extend the repository with content upsert by digest, location upsert/move/missing, content-plus-location queries, folder counts and location-aware filters.
-- [ ] P1-W05: Create the central database on first run, sync configured roots into the `roots` table, and leave old per-library databases untouched; update `doctor` output.
-- [ ] P1-W06: Add tests for appdata paths, config precedence, schema migration, deduplication, moved files, changed files and missing locations.
+- [x] P1-W01: Add appdata path helpers for config, data and cache, with environment overrides and platform-specific defaults.
+- [x] P1-W02: Extend the settings model with `roots`, storage paths, export defaults, GUI tile fields and blur references; update precedence and `make syncdocs`.
+- [x] P1-W03: Add schema v3: `roots`, `photo_locations`, content-addressed `photos`, `metrics.blur_score`, and a forward migration from v2.
+- [x] P1-W04: Extend the repository with content upsert by digest, location upsert/move/missing, content-plus-location queries, folder counts and location-aware filters.
+- [x] P1-W05: Create the central database on first run, sync configured roots into the `roots` table, and leave old per-library databases untouched; update `doctor` output.
+- [x] P1-W06: Add tests for appdata paths, config precedence, schema migration, deduplication, moved files, changed files and missing locations.
 
 **Acceptance criteria**
 
@@ -268,16 +270,16 @@ Behavior:
 
 **Phase gate:** the schema and repository behavior are stable and covered by tests before UI work starts.
 
-### Phase 2 - Multi-root scanning and content identity
+### Phase 2 - Multi-root scanning and content identity `[-]`
 
 **Objective:** make scanning operate on all watched roots without duplicate analysis.
 
-- [ ] P2-W01: Implement root de-overlap and scan planning across all enabled roots.
-- [ ] P2-W02: Analyze every root, upsert content by digest and locations by root/path, and reconcile moved, changed, missing and orphaned records.
-- [ ] P2-W03: Extend `library_status` to report files, stored locations, new, changed, missing and unavailable across all roots.
-- [ ] P2-W04: Move preview and GUI run storage to the central cache.
-- [ ] P2-W05: Update the scan job and CLI multi-root behavior, including `--root` filtering.
-- [ ] P2-W06: Add tests for two-root scans, nested roots, duplicate content, moved files, changed files and missing files.
+- [x] P2-W01: Implement root de-overlap and scan planning across all enabled roots.
+- [x] P2-W02: Analyze every root, upsert content by digest and locations by root/path, and reconcile moved, changed, missing and orphaned records.
+- [x] P2-W03: Extend `library_status` to report files, stored locations, new, changed, missing and unavailable across all roots.
+- [x] P2-W04: Move preview and GUI run storage to the central cache.
+- [x] P2-W05: Update the scan job and CLI multi-root behavior, including `--root` filtering.
+- [x] P2-W06: Add tests for two-root scans, nested roots, duplicate content, moved files, changed files and missing files.
 
 **Acceptance criteria**
 
@@ -290,14 +292,14 @@ Behavior:
 
 **Phase gate:** multi-root scanning and content identity are proven before building the folder UI.
 
-### Phase 3 - Blur score rework
+### Phase 3 - Blur score rework `[-]`
 
 **Objective:** make blur information meaningful for every photo.
 
-- [ ] P3-W01: Implement the absolute `blur_score` formula and calibrate it against sharp, soft, motion-blurred, defocused and bokeh fixtures.
-- [ ] P3-W02: Persist `blur_score` in schema v3, expose it in the photo model, CSV, JSON report, photo detail and tile metadata.
-- [ ] P3-W03: Keep `blur_kind` and `blur_confidence` for defect classification; verify the scoring gate is unchanged.
-- [ ] P3-W04: Add regression tests for the score range, bokeh images, motion blur, defocus blur and the no-dead-zone requirement.
+- [x] P3-W01: Implement the absolute `blur_score` formula and calibrate it against sharp, soft, motion-blurred, defocused and bokeh fixtures.
+- [x] P3-W02: Persist `blur_score` in schema v3, expose it in the photo model, CSV, JSON report, photo detail and tile metadata.
+- [x] P3-W03: Keep `blur_kind` and `blur_confidence` for defect classification; verify the scoring gate is unchanged.
+- [x] P3-W04: Add regression tests for the score range, bokeh images, motion blur, defocus blur and the no-dead-zone requirement.
 
 **Acceptance criteria**
 
@@ -309,16 +311,16 @@ Behavior:
 
 **Phase gate:** blur metrics are stable before they appear throughout the UI.
 
-### Phase 4 - Library UI: filters, folder view, tile metadata
+### Phase 4 - Library UI: filters, folder view, tile metadata `[-]`
 
 **Objective:** deliver the new library experience.
 
-- [ ] P4-W01: Top-align the filter and search fields in one block.
-- [ ] P4-W02: Add the flat/folder view toggle, with flat as the default.
-- [ ] P4-W03: Add the folder tree with photo counts that respect the active filters; hide folders without photos.
-- [ ] P4-W04: Add tri-state folder selection (checked, unchecked, indeterminate) and a "Select all / Clear" menu.
-- [ ] P4-W05: Change the tile header to file name only, with the path on a separate line; render opt-in metadata fields.
-- [ ] P4-W06: Add tests for filter alignment markup, view switching, folder counts, tri-state data and metadata rendering.
+- [x] P4-W01: Top-align the filter and search fields in one block.
+- [x] P4-W02: Add the flat/folder view toggle, with flat as the default.
+- [x] P4-W03: Add the folder tree with photo counts that respect the active filters; hide folders without photos.
+- [x] P4-W04: Add tri-state folder selection (checked, unchecked, indeterminate) and a "Select all / Clear" menu.
+- [x] P4-W05: Change the tile header to file name only, with the path on a separate line; render opt-in metadata fields.
+- [x] P4-W06: Add tests for filter alignment markup, view switching, folder counts, tri-state data and metadata rendering.
 
 **Acceptance criteria**
 
@@ -331,17 +333,17 @@ Behavior:
 
 **Phase gate:** the library workflow is usable before export and settings work.
 
-### Phase 5 - Selection, export and settings page
+### Phase 5 - Selection, export and settings page `[-]`
 
 **Objective:** complete the curate-and-export workflow and central configuration.
 
-- [ ] P5-W01: Add location-based selection endpoints and wire the existing selection UI to location ids.
-- [ ] P5-W02: Implement flat and tree export, including deterministic collision naming.
-- [ ] P5-W03: Implement optional JPEG re-rendering with maximum long edge, quality, EXIF/ICC preservation and forced copy mode.
-- [ ] P5-W04: Add export guards, missing-source reporting and a detailed job result.
-- [ ] P5-W05: Build the Settings page for roots, exclusions, display, export, scoring, analysis and blur settings.
-- [ ] P5-W06: Add atomic settings persistence, validation, the active-job guard and rescan prompts.
-- [ ] P5-W07: Add tests for selection, flat/tree export, collisions, re-rendering, EXIF, guards, settings persistence and validation.
+- [x] P5-W01: Add location-based selection endpoints and wire the existing selection UI to location ids.
+- [x] P5-W02: Implement flat and tree export, including deterministic collision naming.
+- [x] P5-W03: Implement optional JPEG re-rendering with maximum long edge, quality, EXIF/ICC preservation and forced copy mode.
+- [x] P5-W04: Add export guards, missing-source reporting and a detailed job result.
+- [x] P5-W05: Build the Settings page for roots, exclusions, display, export, scoring, analysis and blur settings.
+- [x] P5-W06: Add atomic settings persistence, validation, the active-job guard and rescan prompts.
+- [x] P5-W07: Add tests for selection, flat/tree export, collisions, re-rendering, EXIF, guards, settings persistence and validation.
 
 **Acceptance criteria**
 
@@ -354,13 +356,13 @@ Behavior:
 
 **Phase gate:** the full curate-and-export workflow works without CLI commands.
 
-### Phase 6 - Documentation, end-to-end verification and release
+### Phase 6 - Documentation, end-to-end verification and release `[-]`
 
 **Objective:** document the new workflow and prove it on real multi-root data.
 
-- [ ] P6-W01: Update `docs/usage/gui.md`, `docs/getting-started/install.md`, `docs/usage/config.md` and the generated README content through `make syncdocs`.
-- [ ] P6-W02: Run `make fmt`, `make lint`, `make test`, `make deptry`, `mkdocs build`, the wheel build and the entry-point checks.
-- [ ] P6-W03: Perform an end-to-end walkthrough with two roots: duplicate content, moved file, changed file, missing file, folder view, tri-state selection, flat export, tree export, re-render and EXIF.
+- [x] P6-W01: Update `docs/usage/gui.md`, `docs/getting-started/install.md`, `docs/usage/config.md` and the generated README content through `make syncdocs`.
+- [-] P6-W02: Run `make fmt`, `make lint`, `make test`, `make deptry`, `mkdocs build`, the wheel build and the entry-point checks.
+- [-] P6-W03: Perform an end-to-end walkthrough with two roots: duplicate content, moved file, changed file, missing file, folder view, tri-state selection, flat export, tree export, re-render and EXIF.
 - [ ] P6-W04: Commit, push, confirm CI is green and close the tracking issue.
 
 **Acceptance criteria**
@@ -424,3 +426,9 @@ None blocking. The following assumptions are part of the plan:
 ## 7. Progress / handoff
 
 - 2026-11-12: Plan v3 created from the user's requirements and the Q&A decisions above. No implementation started.
+- 2026-11-13: Phases 1-5 implemented locally under issue #16: central appdata layout and layered
+  configuration, schema v3 with content identity and locations, multi-root scan/reconciliation,
+  absolute blur score, folder/flat library UI with tri-state selection, flat/tree export with
+  optional JPEG re-rendering, and a settings page. Phase 6 documentation and CI verification are
+  in progress. All 91 local tests pass and Ruff is clean. Commit/push and CI results will be
+  recorded here before marking the phases complete.

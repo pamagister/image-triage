@@ -3,6 +3,11 @@
 {% block content %}
 <h1>Library</h1>
 
+<p class="view-toggle">
+  <a href="{{ view_flat }}" {% if view == 'flat' %}aria-current="page"{% endif %}>Flat tiles</a>
+  <a href="{{ view_folders }}" {% if view == 'folders' %}aria-current="page"{% endif %}>Folder tree</a>
+</p>
+
 {% if status.stale %}
 <div class="banner" role="status">
   <strong>Library is out of date.</strong>
@@ -30,7 +35,17 @@
 {% endif %}
 
 <form method="get" action="/" class="filters" role="search">
+  <input type="hidden" name="view" value="{{ view }}">
+  {% if filters.get('folder') %}<input type="hidden" name="folder" value="{{ filters.get('folder')[0] }}">{% endif %}
   <label>Search <input type="search" name="q" value="{{ search or '' }}"></label>
+  <label>Root
+    <select name="root">
+      <option value="">all roots</option>
+      {% for item in roots %}
+      <option value="{{ item.path }}" {% if item.path in filters.get('root', []) %}selected{% endif %}>{{ item.path }} ({{ item.photos }})</option>
+      {% endfor %}
+    </select>
+  </label>
   <label>Rating
     <select name="rating" multiple size="5">
       {% for value in [5, 4, 3, 2, 1] %}
@@ -127,32 +142,69 @@
       <option value="symlink">symlink</option>
     </select>
   </label>
+  <label>Layout
+    <select name="layout">
+      <option value="flat">flat</option>
+      <option value="tree">folder tree</option>
+    </select>
+  </label>
+  <label><input type="checkbox" name="rerender" value="true"> Re-render JPEG</label>
+  <label>Max long edge <input type="number" name="max_long_edge" min="64" max="20000" placeholder="original"></label>
+  <label>JPEG quality <input type="number" name="jpeg_quality" min="1" max="100" placeholder="85"></label>
   <button type="submit" data-export-selected>Export selected</button>
   <button type="submit" data-export-all>Export all filtered</button>
 </form>
 
-<ul class="grid">
-  {% for photo in photos %}
-  <li class="card" data-photo-id="{{ photo.id }}">
-    <label class="select-box">
-      <input type="checkbox" data-select-photo value="{{ photo.id }}">
-    </label>
-    <a href="/photo/{{ photo.id }}">
-      <img src="/media/{{ photo.id }}" alt="{{ photo.path }}" loading="lazy">
-    </a>
-    <div class="meta">
-      <div class="path" title="{{ photo.path }}">{{ photo.path }}</div>
-      <div>rating {{ photo.rating }}/5 - score {{ '%.2f'|format(photo.score) }}</div>
-      <div>sharpness {{ '%.2f'|format(photo.metrics.sharpness) }} / subject {{ '%.2f'|format(photo.metrics.sharpness_subject) }}</div>
-      <div>bokeh {{ '%.2f'|format(photo.metrics.bokeh) }} - blur {{ photo.metrics.blur_kind.value }} ({{ '%.2f'|format(photo.metrics.blur_confidence) }})</div>
-      <div>group {{ photo.group_id }} - event {{ photo.event_id }}</div>
-      <div>taken {{ photo.taken.strftime('%Y-%m-%d %H:%M') if photo.taken else 'unknown' }}</div>
-    </div>
-  </li>
-  {% else %}
-  <li>No photos found.</li>
-  {% endfor %}
-</ul>
+<div class="library-layout">
+  {% if view == 'folders' %}
+  <aside class="folder-tree" aria-label="Folders">
+    <h2>Folders</h2>
+    <ul>
+      {% for item in folders %}
+      <li style="margin-left: {{ item.depth }}rem">
+        <label>
+          <input type="checkbox" data-folder-select data-root="{{ item.root }}" data-folder="{{ item.folder }}">
+          <a href="{{ item.url }}">{{ item.folder }}</a>
+          <span class="count">{{ item.count }}</span>
+        </label>
+      </li>
+      {% endfor %}
+    </ul>
+  </aside>
+  {% endif %}
+
+  <ul class="grid">
+    {% for photo in photos %}
+    <li class="card" data-photo-id="{{ photo.id }}" data-location-id="{{ photo.location_id or photo.id }}"
+        data-root="{{ photo.root_path }}" data-folder="{{ photo.folder }}">
+      <label class="select-box">
+        <input type="checkbox" data-select-photo value="{{ photo.location_id or photo.id }}">
+      </label>
+      <a href="/photo/{{ photo.id }}">
+        <img src="/media/location/{{ photo.location_id or photo.id }}" alt="{{ photo.name }}" loading="lazy">
+      </a>
+      <div class="meta">
+        <div class="name">{{ photo.name }}</div>
+        <div class="path" title="{{ photo.root_path }}/{{ photo.path }}">{{ photo.root_path }}/{{ photo.path }}</div>
+        {% if 'score' in tile_fields %}<div>score {{ '%.2f'|format(photo.score) }}</div>{% endif %}
+        {% if 'rating' in tile_fields %}<div>rating {{ photo.rating }}/5</div>{% endif %}
+        {% if 'taken' in tile_fields %}<div>taken {{ photo.taken.strftime('%Y-%m-%d %H:%M') if photo.taken else 'unknown' }}</div>{% endif %}
+        {% if 'sharpness' in tile_fields %}<div>sharpness {{ '%.2f'|format(photo.metrics.sharpness) }} / subject {{ '%.2f'|format(photo.metrics.sharpness_subject) }}</div>{% endif %}
+        {% if 'bokeh' in tile_fields %}<div>bokeh {{ '%.2f'|format(photo.metrics.bokeh) }}</div>{% endif %}
+        {% if 'blur' in tile_fields %}<div>blur {{ photo.metrics.blur_kind.value }} {{ '%.2f'|format(photo.metrics.blur_score) }}</div>{% endif %}
+        {% if 'aesthetic' in tile_fields %}<div>aesthetic {{ '%.2f'|format(photo.metrics.aesthetic) }}</div>{% endif %}
+        {% if 'subject' in tile_fields %}<div>subject {{ '%.2f'|format(photo.metrics.subject_score) }}</div>{% endif %}
+        {% if 'camera' in tile_fields and (photo.camera_make or photo.camera_model) %}<div>{{ photo.camera_make or '' }} {{ photo.camera_model or '' }}</div>{% endif %}
+        {% if 'dimensions' in tile_fields %}<div>{{ photo.width }}x{{ photo.height }}</div>{% endif %}
+        {% if 'group' in tile_fields %}<div>group {{ photo.group_id }}</div>{% endif %}
+        {% if 'event' in tile_fields %}<div>event {{ photo.event_id }}</div>{% endif %}
+      </div>
+    </li>
+    {% else %}
+    <li>No photos found.</li>
+    {% endfor %}
+  </ul>
+</div>
 
 <nav class="pagination" aria-label="Pagination">
   {% if page > 1 %}<a href="/?{{ base_query }}{% if base_query %}&amp;{% endif %}page={{ page - 1 }}">previous</a>{% endif %}

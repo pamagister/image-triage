@@ -203,7 +203,7 @@ def test_full_pipeline_writes_artifacts_and_is_deterministic(
         path.relative_to(tmp_path / "out1" / "originals").as_posix()
         for path in (tmp_path / "out1" / "originals").rglob("*.jpg")
     )
-    expected = sorted(item.photo.path for item in first.selected)
+    expected = sorted(Path(item.photo.path).name for item in first.selected)
     assert exported == expected
     for photo in photo_dir.rglob("*.jpg"):
         assert photo.is_file()

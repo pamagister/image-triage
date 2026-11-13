@@ -24,6 +24,8 @@ MULTI_VALUE_KEYS = (
     "flags",
     "camera_make",
     "camera_model",
+    "root",
+    "folder",
 )
 
 #: Numeric filters and whether they are integers or floats.
@@ -50,6 +52,7 @@ class PhotoQuery:
     order: str = "asc"
     page: int = 1
     search: str = ""
+    view: str = "flat"
 
     @property
     def base_query(self) -> str:
@@ -64,6 +67,8 @@ class PhotoQuery:
                 params.append((key, value))
         params.append(("sort", self.sort))
         params.append(("order", self.order))
+        if self.view != "flat":
+            params.append(("view", self.view))
         if self.search:
             params.insert(0, ("q", self.search))
         return urlencode(params)
@@ -142,5 +147,8 @@ def parse_photo_query(params: Any) -> PhotoQuery:
         query.page = max(1, int(page_raw)) if page_raw else 1
     except ValueError:
         query.page = 1
+
+    view = _clean(get("view")[0] if get("view") else "")
+    query.view = view if view in {"flat", "folders"} else "flat"
 
     return query

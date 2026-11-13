@@ -223,7 +223,7 @@ def test_filters_combine_and_sorting_is_applied(photo_dir: Path, tmp_path: Path)
         top_rating = max(photo.rating for photo in photos)
         combined = client.get(f"/api/photo-ids?rating={top_rating}&min_score=0")
         assert combined.status_code == 200
-        expected = [photo.id for photo in photos if photo.rating == top_rating]
+        expected = [photo.location_id for photo in photos if photo.rating == top_rating]
         assert sorted(combined.json()["ids"]) == sorted(expected)
         assert combined.json()["total"] == len(expected)
 
@@ -256,7 +256,7 @@ def test_export_selected_copies_only_the_checked_photos(photo_dir: Path, tmp_pat
     settings, client = _prepared_client(photo_dir, tmp_path)
     repository = Repository.open(settings.database_path)
     try:
-        ids = [photo.id for photo in repository.all_photos()]
+        ids = [photo.location_id for photo in repository.all_photos()]
     finally:
         repository.close()
     target = tmp_path / "export-out"
@@ -333,7 +333,7 @@ def test_export_rejects_a_target_inside_the_library(photo_dir: Path, tmp_path: P
             data={"scope": "filtered", "output": str(photo_dir / "inside")},
         )
         assert response.status_code == 400
-        assert b"outside the library root" in response.content
+        assert b"outside every library root" in response.content
 
 
 def test_export_selected_without_a_selection_is_reported(photo_dir: Path, tmp_path: Path) -> None:

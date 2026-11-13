@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Settings - Image Triage{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if active_jobs %}<p class="banner">{{ active_jobs | length }} job(s) active; settings are read-only until they finish.</p>{% endif %}
+<form method="post" action="/settings" class="settings-form">
+  <fieldset>
+    <legend>Watched roots</legend>
+    <label>One absolute path per line
+      <textarea name="roots" rows="4" cols="60">{% for root in settings.watched_roots %}{{ root }}
+{% endfor %}</textarea>
+    </label>
+    <label>Excluded directory names (comma separated)
+      <input type="text" name="exclude" value="{{ settings.input.exclude | join(', ') }}">
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Library display</legend>
+    <label>Default view
+      <select name="default_view">
+        <option value="flat" {% if settings.gui.default_view == 'flat' %}selected{% endif %}>flat tiles</option>
+        <option value="folders" {% if settings.gui.default_view == 'folders' %}selected{% endif %}>folder tree</option>
+      </select>
+    </label>
+    <label>Tile metadata
+      <span class="checkbox-grid">
+        {% for value, label in tile_field_options %}
+        <label><input type="checkbox" name="tile_fields" value="{{ value }}" {% if value in settings.gui.tile_fields %}checked{% endif %}> {{ label }}</label>
+        {% endfor %}
+      </span>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Export defaults</legend>
+    <label>Mode
+      <select name="export_mode">
+        {% for value in ['copy', 'hardlink', 'symlink'] %}
+        <option value="{{ value }}" {% if settings.export.mode == value %}selected{% endif %}>{{ value }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Layout
+      <select name="export_layout">
+        <option value="flat" {% if settings.export.layout == 'flat' %}selected{% endif %}>flat</option>
+        <option value="tree" {% if settings.export.layout == 'tree' %}selected{% endif %}>folder tree</option>
+      </select>
+    </label>
+    <label><input type="checkbox" name="rerender" {% if settings.export.rerender %}checked{% endif %}> Re-render as JPEG</label>
+    <label>Maximum long edge (blank = original size)
+      <input type="number" name="max_long_edge" min="64" max="20000" value="{{ settings.export.max_long_edge or '' }}">
+    </label>
+    <label>JPEG quality
+      <input type="number" name="jpeg_quality" min="1" max="100" value="{{ settings.export.jpeg_quality }}">
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Blur calibration</legend>
+    <label>Sharp reference
+      <input type="number" name="blur_sharp_reference" step="0.1" min="1" value="{{ settings.blur.sharp_reference }}">
+    </label>
+    <label>Blur reference
+      <input type="number" name="blur_blur_reference" step="0.1" min="0.1" value="{{ settings.blur.blur_reference }}">
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Scoring and analysis</legend>
+    <label>Rating 5 threshold
+      <input type="number" name="min_score_5" step="0.01" min="0" max="1" value="{{ settings.scoring.min_score_5 }}">
+    </label>
+    <label>Rating 4 threshold
+      <input type="number" name="min_score_4" step="0.01" min="0" max="1" value="{{ settings.scoring.min_score_4 }}">
+    </label>
+    <label><input type="checkbox" name="yolo_enabled" {% if settings.analysis.yolo_enabled %}checked{% endif %}> Object detection</label>
+    <label><input type="checkbox" name="aesthetic_enabled" {% if settings.analysis.aesthetic_enabled %}checked{% endif %}> Aesthetic model</label>
+    <label><input type="checkbox" name="save_embeddings" {% if settings.analysis.save_embeddings %}checked{% endif %}> Save embeddings</label>
+    <label>Preview size
+      <input type="number" name="preview_size" min="64" max="4096" value="{{ settings.analysis.preview_size }}">
+    </label>
+  </fieldset>
+
+  <button type="submit" {% if active_jobs %}disabled{% endif %}>Save settings</button>
+</form>
+{% endblock %}

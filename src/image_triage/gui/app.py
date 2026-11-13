@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
+import yaml
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,7 +23,7 @@ from image_triage.db.repository import Repository
 from image_triage.export.export import export_photos
 from image_triage.export.previews import preview_path
 from image_triage.grouping.build import build_groups_and_events
-from image_triage.gui.library_status import library_status, scan_paths
+from image_triage.gui.library_status import library_status
 from image_triage.gui.query import parse_photo_query
 from image_triage.io.scan import find_images
 from image_triage.scoring.score import score_library
@@ -44,11 +47,14 @@ def _input_root(settings: Settings) -> Path:
 
 
 def _media_path(settings: Settings, photo: Photo) -> Path:
-    root = _input_root(settings)
-    preview = preview_path(photo, root / ".image-triage" / "previews")
-    path = preview if preview.is_file() else root / photo.path
+    preview = preview_path(photo, Path(settings.cache_path) / "previews")
+    if preview.is_file():
+        return preview
+    path = photo.absolute_path
+    if not path.is_file():
+        raise HTTPException(404, "photo not found")
     resolved = path.resolve()
-    if not resolved.is_relative_to(root):
+    if not any(resolved.is_relative_to(root) for root in settings.watched_roots):
         raise HTTPException(404, "photo not found")
     return resolved
 
@@ -73,10 +79,28 @@ def _is_inside(candidate: Path, root: Path) -> bool:
         return False
 
 
-def _default_output(cwd: Path, now: datetime | None = None) -> Path:
-    """Timestamped export directory under the server's working directory."""
-    stamp = (now or datetime.now()).strftime("%Y-%m-%d_%H-%M")
-    return cwd / f"export_{stamp}"
+def _default_output(settings: Settings, now: datetime | None = None) -> Path:
+    """Timestamped export directory from the central configuration."""
+    return settings.export_destination(now)
+
+
+def _url_with(query, **overrides: Any) -> str:
+    """Build a library URL from the active filters plus explicit overrides."""
+    params: list[tuple[str, Any]] = []
+    for key, value in query.filters.items():
+        if key in overrides or value in (None, "", []):
+            continue
+        if isinstance(value, (list, tuple)):
+            params.extend((key, str(item)) for item in value)
+        else:
+            params.append((key, value))
+    params.extend([("sort", query.sort), ("order", query.order)])
+    if "view" not in overrides:
+        params.append(("view", query.view))
+    params.extend((key, value) for key, value in overrides.items() if value is not None)
+    if query.search:
+        params.insert(0, ("q", query.search))
+    return "/?" + urlencode(params)
 
 
 def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]) -> None:
@@ -84,8 +108,8 @@ def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]
     last_progress = 0.0
     try:
         repository.update_job(job_id, status="running", progress=0.05)
-        root = _input_root(settings)
-        output = root / ".image-triage" / "gui-runs" / str(job_id)
+        roots = settings.watched_roots
+        output = Path(settings.cache_path) / "gui-runs" / str(job_id)
 
         def report_progress(event: dict[str, Any]) -> None:
             nonlocal last_progress
@@ -102,16 +126,12 @@ def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]
 
         if kind == "scan":
             analysis = analyze_library(settings, repository, progress=report_progress)
-            root, paths = scan_paths(settings)
-            removed = repository.delete_missing_photos(
-                {path.relative_to(root).as_posix() for path in paths}
-            )
             build_groups_and_events(repository, settings)
             score_library(repository, settings)
             summary = {
                 "analysis": analysis.to_dict(),
-                "scored": repository.count_photos(),
-                "removed": removed,
+                "scored": repository.count_content(),
+                "removed": analysis.missing,
             }
         elif kind == "analyze":
             result = analyze_library(settings, repository, progress=report_progress)
@@ -129,14 +149,14 @@ def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]
         elif kind == "export":
             mode = ExportMode(payload.get("mode", settings.report.export_mode))
             target = Path(payload["output"]).expanduser() if payload.get("output") else output
-            if _is_inside(target, root):
-                raise ValueError("the export target must be outside the library root")
+            if any(_is_inside(target, root) for root in roots):
+                raise ValueError("the export target must be outside every library root")
             scope = payload.get("scope", "filtered")
             if scope == "selected":
-                photo_ids = [int(value) for value in payload.get("photo_ids", [])]
+                location_ids = [int(value) for value in payload.get("location_ids", [])]
                 photos = [
                     photo
-                    for photo in (repository.photo_by_id(pid) for pid in photo_ids)
+                    for photo in (repository.photo_by_location(lid) for lid in location_ids)
                     if photo is not None
                 ]
             else:
@@ -149,11 +169,26 @@ def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]
                 )
             if not photos:
                 raise ValueError(f"no photos to export for scope '{scope}'")
-            exported = export_photos(photos, root, target, mode)
+            layout = str(payload.get("layout", settings.export.layout))
+            rerender = bool(payload.get("rerender", settings.export.rerender))
+            max_long_edge = payload.get("max_long_edge", settings.export.max_long_edge)
+            jpeg_quality = int(payload.get("jpeg_quality", settings.export.jpeg_quality))
+            exported = export_photos(
+                photos,
+                roots[0] if roots else Path("."),
+                target,
+                mode,
+                layout=layout,
+                rerender=rerender,
+                max_long_edge=None if max_long_edge in (None, "") else int(max_long_edge),
+                jpeg_quality=jpeg_quality,
+            )
             summary = {
                 "exported": len(exported),
                 "output": str(target),
                 "mode": mode.value,
+                "layout": layout,
+                "rerendered": rerender,
                 "scope": scope,
             }
         else:
@@ -252,15 +287,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> HTMLResponse:
         """Render the library page with the current filters and an optional message."""
         query = parse_photo_query(request.query_params)
-        total = repo.count_photos(**query.filters)
+        filters = dict(query.filters)
+        if query.search:
+            filters["search"] = query.search
+        total = repo.count_photos(**filters)
         pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
         page = min(max(1, query.page), pages)
+        folders = repo.folder_counts(**filters)
+        for item in folders:
+            item["url"] = _url_with(
+                query,
+                view="folders",
+                root=item["root"],
+                folder=item["folder"],
+                page=1,
+            )
+            item["depth"] = 0 if item["folder"] == "." else item["folder"].count("/") + 1
         return TEMPLATES.TemplateResponse(
             request,
             "index.html",
             {
                 "photos": repo.list_photos(
-                    **query.filters,
+                    **filters,
                     sort=query.sort,
                     order=query.order,
                     limit=PER_PAGE,
@@ -276,14 +324,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "sort": query.sort,
                 "order": query.order,
                 "latest_run": repo.latest_run(),
-                "filters": query.filters,
+                "filters": filters,
                 "search": query.search,
                 "base_query": query.base_query,
+                "view": query.view,
+                "view_flat": _url_with(query, view="flat", folder=None, page=1),
+                "view_folders": _url_with(query, view="folders", page=1),
+                "folders": folders,
+                "tile_fields": _current_settings(request).gui.tile_fields,
                 "active_jobs": _active_jobs(repo),
                 "status": library_status(_current_settings(request), repo),
                 "filter_options": repo.filter_options(),
                 "error": error,
-                "default_output": str(_default_output(Path.cwd())),
+                "default_output": str(_default_output(_current_settings(request))),
+                "roots": repo.roots(),
             },
             status_code=status_code,
         )
@@ -317,33 +371,46 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         output: str = Form(""),
         mode: str = Form(""),
         photo_ids: str = Form(""),
+        layout: str = Form(""),
+        rerender: bool = Form(False),
+        max_long_edge: str = Form(""),
+        jpeg_quality: str = Form(""),
     ) -> HTMLResponse | RedirectResponse:
         """Export either the checked photos or the current filtered view as a background job."""
         settings = _current_settings(request)
-        root = _input_root(settings)
+        roots = settings.watched_roots
         query = parse_photo_query(request.query_params)
+        filters = dict(query.filters)
+        if query.search:
+            filters["search"] = query.search
 
-        target = Path(output).expanduser() if output.strip() else _default_output(Path.cwd())
-        if _is_inside(target, root):
+        target = Path(output).expanduser() if output.strip() else _default_output(settings)
+        if any(_is_inside(target, root) for root in roots):
             return _export_error(
-                request, repo, "the export target must be outside the library root"
+                request, repo, "the export target must be outside every library root"
             )
 
         if scope == "selected":
             ids = [int(value) for value in photo_ids.split(",") if value.strip().isdigit()]
             if not ids:
                 return _export_error(request, repo, "no photos are selected")
-            export_payload: dict[str, Any] = {"photo_ids": ids}
+            export_payload: dict[str, Any] = {"location_ids": ids}
         else:
-            if repo.count_photos(**query.filters) == 0:
+            if repo.count_photos(**filters) == 0:
                 return _export_error(request, repo, "no photos match the current filters")
-            export_payload = {"filters": query.filters}
+            export_payload = {"filters": filters}
 
-        export_mode = mode or settings.report.export_mode
+        export_mode = mode or settings.export.mode
         payload: dict[str, Any] = {
             "output": str(target),
             "mode": export_mode,
             "scope": scope,
+            "layout": layout or settings.export.layout,
+            "rerender": rerender or settings.export.rerender,
+            "max_long_edge": max_long_edge or settings.export.max_long_edge,
+            "jpeg_quality": int(jpeg_quality)
+            if str(jpeg_quality).strip()
+            else settings.export.jpeg_quality,
             **export_payload,
         }
         job_id = repo.create_job("export", payload)
@@ -359,7 +426,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def photo_ids(request: Request, repo: Repository = Depends(repository)) -> dict[str, Any]:
         """All photo ids matching the current filters, across every page."""
         query = parse_photo_query(request.query_params)
-        ids = repo.photo_ids(**query.filters)
+        filters = dict(query.filters)
+        if query.search:
+            filters["search"] = query.search
+        ids = repo.photo_ids(**filters)
         return {"ids": ids, "total": len(ids)}
 
     @app.get("/photo/{photo_id}", response_class=HTMLResponse)
@@ -400,6 +470,124 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not photos:
             raise HTTPException(404, "no photos to compare")
         return TEMPLATES.TemplateResponse(request, "compare.html", {"photos": photos})
+
+    @app.get("/settings", response_class=HTMLResponse)
+    def settings_form(request: Request, repo: Repository = Depends(repository)) -> HTMLResponse:
+        return TEMPLATES.TemplateResponse(
+            request,
+            "settings.html",
+            {
+                "settings": _current_settings(request),
+                "tile_field_options": [
+                    ("score", "score"),
+                    ("rating", "rating"),
+                    ("taken", "date"),
+                    ("sharpness", "sharpness"),
+                    ("bokeh", "bokeh"),
+                    ("blur", "blur"),
+                    ("aesthetic", "aesthetic"),
+                    ("subject", "subject"),
+                    ("camera", "camera"),
+                    ("dimensions", "dimensions"),
+                    ("group", "group"),
+                    ("event", "event"),
+                ],
+                "active_jobs": _active_jobs(repo),
+                "error": request.query_params.get("error"),
+            },
+        )
+
+    @app.post("/settings", response_model=None)
+    def save_settings(
+        request: Request,
+        repo: Repository = Depends(repository),
+        roots: str = Form(""),
+        exclude: str = Form(""),
+        default_view: str = Form("flat"),
+        tile_fields: list[str] = Form([]),  # noqa: B008
+        export_mode: str = Form("copy"),
+        export_layout: str = Form("flat"),
+        rerender: bool = Form(False),
+        max_long_edge: str = Form(""),
+        jpeg_quality: int = Form(85),
+        blur_sharp_reference: float = Form(120.0),
+        blur_blur_reference: float = Form(5.0),
+        min_score_5: float = Form(0.75),
+        min_score_4: float = Form(0.45),
+        yolo_enabled: bool = Form(True),
+        aesthetic_enabled: bool = Form(True),
+        save_embeddings: bool = Form(True),
+        preview_size: int = Form(1024),
+    ) -> RedirectResponse | HTMLResponse:
+        """Persist runtime settings to the central YAML configuration."""
+        settings = _current_settings(request)
+        active = _active_jobs(repo)
+        if active:
+            return TEMPLATES.TemplateResponse(
+                request,
+                "settings.html",
+                {
+                    "settings": settings,
+                    "tile_field_options": [],
+                    "active_jobs": active,
+                    "error": "cannot change settings while a job is active",
+                },
+                status_code=409,
+            )
+        data = settings.model_dump(mode="json")
+        root_paths = [line.strip() for line in roots.splitlines() if line.strip()]
+        data["input"]["roots"] = root_paths
+        data["input"]["exclude"] = [item.strip() for item in exclude.split(",") if item.strip()]
+        data["gui"]["default_view"] = default_view
+        data["gui"]["tile_fields"] = tile_fields or []
+        data["export"].update(
+            {
+                "mode": export_mode,
+                "layout": export_layout,
+                "rerender": rerender,
+                "max_long_edge": int(max_long_edge) if max_long_edge.strip() else None,
+                "jpeg_quality": jpeg_quality,
+            }
+        )
+        data["blur"].update(
+            {
+                "sharp_reference": blur_sharp_reference,
+                "blur_reference": blur_blur_reference,
+            }
+        )
+        data["scoring"].update({"min_score_5": min_score_5, "min_score_4": min_score_4})
+        data["analysis"].update(
+            {
+                "yolo_enabled": yolo_enabled,
+                "aesthetic_enabled": aesthetic_enabled,
+                "save_embeddings": save_embeddings,
+                "preview_size": preview_size,
+            }
+        )
+        try:
+            updated = type(settings).model_validate(data)
+        except Exception as exc:
+            return TEMPLATES.TemplateResponse(
+                request,
+                "settings.html",
+                {
+                    "settings": settings,
+                    "tile_field_options": [],
+                    "active_jobs": [],
+                    "error": str(exc),
+                },
+                status_code=400,
+            )
+        path = updated.config_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        temporary.write_text(
+            yaml.safe_dump(updated.model_dump(mode="json"), sort_keys=False),
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+        request.app.state.settings = updated
+        return RedirectResponse("/settings?saved=1", status_code=303)
 
     @app.get("/events", response_class=HTMLResponse)
     def events(request: Request, repo: Repository = Depends(repository)) -> HTMLResponse:
@@ -475,6 +663,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         keep_value = None if keep in {None, ""} else keep == "keep"
         repo.set_override(photo_id, rating=rating, keep=keep_value, source=OverrideSource.GUI)
         return RedirectResponse(f"/photo/{photo_id}", status_code=303)
+
+    @app.get("/media/location/{location_id}")
+    def location_media(
+        request: Request, location_id: int, repo: Repository = Depends(repository)
+    ) -> FileResponse:
+        photo = repo.photo_by_location(location_id)
+        if photo is None:
+            raise HTTPException(404, "photo not found")
+        path = _media_path(_current_settings(request), photo)
+        if not path.is_file():
+            raise HTTPException(404, "photo file not found")
+        return FileResponse(path, headers={"Cache-Control": MEDIA_CACHE_CONTROL})
 
     @app.get("/media/{photo_id}")
     def media(
