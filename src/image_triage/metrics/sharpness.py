@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import cv2
@@ -28,6 +29,7 @@ class SharpnessResult:
     bokeh: float
     blur_kind: BlurKind
     blur_confidence: float
+    blur_score: float
 
 
 def _laplacian(gray: np.ndarray) -> np.ndarray:
@@ -161,6 +163,30 @@ def _gradient_anisotropy(gray: np.ndarray) -> float:
     return abs(energy_x - energy_y) / total
 
 
+def absolute_blur_score(
+    detail: float,
+    *,
+    sharp_reference: float = 120.0,
+    blur_reference: float = 5.0,
+    floor: float = 0.02,
+) -> float:
+    """Map absolute detail to a continuous 0..1 blur score.
+
+    ``detail`` is a Laplacian variance. The mapping is logarithmic so both sharp and very
+    soft images use the full range: ``sharp_reference`` maps to ``floor`` and
+    ``blur_reference`` maps to 1.0. Every photo receives a value; there is no dead zone.
+    """
+    if detail <= 0.0 or detail <= blur_reference:
+        return 1.0
+    if detail >= sharp_reference:
+        return floor
+    span = math.log(sharp_reference) - math.log(blur_reference)
+    if span <= 0.0:
+        return floor
+    fraction = (math.log(sharp_reference) - math.log(detail)) / span
+    return float(min(1.0, max(floor, floor + (1.0 - floor) * fraction)))
+
+
 def _classify(detail: float, anisotropy: float) -> tuple[BlurKind, float]:
     """Classify blur from the subject-region detail and gradient direction."""
     if detail >= SOFT_REGION:
@@ -176,7 +202,12 @@ def _classify(detail: float, anisotropy: float) -> tuple[BlurKind, float]:
 
 
 def analyze_sharpness(
-    gray: np.ndarray, boxes: list[tuple[float, float, float, float]] | None = None
+    gray: np.ndarray,
+    boxes: list[tuple[float, float, float, float]] | None = None,
+    *,
+    sharp_reference: float = 120.0,
+    blur_reference: float = 5.0,
+    floor: float = 0.02,
 ) -> SharpnessResult:
     """Compute global and subject sharpness, bokeh, and classify defocus versus motion blur.
 
@@ -192,10 +223,17 @@ def analyze_sharpness(
     bokeh = bokeh_score(gray, box, subject)
     detail = subject if boxes else raw
     blur_kind, confidence = _classify(detail, _gradient_anisotropy(gray))
+    blur_score = absolute_blur_score(
+        detail,
+        sharp_reference=sharp_reference,
+        blur_reference=blur_reference,
+        floor=floor,
+    )
     return SharpnessResult(
         raw=raw,
         subject_raw=subject,
         bokeh=bokeh,
         blur_kind=blur_kind,
         blur_confidence=confidence,
+        blur_score=blur_score,
     )

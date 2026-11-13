@@ -203,3 +203,41 @@ def test_detector_returns_normalized_embedding() -> None:
     assert result.embedding.shape == (256,)
     assert np.linalg.norm(result.embedding) == pytest.approx(1.0, abs=1e-5)
     assert all(0.0 <= value <= 1.0 for det in result.detections for value in det.box)
+
+
+def test_blur_score_is_absolute_and_has_no_dead_zone() -> None:
+    scene = _gray(_scene(1))
+    kernel = np.zeros((1, 21), dtype=np.float32)
+    kernel[0, :] = 1 / 21
+    motion = cv2.filter2D(scene, -1, kernel)
+    defocus = cv2.GaussianBlur(scene, (0, 0), 6)
+
+    sharp = analyze_sharpness(scene)
+    blurred_motion = analyze_sharpness(motion)
+    blurred_defocus = analyze_sharpness(defocus)
+
+    assert sharp.blur_score < 0.3
+    assert blurred_motion.blur_score > 0.6
+    assert blurred_defocus.blur_score > 0.6
+    assert all(result.blur_score > 0.0 for result in (sharp, blurred_motion, blurred_defocus))
+    assert sharp.blur_score <= blurred_motion.blur_score
+    assert sharp.blur_score <= blurred_defocus.blur_score
+
+
+def test_sharp_subject_scores_low_even_on_a_blurred_background() -> None:
+    bokeh = analyze_sharpness(
+        _gray(_sharp_subject_on_blurred_background()), [(0.25, 0.25, 0.75, 0.75)]
+    )
+    uniform = analyze_sharpness(cv2.GaussianBlur(_gray(_scene(1)), (0, 0), 6))
+    assert bokeh.blur_score < 0.45
+    assert bokeh.blur_score < uniform.blur_score
+    assert uniform.blur_score > 0.6
+
+
+def test_absolute_blur_score_endpoints_and_monotonicity() -> None:
+    from image_triage.metrics.sharpness import absolute_blur_score
+
+    assert absolute_blur_score(5.0) == 1.0
+    assert absolute_blur_score(120.0) == 0.02
+    assert absolute_blur_score(0.0) == 1.0
+    assert absolute_blur_score(30.0) < absolute_blur_score(10.0) < absolute_blur_score(6.0)
