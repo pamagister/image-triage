@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
+from pathlib import Path
 
 SCORING_VERSION = "1.1.0"
 SELECTION_VERSION = "1.0.0"
@@ -98,6 +99,7 @@ class Metrics:
     bokeh: float = 0.0
     blur_kind: BlurKind = BlurKind.NONE
     blur_confidence: float = 0.0
+    blur_score: float = 0.0
     composition: float = 0.0
     composition_components: dict[str, float] = field(default_factory=dict)
     aesthetic: float = 0.0
@@ -115,6 +117,7 @@ class Metrics:
             "bokeh": round(float(self.bokeh), 6),
             "blur_kind": self.blur_kind.value,
             "blur_confidence": round(float(self.blur_confidence), 6),
+            "blur_score": round(float(self.blur_score), 6),
             "composition": round(float(self.composition), 6),
             "composition_components": {
                 k: round(float(v), 6) for k, v in self.composition_components.items()
@@ -132,6 +135,9 @@ class Photo:
     """A photo plus all analysis results stored for it."""
 
     id: int | None = None
+    location_id: int | None = None
+    root_id: int | None = None
+    root_path: str = ""
     path: str = ""
     digest: str = ""
     phash: str = ""
@@ -152,14 +158,32 @@ class Photo:
     flags: list[str] = field(default_factory=list)
     model_signature: str | None = None
     analyzed_at: datetime | None = None
+    available: bool = True
     selected: bool = False
     reason: str = ""
     quota_rule: str = ""
+
+    @property
+    def absolute_path(self) -> Path:
+        """Location of the original file, when the root is known."""
+        return Path(self.root_path) / self.path if self.root_path else Path(self.path)
+
+    @property
+    def name(self) -> str:
+        """File name without directories."""
+        return self.path.rsplit("/", 1)[-1]
+
+    @property
+    def folder(self) -> str:
+        """Relative parent folder, or ``.`` for a file at the root."""
+        return self.path.rsplit("/", 1)[0] if "/" in self.path else "."
 
     def to_dict(self, include_gps: bool = False) -> dict[str, object]:
         """Return a stable, JSON-serializable representation."""
         data: dict[str, object] = {
             "id": self.id,
+            "location_id": self.location_id,
+            "root": self.root_path,
             "path": self.path,
             "digest": self.digest,
             "phash": self.phash,
@@ -186,6 +210,25 @@ class Photo:
         if include_gps and self.gps_lat is not None and self.gps_lon is not None:
             data["gps"] = {"lat": self.gps_lat, "lon": self.gps_lon}
         return data
+
+
+@dataclass(slots=True)
+class PhotoLocation:
+    """One stored location of a content-addressed photo."""
+
+    id: int
+    photo_id: int
+    root_id: int
+    root_path: str
+    relative_path: str
+    mtime: float | None = None
+    analyzed_at: datetime | None = None
+    available: bool = True
+
+    @property
+    def absolute_path(self) -> Path:
+        """Original file path for this location."""
+        return Path(self.root_path) / self.relative_path
 
 
 @dataclass(slots=True)

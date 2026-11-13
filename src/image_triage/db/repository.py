@@ -20,6 +20,7 @@ from image_triage.core.models import (
     Override,
     OverrideSource,
     Photo,
+    PhotoLocation,
     Run,
     RunStatus,
     Selection,
@@ -39,6 +40,55 @@ def _iso(value: datetime | None) -> str | None:
 
 def _parse_dt(value: str | None) -> datetime | None:
     return datetime.fromisoformat(value) if value else None
+
+
+_METRICS_COLUMNS = """
+    m.sharpness, m.sharpness_raw, m.sharpness_subject, m.sharpness_subject_raw,
+    m.bokeh, m.blur_kind, m.blur_confidence, m.blur_score,
+    m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
+    m.subject_score, m.subject_rarity, m.exposure
+"""
+
+_CONTENT_SELECT = (
+    """
+    SELECT p.*,
+    """
+    + _METRICS_COLUMNS
+    + """,
+           (SELECT l.id FROM photo_locations l
+            WHERE l.photo_id = p.id AND l.available = 1
+            ORDER BY l.relative_path LIMIT 1) AS location_id,
+           (SELECT l.root_id FROM photo_locations l
+            WHERE l.photo_id = p.id AND l.available = 1
+            ORDER BY l.relative_path LIMIT 1) AS root_id,
+           (SELECT l.relative_path FROM photo_locations l
+            WHERE l.photo_id = p.id AND l.available = 1
+            ORDER BY l.relative_path LIMIT 1) AS path,
+           (SELECT r.path FROM photo_locations l
+            JOIN roots r ON r.id = l.root_id
+            WHERE l.photo_id = p.id AND l.available = 1
+            ORDER BY l.relative_path LIMIT 1) AS root_path,
+           (SELECT l.available FROM photo_locations l
+            WHERE l.photo_id = p.id AND l.available = 1
+            ORDER BY l.relative_path LIMIT 1) AS available
+    FROM photos p
+    LEFT JOIN metrics m ON m.photo_id = p.id
+    """
+)
+
+_LOCATION_SELECT = (
+    """
+    SELECT p.*, l.id AS location_id, l.root_id, l.relative_path AS path,
+           l.available, r.path AS root_path,
+    """
+    + _METRICS_COLUMNS
+    + """
+    FROM photo_locations l
+    JOIN photos p ON p.id = l.photo_id
+    JOIN roots r ON r.id = l.root_id
+    LEFT JOIN metrics m ON m.photo_id = p.id
+    """
+)
 
 
 class Repository:
@@ -71,26 +121,207 @@ class Repository:
 
     # ------------------------------------------------------------------ photos
 
+    def _ensure_root(self, path: str, *, label: str = "", enabled: bool = True) -> int:
+        """Return the root id for ``path``, creating the row when needed."""
+        row = self.connection.execute(
+            "SELECT id FROM roots WHERE path = ?", (str(path),)
+        ).fetchone()
+        if row:
+            return int(row["id"])
+        cursor = self.connection.execute(
+            "INSERT INTO roots (path, label, enabled, created_at) VALUES (?, ?, ?, ?)",
+            (str(path), label, int(enabled), _iso(utcnow())),
+        )
+        return int(cursor.lastrowid)
+
+    def sync_roots(self, paths: list[Path]) -> list[dict[str, Any]]:
+        """Add configured roots and disable roots that are no longer watched."""
+        if not paths:
+            return self.roots()
+        wanted = [str(path) for path in paths]
+        with self.connection:
+            migrated = self.connection.execute(
+                "SELECT id FROM roots WHERE path = '' AND enabled = 1"
+            ).fetchall()
+            for path in wanted:
+                self._ensure_root(path)
+            if migrated:
+                # A migrated or legacy single-root database adopts the first configured root.
+                self.connection.execute(
+                    "UPDATE roots SET path = ? WHERE id = ?", (wanted[0], migrated[0]["id"])
+                )
+            placeholders = ", ".join("?" for _ in wanted)
+            self.connection.execute(
+                "UPDATE roots SET enabled = CASE WHEN path IN ("
+                + placeholders
+                + ") THEN 1 ELSE 0 END",
+                wanted,
+            )
+        return self.roots()
+
+    def roots(self) -> list[dict[str, Any]]:
+        """All roots with their enabled state and available photo count."""
+        rows = self.connection.execute(
+            """
+            SELECT r.id, r.path, r.label, r.enabled,
+                   COUNT(l.id) AS photos
+            FROM roots r
+            LEFT JOIN photo_locations l
+              ON l.root_id = r.id AND l.available = 1
+            GROUP BY r.id
+            ORDER BY r.path
+            """
+        ).fetchall()
+        return [
+            {
+                "id": int(row["id"]),
+                "path": row["path"],
+                "label": row["label"],
+                "enabled": bool(row["enabled"]),
+                "photos": int(row["photos"] or 0),
+            }
+            for row in rows
+        ]
+
+    def upsert_location(
+        self,
+        photo_id: int,
+        root_path: str,
+        relative_path: str,
+        *,
+        mtime: float | None = None,
+        analyzed_at: str | None = None,
+        available: bool = True,
+        commit: bool = True,
+    ) -> int:
+        """Insert or update one content location."""
+        root_id = self._ensure_root(root_path)
+        with self.connection:
+            cursor = self.connection.execute(
+                """
+                INSERT INTO photo_locations
+                    (photo_id, root_id, relative_path, mtime, analyzed_at, available)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(root_id, relative_path) DO UPDATE SET
+                    photo_id=excluded.photo_id,
+                    mtime=excluded.mtime,
+                    analyzed_at=excluded.analyzed_at,
+                    available=excluded.available
+                RETURNING id
+                """,
+                (photo_id, root_id, relative_path, mtime, analyzed_at, int(available)),
+            )
+            location_id = int(cursor.fetchone()[0])
+        if commit:
+            self.connection.commit()
+        return location_id
+
+    def upsert_scanned_location(
+        self,
+        photo_id: int,
+        root_path: str,
+        relative_path: str,
+        *,
+        digest: str,
+        keep: set[tuple[str, str]],
+        mtime: float | None = None,
+        analyzed_at: str | None = None,
+        commit: bool = True,
+    ) -> int:
+        """Insert a scanned location, repointing a missing location with the same digest.
+
+        A moved file keeps its content record and location id; only the path changes.
+        """
+        root_id = self._ensure_root(root_path)
+        existing = self.connection.execute(
+            "SELECT id FROM photo_locations WHERE root_id = ? AND relative_path = ?",
+            (root_id, relative_path),
+        ).fetchone()
+        if existing is not None:
+            with self.connection:
+                self.connection.execute(
+                    "UPDATE photo_locations SET photo_id = ?, mtime = ?, analyzed_at = ?, "
+                    "available = 1 WHERE id = ?",
+                    (photo_id, mtime, analyzed_at, existing["id"]),
+                )
+            if commit:
+                self.connection.commit()
+            return int(existing["id"])
+        for location in self.locations_for_digest(digest):
+            if (
+                location.root_path == str(root_path)
+                and location.available
+                and (location.root_path, location.relative_path) not in keep
+            ):
+                with self.connection:
+                    self.connection.execute(
+                        "UPDATE photo_locations SET photo_id = ?, relative_path = ?, mtime = ?, "
+                        "analyzed_at = ?, available = 1 WHERE id = ?",
+                        (photo_id, relative_path, mtime, analyzed_at, location.id),
+                    )
+                if commit:
+                    self.connection.commit()
+                return location.id
+        return self.upsert_location(
+            photo_id,
+            root_path,
+            relative_path,
+            mtime=mtime,
+            analyzed_at=analyzed_at,
+            commit=commit,
+        )
+
+    def location_paths(
+        self, *, available_only: bool = True
+    ) -> dict[tuple[str, str], dict[str, Any]]:
+        """Map ``(root, relative path)`` to location metadata."""
+        sql = (
+            "SELECT l.id, l.relative_path, l.mtime, l.analyzed_at, l.available, "
+            "r.path AS root_path, p.digest "
+            "FROM photo_locations l "
+            "JOIN photos p ON p.id = l.photo_id "
+            "JOIN roots r ON r.id = l.root_id"
+        )
+        if available_only:
+            sql += " WHERE l.available = 1"
+        result: dict[tuple[str, str], dict[str, Any]] = {}
+        for row in self.connection.execute(sql):
+            result[(row["root_path"], row["relative_path"])] = {
+                "id": int(row["id"]),
+                "mtime": row["mtime"],
+                "analyzed_at": row["analyzed_at"],
+                "available": bool(row["available"]),
+                "digest": row["digest"],
+            }
+        return result
+
     def upsert_photo(
         self,
         photo: Photo,
         *,
         metric_version: str = METRIC_VERSION,
+        update_rating: bool = False,
         commit: bool = True,
     ) -> int:
-        """Insert or update a photo with its metrics, detections and embedding."""
+        """Insert or update content-addressed metrics and one optional location.
+
+        ``digest`` is the identity. Re-analysis never clears an existing rating unless
+        ``update_rating`` is explicitly requested, so user ratings survive a rescan.
+        """
         now = utcnow()
         analyzed_at = photo.analyzed_at or now
+        if not photo.digest:
+            # Manual inserts without a content hash fall back to a path identity.
+            photo.digest = f"legacy:{photo.path}"
         with self.connection:
             cursor = self.connection.execute(
                 """
                 INSERT INTO photos (
-                    path, digest, phash, taken, width, height, camera_make, camera_model,
+                    digest, phash, taken, width, height, camera_make, camera_model,
                     gps_lat, gps_lon, event_id, group_id, score, rating, flags,
                     model_signature, analyzed_at, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(path) DO UPDATE SET
-                    digest=excluded.digest,
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(digest) DO UPDATE SET
                     phash=excluded.phash,
                     taken=excluded.taken,
                     width=excluded.width,
@@ -100,14 +331,12 @@ class Repository:
                     gps_lat=excluded.gps_lat,
                     gps_lon=excluded.gps_lon,
                     score=excluded.score,
-                    rating=excluded.rating,
                     flags=excluded.flags,
                     model_signature=excluded.model_signature,
                     analyzed_at=excluded.analyzed_at
                 RETURNING id
                 """,
                 (
-                    photo.path,
                     photo.digest,
                     photo.phash,
                     _iso(photo.taken) or "",
@@ -128,14 +357,18 @@ class Repository:
                 ),
             )
             photo.id = int(cursor.fetchone()[0])
+            if update_rating:
+                self.connection.execute(
+                    "UPDATE photos SET rating = ? WHERE id = ?", (photo.rating, photo.id)
+                )
             self.connection.execute(
                 """
                 INSERT INTO metrics (
                     photo_id, sharpness, sharpness_raw, sharpness_subject, sharpness_subject_raw,
-                    bokeh, blur_kind, blur_confidence, composition, composition_components,
-                    aesthetic, aesthetic_source, subject_score, subject_rarity, exposure,
-                    metric_version
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    bokeh, blur_kind, blur_confidence, blur_score, composition,
+                    composition_components, aesthetic, aesthetic_source, subject_score,
+                    subject_rarity, exposure, metric_version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(photo_id) DO UPDATE SET
                     sharpness=excluded.sharpness,
                     sharpness_raw=excluded.sharpness_raw,
@@ -144,6 +377,7 @@ class Repository:
                     bokeh=excluded.bokeh,
                     blur_kind=excluded.blur_kind,
                     blur_confidence=excluded.blur_confidence,
+                    blur_score=excluded.blur_score,
                     composition=excluded.composition,
                     composition_components=excluded.composition_components,
                     aesthetic=excluded.aesthetic,
@@ -162,6 +396,7 @@ class Repository:
                     photo.metrics.bokeh,
                     photo.metrics.blur_kind.value,
                     photo.metrics.blur_confidence,
+                    photo.metrics.blur_score,
                     photo.metrics.composition,
                     json.dumps(photo.metrics.composition_components, sort_keys=True),
                     photo.metrics.aesthetic,
@@ -202,73 +437,179 @@ class Repository:
                 )
         if commit:
             self.connection.commit()
+        if photo.path:
+            root_path = photo.root_path
+            if not root_path and photo.location_id is not None:
+                row = self.connection.execute(
+                    "SELECT r.path FROM photo_locations l "
+                    "JOIN roots r ON r.id = l.root_id WHERE l.id = ?",
+                    (photo.location_id,),
+                ).fetchone()
+                root_path = row["path"] if row else ""
+            self.upsert_location(
+                photo.id,
+                root_path,
+                photo.path,
+                analyzed_at=_iso(analyzed_at),
+                commit=commit,
+            )
         return photo.id
 
     def photo_by_path(self, path: str) -> Photo | None:
-        row = self.connection.execute("SELECT id FROM photos WHERE path = ?", (path,)).fetchone()
+        row = self.connection.execute(
+            """
+            SELECT p.id FROM photo_locations l
+            JOIN photos p ON p.id = l.photo_id
+            WHERE l.relative_path = ? AND l.available = 1
+            ORDER BY l.id LIMIT 1
+            """,
+            (path,),
+        ).fetchone()
         return self.photo_by_id(int(row["id"])) if row else None
 
     def photo_by_id(self, photo_id: int) -> Photo | None:
         row = self.connection.execute(
-            """
-            SELECT p.*, m.sharpness, m.sharpness_raw, m.sharpness_subject, m.sharpness_subject_raw,
-                   m.bokeh, m.blur_kind, m.blur_confidence,
-                   m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
-                   m.subject_score, m.subject_rarity, m.exposure
-            FROM photos p
-            LEFT JOIN metrics m ON m.photo_id = p.id
-            WHERE p.id = ?
-            """,
+            _CONTENT_SELECT + " WHERE p.id = ?",
             (photo_id,),
         ).fetchone()
         return self._row_to_photo(row) if row else None
 
-    def all_photos(self) -> list[Photo]:
-        """Return every photo ordered by capture time and path."""
+    def photo_by_location(self, location_id: int) -> Photo | None:
+        row = self.connection.execute(
+            _LOCATION_SELECT + " WHERE l.id = ?",
+            (location_id,),
+        ).fetchone()
+        return self._row_to_photo(row) if row else None
+
+    def location_by_id(self, location_id: int) -> PhotoLocation | None:
+        row = self.connection.execute(
+            """
+            SELECT l.id, l.photo_id, l.root_id, r.path AS root_path, l.relative_path,
+                   l.mtime, l.analyzed_at, l.available
+            FROM photo_locations l
+            JOIN roots r ON r.id = l.root_id
+            WHERE l.id = ?
+            """,
+            (location_id,),
+        ).fetchone()
+        if not row:
+            return None
+        return PhotoLocation(
+            id=int(row["id"]),
+            photo_id=int(row["photo_id"]),
+            root_id=int(row["root_id"]),
+            root_path=row["root_path"],
+            relative_path=row["relative_path"],
+            mtime=row["mtime"],
+            analyzed_at=_parse_dt(row["analyzed_at"]),
+            available=bool(row["available"]),
+        )
+
+    def locations_for_digest(self, digest: str) -> list[PhotoLocation]:
         rows = self.connection.execute(
             """
-            SELECT p.*, m.sharpness, m.sharpness_raw, m.sharpness_subject, m.sharpness_subject_raw,
-                   m.bokeh, m.blur_kind, m.blur_confidence,
-                   m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
-                   m.subject_score, m.subject_rarity, m.exposure
-            FROM photos p
-            LEFT JOIN metrics m ON m.photo_id = p.id
-            ORDER BY p.taken, p.path
-            """
+            SELECT l.id, l.photo_id, l.root_id, r.path AS root_path, l.relative_path,
+                   l.mtime, l.analyzed_at, l.available
+            FROM photo_locations l
+            JOIN photos p ON p.id = l.photo_id
+            JOIN roots r ON r.id = l.root_id
+            WHERE p.digest = ?
+            ORDER BY r.path, l.relative_path
+            """,
+            (digest,),
+        ).fetchall()
+        return [
+            PhotoLocation(
+                id=int(row["id"]),
+                photo_id=int(row["photo_id"]),
+                root_id=int(row["root_id"]),
+                root_path=row["root_path"],
+                relative_path=row["relative_path"],
+                mtime=row["mtime"],
+                analyzed_at=_parse_dt(row["analyzed_at"]),
+                available=bool(row["available"]),
+            )
+            for row in rows
+        ]
+
+    def all_photos(self) -> list[Photo]:
+        """Every available location, ordered deterministically."""
+        rows = self.connection.execute(
+            _LOCATION_SELECT + " WHERE l.available = 1 ORDER BY p.taken, r.path, l.relative_path"
         ).fetchall()
         return [self._row_to_photo(row) for row in rows]
 
+    def all_content(self) -> list[Photo]:
+        """One row per unique digest, with a representative available location."""
+        rows = self.connection.execute(_CONTENT_SELECT + " ORDER BY p.taken, p.id").fetchall()
+        return [self._row_to_photo(row) for row in rows]
+
+    def count_content(self) -> int:
+        """Number of unique content records."""
+        return int(self.connection.execute("SELECT COUNT(*) AS n FROM photos").fetchone()["n"])
+
     def analyzed_paths(self) -> dict[str, str | None]:
-        """Map of stored relative path to its ``analyzed_at`` timestamp."""
-        rows = self.connection.execute("SELECT path, analyzed_at FROM photos").fetchall()
-        return {row["path"]: row["analyzed_at"] for row in rows}
+        """Map a representative path to its ``analyzed_at`` timestamp."""
+        rows = self.connection.execute(
+            """
+            SELECT p.analyzed_at,
+                   (SELECT l.relative_path FROM photo_locations l
+                    WHERE l.photo_id = p.id AND l.available = 1
+                    ORDER BY l.relative_path LIMIT 1) AS path
+            FROM photos p
+            """
+        ).fetchall()
+        return {row["path"]: row["analyzed_at"] for row in rows if row["path"] is not None}
+
+    def mark_missing_locations(self, keep: set[tuple[str, str]]) -> list[str]:
+        """Mark stored locations absent from ``keep`` unavailable; return their labels."""
+        rows = self.connection.execute(
+            """
+            SELECT l.id, l.relative_path, l.available, r.path AS root_path
+            FROM photo_locations l
+            JOIN roots r ON r.id = l.root_id
+            """
+        ).fetchall()
+        removed: list[str] = []
+        ids: list[int] = []
+        for row in rows:
+            key = (row["root_path"], row["relative_path"])
+            if key not in keep:
+                removed.append(
+                    f"{row['root_path']}/{row['relative_path']}"
+                    if row["root_path"] not in {"", "."}
+                    else row["relative_path"]
+                )
+                if row["available"]:
+                    ids.append(int(row["id"]))
+        if ids:
+            with self.connection:
+                self.connection.executemany(
+                    "UPDATE photo_locations SET available = 0 WHERE id = ?",
+                    [(location_id,) for location_id in ids],
+                )
+        return sorted(removed)
 
     def delete_missing_photos(self, keep: set[str]) -> list[str]:
-        """Delete photos whose path is no longer present and return the removed paths."""
-        rows = self.connection.execute("SELECT id, path FROM photos").fetchall()
-        removed = [row["path"] for row in rows if row["path"] not in keep]
-        if not removed:
-            return []
-        with self.connection:
-            self.connection.executemany(
-                "DELETE FROM photos WHERE id = ?",
-                [(row["id"],) for row in rows if row["path"] not in keep],
-            )
-        return sorted(removed)
+        """Backward-compatible wrapper around :meth:`mark_missing_locations`."""
+        return self.mark_missing_locations({("", path) for path in keep})
 
     def gps_points(self) -> list[dict[str, Any]]:
         rows = self.connection.execute(
             """
-            SELECT id, path, gps_lat, gps_lon
-            FROM photos
-            WHERE gps_lat IS NOT NULL AND gps_lon IS NOT NULL
-            ORDER BY taken, path
+            SELECT p.id, l.relative_path, r.path AS root_path, p.gps_lat, p.gps_lon
+            FROM photo_locations l
+            JOIN photos p ON p.id = l.photo_id
+            JOIN roots r ON r.id = l.root_id
+            WHERE p.gps_lat IS NOT NULL AND p.gps_lon IS NOT NULL AND l.available = 1
+            ORDER BY p.taken, r.path, l.relative_path
             """
         ).fetchall()
         return [
             {
                 "id": int(row["id"]),
-                "path": row["path"],
+                "path": row["relative_path"],
+                "root": row["root_path"],
                 "lat": float(row["gps_lat"]),
                 "lon": float(row["gps_lon"]),
             }
@@ -286,6 +627,7 @@ class Repository:
             bokeh=float(row["bokeh"] or 0.0),
             blur_kind=BlurKind(row["blur_kind"] or "none"),
             blur_confidence=float(row["blur_confidence"] or 0.0),
+            blur_score=float(row["blur_score"] or 0.0) if "blur_score" in row.keys() else 0.0,
             composition=float(row["composition"] or 0.0),
             composition_components=components,
             aesthetic=float(row["aesthetic"] or 0.0),
@@ -312,9 +654,19 @@ class Repository:
         ).fetchone()
         if blob_row:
             embedding = np.frombuffer(blob_row["embedding"], dtype=np.float32).tolist()
+        keys = row.keys()
         return Photo(
             id=int(row["id"]),
-            path=row["path"],
+            location_id=int(row["location_id"])
+            if "location_id" in keys and row["location_id"] is not None
+            else None,
+            root_id=int(row["root_id"])
+            if "root_id" in keys and row["root_id"] is not None
+            else None,
+            root_path=row["root_path"]
+            if "root_path" in keys and row["root_path"] is not None
+            else "",
+            path=row["path"] if "path" in keys and row["path"] is not None else "",
             digest=row["digest"],
             phash=row["phash"] or "",
             taken=_parse_dt(row["taken"]),
@@ -334,6 +686,9 @@ class Repository:
             flags=flags,
             model_signature=row["model_signature"],
             analyzed_at=_parse_dt(row["analyzed_at"]),
+            available=bool(row["available"])
+            if "available" in keys and row["available"] is not None
+            else True,
         )
 
     def _photo_filters(
@@ -356,6 +711,8 @@ class Repository:
         sharpness_min: float | None = None,
         aesthetic_min: float | None = None,
         subject_min: float | None = None,
+        root: str | Sequence[str] | None = None,
+        folder: str | Sequence[str] | None = None,
     ) -> tuple[list[str], list[Any]]:
         def values(value: object) -> list[Any]:
             """Accept a scalar or a sequence and return a non-empty list."""
@@ -369,8 +726,19 @@ class Repository:
             placeholders = ", ".join("?" for _ in items)
             return f"{column} IN ({placeholders})"
 
-        where: list[str] = []
+        where: list[str] = ["l.available = 1"]
         params: list[Any] = []
+        roots = values(root)
+        if roots:
+            where.append(quoted("r.path", roots))
+            params.extend(roots)
+        folders = values(folder)
+        for value in folders:
+            cleaned = str(value).strip().strip("/")
+            if not cleaned:
+                continue
+            where.append("(l.relative_path = ? OR l.relative_path LIKE ?)")
+            params.extend([cleaned, cleaned + "/%"])
         ratings = values(rating)
         if ratings:
             where.append(quoted("p.rating", ratings))
@@ -432,8 +800,8 @@ class Repository:
             where.append("m.subject_score >= ?")
             params.append(subject_min)
         if search:
-            where.append("p.path LIKE ?")
-            params.append(f"%{search}%")
+            where.append("(l.relative_path LIKE ? OR r.path LIKE ?)")
+            params.extend([f"%{search}%", f"%{search}%"])
         if selected_run:
             where.append(
                 "EXISTS (SELECT 1 FROM selections s WHERE s.photo_id = p.id AND s.run_id = ?)"
@@ -461,8 +829,10 @@ class Repository:
         sharpness_min: float | None = None,
         aesthetic_min: float | None = None,
         subject_min: float | None = None,
+        root: str | Sequence[str] | None = None,
+        folder: str | Sequence[str] | None = None,
     ) -> int:
-        """Count photos matching the GUI/CLI filters."""
+        """Count available locations matching the GUI/CLI filters."""
         where, params = self._photo_filters(
             rating=rating,
             event_id=event_id,
@@ -481,11 +851,20 @@ class Repository:
             sharpness_min=sharpness_min,
             aesthetic_min=aesthetic_min,
             subject_min=subject_min,
+            root=root,
+            folder=folder,
         )
-        sql = "SELECT COUNT(*) AS n FROM photos p LEFT JOIN metrics m ON m.photo_id = p.id"
-        if where:
-            sql += " WHERE " + " AND ".join(where)
+        sql = f"SELECT COUNT(*) AS n {self._location_from()} WHERE " + " AND ".join(where)
         return int(self.connection.execute(sql, params).fetchone()["n"])
+
+    def _location_from(self) -> str:
+        """Shared FROM clause for location-level filters."""
+        return (
+            "FROM photo_locations l "
+            "JOIN photos p ON p.id = l.photo_id "
+            "JOIN roots r ON r.id = l.root_id "
+            "LEFT JOIN metrics m ON m.photo_id = p.id"
+        )
 
     def list_photos(
         self,
@@ -507,12 +886,14 @@ class Repository:
         sharpness_min: float | None = None,
         aesthetic_min: float | None = None,
         subject_min: float | None = None,
+        root: str | Sequence[str] | None = None,
+        folder: str | Sequence[str] | None = None,
         sort: str = "taken",
         order: str = "asc",
         limit: int | None = None,
         offset: int = 0,
     ) -> list[Photo]:
-        """Filtered photo listing for the CLI and GUI."""
+        """Filtered location listing for the CLI and GUI."""
         where, params = self._photo_filters(
             rating=rating,
             event_id=event_id,
@@ -531,29 +912,26 @@ class Repository:
             sharpness_min=sharpness_min,
             aesthetic_min=aesthetic_min,
             subject_min=subject_min,
+            root=root,
+            folder=folder,
         )
         direction = "ASC" if order.lower().startswith("asc") else "DESC"
-        # ``key`` is the leading column, ``tie_breakers`` keep the order deterministic.
         columns = {
-            "taken": ("p.taken", ["p.path"]),
-            "path": ("p.path", []),
-            "score": ("p.score", ["p.taken", "p.path"]),
+            "taken": ("p.taken", ["r.path", "l.relative_path"]),
+            "path": ("l.relative_path", ["r.path"]),
+            "score": ("p.score", ["p.taken", "r.path", "l.relative_path"]),
             "rating": ("p.rating", ["p.score", "p.taken"]),
-            "sharpness": ("COALESCE(m.sharpness_subject, m.sharpness)", ["p.taken", "p.path"]),
-            "bokeh": ("m.bokeh", ["p.taken", "p.path"]),
-            "aesthetic": ("m.aesthetic", ["p.taken", "p.path"]),
-            "subject": ("m.subject_score", ["p.taken", "p.path"]),
+            "sharpness": (
+                "COALESCE(m.sharpness_subject, m.sharpness)",
+                ["p.taken", "l.relative_path"],
+            ),
+            "bokeh": ("m.bokeh", ["p.taken", "l.relative_path"]),
+            "aesthetic": ("m.aesthetic", ["p.taken", "l.relative_path"]),
+            "subject": ("m.subject_score", ["p.taken", "l.relative_path"]),
         }
         key, tie_breakers = columns.get(sort, columns["taken"])
         order_by = ", ".join([f"{key} {direction}", *tie_breakers])
-        sql = """
-            SELECT p.*, m.sharpness, m.sharpness_raw, m.sharpness_subject, m.sharpness_subject_raw,
-                   m.bokeh, m.blur_kind, m.blur_confidence,
-                   m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
-                   m.subject_score, m.subject_rarity, m.exposure
-            FROM photos p
-            LEFT JOIN metrics m ON m.photo_id = p.id
-            """
+        sql = _LOCATION_SELECT
         if where:
             sql += " WHERE " + " AND ".join(where)
         sql += f" ORDER BY {order_by}"
@@ -582,8 +960,10 @@ class Repository:
         sharpness_min: float | None = None,
         aesthetic_min: float | None = None,
         subject_min: float | None = None,
+        root: str | Sequence[str] | None = None,
+        folder: str | Sequence[str] | None = None,
     ) -> list[int]:
-        """All photo ids matching the filters, regardless of pagination."""
+        """All location ids matching the filters, regardless of pagination."""
         where, params = self._photo_filters(
             rating=rating,
             event_id=event_id,
@@ -601,12 +981,77 @@ class Repository:
             sharpness_min=sharpness_min,
             aesthetic_min=aesthetic_min,
             subject_min=subject_min,
+            root=root,
+            folder=folder,
         )
-        sql = "SELECT p.id FROM photos p LEFT JOIN metrics m ON m.photo_id = p.id"
+        sql = "SELECT l.id AS id " + self._location_from()
         if where:
             sql += " WHERE " + " AND ".join(where)
-        sql += " ORDER BY p.taken, p.path"
+        sql += " ORDER BY r.path, l.relative_path"
         return [int(row["id"]) for row in self.connection.execute(sql, params).fetchall()]
+
+    def folder_counts(
+        self,
+        *,
+        rating: int | Sequence[int] | None = None,
+        event_id: int | Sequence[int] | None = None,
+        group_id: int | Sequence[int] | None = None,
+        label: str | Sequence[str] | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        min_score: float | None = None,
+        search: str | None = None,
+        blur: str | Sequence[str] | None = None,
+        flags: str | Sequence[str] | None = None,
+        camera_make: str | Sequence[str] | None = None,
+        camera_model: str | Sequence[str] | None = None,
+        score_max: float | None = None,
+        sharpness_min: float | None = None,
+        aesthetic_min: float | None = None,
+        subject_min: float | None = None,
+        root: str | Sequence[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Matching photo counts per folder, including ancestor folders."""
+        where, params = self._photo_filters(
+            rating=rating,
+            event_id=event_id,
+            group_id=group_id,
+            label=label,
+            date_from=date_from,
+            date_to=date_to,
+            min_score=min_score,
+            search=search,
+            blur=blur,
+            flags=flags,
+            camera_make=camera_make,
+            camera_model=camera_model,
+            score_max=score_max,
+            sharpness_min=sharpness_min,
+            aesthetic_min=aesthetic_min,
+            subject_min=subject_min,
+            root=root,
+        )
+        sql = (
+            "SELECT r.path AS root_path, l.relative_path AS path "
+            + self._location_from()
+            + " WHERE "
+            + " AND ".join(where)
+        )
+        counts: dict[tuple[str, str], int] = {}
+        for row in self.connection.execute(sql, params):
+            root_path = row["root_path"]
+            relative = row["path"]
+            parts = relative.split("/")
+            folders = {"."}
+            for index in range(1, len(parts)):
+                folders.add("/".join(parts[:index]))
+            for folder in folders:
+                key = (root_path, folder)
+                counts[key] = counts.get(key, 0) + 1
+        return [
+            {"root": root_path, "folder": folder, "count": count}
+            for (root_path, folder), count in sorted(counts.items())
+        ]
 
     def filter_options(self) -> dict[str, list[Any]]:
         """Distinct values available for the multi-select filter controls."""
@@ -848,10 +1293,27 @@ class Repository:
     def get_selection(self, run_id: str) -> list[Photo]:
         rows = self.connection.execute(
             """
-            SELECT p.*, m.sharpness, m.sharpness_raw, m.sharpness_subject, m.sharpness_subject_raw,
-                   m.bokeh, m.blur_kind, m.blur_confidence,
+            SELECT p.*,
+                   m.sharpness, m.sharpness_raw, m.sharpness_subject, m.sharpness_subject_raw,
+                   m.bokeh, m.blur_kind, m.blur_confidence, m.blur_score,
                    m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
-                   m.subject_score, m.subject_rarity, m.exposure, s.rank, s.reason, s.quota_rule
+                   m.subject_score, m.subject_rarity, m.exposure, s.rank, s.reason, s.quota_rule,
+                   (SELECT l.id FROM photo_locations l
+                    WHERE l.photo_id = p.id AND l.available = 1
+                    ORDER BY l.relative_path LIMIT 1) AS location_id,
+                   (SELECT l.root_id FROM photo_locations l
+                    WHERE l.photo_id = p.id AND l.available = 1
+                    ORDER BY l.relative_path LIMIT 1) AS root_id,
+                   (SELECT l.relative_path FROM photo_locations l
+                    WHERE l.photo_id = p.id AND l.available = 1
+                    ORDER BY l.relative_path LIMIT 1) AS path,
+                   (SELECT r.path FROM photo_locations l
+                    JOIN roots r ON r.id = l.root_id
+                    WHERE l.photo_id = p.id AND l.available = 1
+                    ORDER BY l.relative_path LIMIT 1) AS root_path,
+                   (SELECT l.available FROM photo_locations l
+                    WHERE l.photo_id = p.id AND l.available = 1
+                    ORDER BY l.relative_path LIMIT 1) AS available
             FROM selections s
             JOIN photos p ON p.id = s.photo_id
             LEFT JOIN metrics m ON m.photo_id = p.id

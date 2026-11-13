@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 INITIAL_SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_meta (
@@ -158,6 +158,68 @@ METRICS_V2 = """
 ALTER TABLE metrics ADD COLUMN sharpness_subject REAL NOT NULL DEFAULT 0;
 ALTER TABLE metrics ADD COLUMN sharpness_subject_raw REAL NOT NULL DEFAULT 0;
 ALTER TABLE metrics ADD COLUMN bokeh REAL NOT NULL DEFAULT 0;
+"""
+
+#: Version 3 adds the absolute blur score. Table rebuilds happen in ``migrate.py``.
+BLUR_V3 = """
+ALTER TABLE metrics ADD COLUMN blur_score REAL NOT NULL DEFAULT 0;
+"""
+
+#: Tables created while rebuilding a version 2 database into the content-addressed model.
+SCHEMA_V3_TABLES = """
+CREATE TABLE IF NOT EXISTS roots (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    path       TEXT NOT NULL UNIQUE,
+    label      TEXT NOT NULL DEFAULT '',
+    enabled    INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS photo_locations (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    photo_id      INTEGER NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+    root_id       INTEGER NOT NULL REFERENCES roots(id) ON DELETE CASCADE,
+    relative_path TEXT NOT NULL,
+    mtime         REAL,
+    analyzed_at   TEXT,
+    available     INTEGER NOT NULL DEFAULT 1,
+    UNIQUE(root_id, relative_path)
+);
+
+CREATE TABLE IF NOT EXISTS photos_v3 (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    digest          TEXT NOT NULL UNIQUE,
+    phash           TEXT NOT NULL DEFAULT '',
+    taken           TEXT NOT NULL,
+    width           INTEGER NOT NULL DEFAULT 0,
+    height          INTEGER NOT NULL DEFAULT 0,
+    camera_make     TEXT,
+    camera_model    TEXT,
+    gps_lat         REAL,
+    gps_lon         REAL,
+    event_id        INTEGER REFERENCES events(id) ON DELETE SET NULL,
+    group_id        INTEGER REFERENCES groups(id) ON DELETE SET NULL,
+    score           REAL NOT NULL DEFAULT 0,
+    rating          INTEGER NOT NULL DEFAULT 0,
+    flags           TEXT NOT NULL DEFAULT '[]',
+    model_signature TEXT,
+    analyzed_at     TEXT,
+    created_at      TEXT NOT NULL
+);
+"""
+
+#: Recreated after the content table is renamed into place.
+SCHEMA_V3_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_photos_digest ON photos(digest);
+CREATE INDEX IF NOT EXISTS idx_photos_taken ON photos(taken);
+CREATE INDEX IF NOT EXISTS idx_photos_event ON photos(event_id);
+CREATE INDEX IF NOT EXISTS idx_photos_group ON photos(group_id);
+CREATE INDEX IF NOT EXISTS idx_photos_score ON photos(score DESC);
+CREATE INDEX IF NOT EXISTS idx_photos_rating ON photos(rating DESC);
+CREATE INDEX IF NOT EXISTS idx_photo_locations_photo ON photo_locations(photo_id);
+CREATE INDEX IF NOT EXISTS idx_photo_locations_root_path ON photo_locations(root_id, relative_path);
+CREATE INDEX IF NOT EXISTS idx_photo_locations_available ON photo_locations(available);
+CREATE INDEX IF NOT EXISTS idx_roots_path ON roots(path);
 """
 
 

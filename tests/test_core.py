@@ -78,7 +78,7 @@ def test_fresh_database_has_wal_and_schema(tmp_path: Path) -> None:
         version = repository.connection.execute(
             "SELECT value FROM schema_meta WHERE key = 'schema_version'"
         ).fetchone()[0]
-        assert version == "2"
+        assert version == "3"
         assert repository.connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         assert repository.connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
         assert repository.count_photos() == 0
@@ -104,10 +104,12 @@ def test_connection_is_usable_from_another_thread(tmp_path: Path) -> None:
         repository.close()
 
 
-def _photo(path: str = "a.jpg") -> Photo:
+def _photo(path: str = "a.jpg", digest: str | None = None) -> Photo:
+    import hashlib
+
     return Photo(
         path=path,
-        digest="d" * 64,
+        digest=digest or hashlib.sha256(path.encode()).hexdigest(),
         taken=datetime(2024, 5, 1, 12, 0, tzinfo=UTC),
         width=100,
         height=80,
@@ -211,6 +213,7 @@ def test_doctor_json_is_valid_and_exits_zero(tmp_path: Path) -> None:
         yaml.safe_dump(
             {
                 "input": {"root": str(tmp_path)},
+                "storage": {"data_dir": str(tmp_path / "appdata")},
                 "models": {"enabled": False},
             }
         )
@@ -220,7 +223,7 @@ def test_doctor_json_is_valid_and_exits_zero(tmp_path: Path) -> None:
     report = json.loads(result.output)
     assert report["ok"] is True
     assert any(check["name"] == "database" and check["ok"] for check in report["checks"])
-    assert (tmp_path / ".image-triage" / "triage.db").is_file()
+    assert (tmp_path / "appdata" / "triage.db").is_file()
 
 
 def test_database_rejects_newer_schema(tmp_path: Path) -> None:
