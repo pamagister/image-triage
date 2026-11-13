@@ -134,11 +134,19 @@ class Repository:
         )
         return int(cursor.lastrowid)
 
-    def sync_roots(self, paths: list[Path]) -> list[dict[str, Any]]:
-        """Add configured roots and disable roots that are no longer watched."""
+    def sync_roots(
+        self, paths: list[Path], *, enabled: Iterable[Path] | None = None
+    ) -> list[dict[str, Any]]:
+        """Add configured roots and persist which roots are active.
+
+        ``enabled`` defaults to every supplied path. Roots outside ``enabled`` are marked
+        inactive, including roots that are no longer configured, so stale history stays
+        visible in the database without being scanned.
+        """
         if not paths:
             return self.roots()
         wanted = [str(path) for path in paths]
+        active = {str(path) for path in (paths if enabled is None else enabled)}
         with self.connection:
             migrated = self.connection.execute(
                 "SELECT id FROM roots WHERE path = '' AND enabled = 1"
@@ -150,13 +158,16 @@ class Repository:
                 self.connection.execute(
                     "UPDATE roots SET path = ? WHERE id = ?", (wanted[0], migrated[0]["id"])
                 )
-            placeholders = ", ".join("?" for _ in wanted)
-            self.connection.execute(
-                "UPDATE roots SET enabled = CASE WHEN path IN ("
-                + placeholders
-                + ") THEN 1 ELSE 0 END",
-                wanted,
-            )
+            if active:
+                placeholders = ", ".join("?" for _ in active)
+                self.connection.execute(
+                    "UPDATE roots SET enabled = CASE WHEN path IN ("
+                    + placeholders
+                    + ") THEN 1 ELSE 0 END",
+                    tuple(active),
+                )
+            else:
+                self.connection.execute("UPDATE roots SET enabled = 0")
         return self.roots()
 
     def roots(self) -> list[dict[str, Any]]:

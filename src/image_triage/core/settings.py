@@ -49,6 +49,7 @@ class InputSettings(BaseModel):
 
     root: Path = Path(".")
     roots: list[Path] = Field(default_factory=list)
+    disabled_roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
     cache_dir: Path | None = None
     exclude: list[str] = Field(default_factory=lambda: [".image-triage", "selected", "previews"])
@@ -261,11 +262,22 @@ class Settings(BaseSettings):
 
     @property
     def watched_roots(self) -> list[Path]:
-        """Configured roots, falling back to the single legacy ``input.root``."""
-        roots = [path.expanduser().resolve() for path in self.input.roots if str(path).strip()]
-        if roots:
-            return roots
-        return [self.input.root.expanduser().resolve()]
+        """Configured roots without disabled entries, falling back to legacy ``input.root``."""
+        roots: list[Path] = []
+        seen: set[Path] = set()
+        for path in self.input.roots:
+            if not str(path).strip():
+                continue
+            resolved = path.expanduser().resolve()
+            if resolved not in seen:
+                roots.append(resolved)
+                seen.add(resolved)
+        if not roots:
+            return [self.input.root.expanduser().resolve()]
+        disabled = {
+            path.expanduser().resolve() for path in self.input.disabled_roots if str(path).strip()
+        }
+        return [path for path in roots if path not in disabled]
 
     def export_destination(self, now: datetime | None = None) -> Path:
         """Default timestamped export directory under appdata."""

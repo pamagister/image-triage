@@ -211,6 +211,23 @@ def test_tile_metadata_follows_settings(photo_dir: Path, tmp_path: Path) -> None
         assert ">taken " not in meta
 
 
+def test_settings_page_shows_root_counts_and_read_only_database(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    with client:
+        page = client.get("/settings")
+        assert page.status_code == 200
+        assert str(photo_dir.resolve()) in page.text
+        assert b'name="enabled_roots"' in page.content
+        assert b'name="root_paths"' in page.content
+        assert b'data-remove-root="' in page.content
+        assert b"State database" in page.content
+        assert str(settings.database_path).encode() in page.content
+        assert b'data-disk-count="4"' in page.content
+        assert b'data-analyzed-count="0"' in page.content
+
+
 def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path: Path) -> None:
     settings, client = _client_with_settings(photo_dir, tmp_path)
     with client:
@@ -221,7 +238,8 @@ def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path:
         response = client.post(
             "/settings",
             data={
-                "roots": str(photo_dir.resolve()),
+                "root_paths": [str(photo_dir.resolve())],
+                "enabled_roots": [str(photo_dir.resolve())],
                 "exclude": ".hidden, cache",
                 "tile_fields": ["score", "taken"],
             },
@@ -229,11 +247,98 @@ def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path:
         )
         assert response.status_code == 303
         assert client.app.state.settings.input.roots == [photo_dir.resolve()]
+        assert client.app.state.settings.input.disabled_roots == []
         assert client.app.state.settings.gui.tile_fields == ["score", "taken"]
         assert client.app.state.settings.input.exclude == [".hidden", "cache"]
 
         stored = client.app.state.settings.config_path.read_text()
         assert str(photo_dir.resolve()) in stored
+
+
+def test_settings_adds_deactivates_and_removes_roots(photo_dir: Path, tmp_path: Path) -> None:
+    other = tmp_path / "other-library"
+    other.mkdir()
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+
+    with client:
+        added = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(photo_dir.resolve())],
+                "enabled_roots": [str(photo_dir.resolve())],
+                "add_root": "1",
+                "new_root": str(other),
+            },
+            follow_redirects=False,
+        )
+        assert added.status_code == 303
+        assert client.app.state.settings.input.roots == [
+            photo_dir.resolve(),
+            other.resolve(),
+        ]
+        assert client.app.state.settings.watched_roots == [
+            photo_dir.resolve(),
+            other.resolve(),
+        ]
+
+        deactivated = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(photo_dir.resolve()), str(other)],
+                "enabled_roots": [str(photo_dir.resolve())],
+            },
+            follow_redirects=False,
+        )
+        assert deactivated.status_code == 303
+        assert client.app.state.settings.input.disabled_roots == [other.resolve()]
+        assert client.app.state.settings.watched_roots == [photo_dir.resolve()]
+
+        removed = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(photo_dir.resolve()), str(other)],
+                "enabled_roots": [str(photo_dir.resolve())],
+                "remove_root": str(other),
+            },
+            follow_redirects=False,
+        )
+        assert removed.status_code == 303
+        assert client.app.state.settings.input.roots == [photo_dir.resolve()]
+        assert client.app.state.settings.input.disabled_roots == []
+
+        repository = Repository.open(client.app.state.settings.database_path)
+        try:
+            states = {item["path"]: item["enabled"] for item in repository.roots()}
+        finally:
+            repository.close()
+        assert states[str(other)] is False
+
+
+def test_settings_requires_an_active_root(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    with client:
+        response = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(photo_dir.resolve())],
+                "enabled_roots": [],
+            },
+        )
+        assert response.status_code == 400
+        assert b"at least one watched root must be active" in response.content
+
+
+def test_browse_api_lists_directories_and_rejects_files(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    with client:
+        response = client.get("/api/browse", params={"path": str(photo_dir)})
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["path"] == str(photo_dir.resolve())
+        assert {item["name"] for item in payload["directories"]} == {"sub"}
+
+        invalid = client.get("/api/browse", params={"path": str(photo_dir / "burst_sharp.jpg")})
+        assert invalid.status_code == 400
 
 
 def test_settings_rejects_changes_while_a_job_is_active(photo_dir: Path, tmp_path: Path) -> None:
@@ -244,7 +349,13 @@ def test_settings_rejects_changes_while_a_job_is_active(photo_dir: Path, tmp_pat
     finally:
         repository.close()
     with client:
-        response = client.post("/settings", data={"roots": str(tmp_path)})
+        response = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(tmp_path)],
+                "enabled_roots": [str(tmp_path)],
+            },
+        )
         assert response.status_code == 409
         assert b"job is active" in response.content
 

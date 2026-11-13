@@ -238,6 +238,34 @@ def test_two_roots_analyze_unique_content_once_and_record_both_locations(
         repository.close()
 
 
+def test_disabled_roots_are_excluded_and_repository_tracks_active_state(
+    tmp_path: Path,
+) -> None:
+    first = tmp_path / "one"
+    second = tmp_path / "two"
+    first.mkdir()
+    second.mkdir()
+    base = _settings([first, second], tmp_path / "disabled.db")
+    settings = base.model_copy(
+        update={"input": base.input.model_copy(update={"disabled_roots": [second]})}
+    )
+    assert settings.watched_roots == [first.resolve()]
+
+    repository = Repository.open(settings.database_path)
+    try:
+        repository.sync_roots([first, second], enabled=[first])
+        states = {item["path"]: item["enabled"] for item in repository.roots()}
+        assert states[str(first)] is True
+        assert states[str(second)] is False
+
+        repository.sync_roots([first], enabled=[first])
+        states = {item["path"]: item["enabled"] for item in repository.roots()}
+        assert states[str(first)] is True
+        assert states[str(second)] is False
+    finally:
+        repository.close()
+
+
 def test_nested_roots_are_de_overlapped(tmp_path: Path) -> None:
     parent = tmp_path / "photos"
     child = parent / "2024"

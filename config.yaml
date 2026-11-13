@@ -11,6 +11,7 @@ storage:
 input:
   root: .
   roots: []
+  disabled_roots: []
   db_path: null
   cache_dir: null
   exclude:

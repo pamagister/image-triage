@@ -42,8 +42,20 @@ def _current_settings(request: Request) -> Settings:
     return request.app.state.settings
 
 
-def _input_root(settings: Settings) -> Path:
-    return Path(settings.input.root).expanduser().resolve()
+def _configured_roots(settings: Settings) -> list[Path]:
+    """Configured roots without duplicates, or the legacy single root as fallback."""
+    roots: list[Path] = []
+    seen: set[Path] = set()
+    for path in settings.input.roots:
+        if not str(path).strip():
+            continue
+        resolved = path.expanduser().resolve()
+        if resolved not in seen:
+            roots.append(resolved)
+            seen.add(resolved)
+    if roots:
+        return roots
+    return [settings.input.root.expanduser().resolve()]
 
 
 def _media_path(settings: Settings, photo: Photo) -> Path:
@@ -68,7 +80,28 @@ def _count_files(root: Path, exclude: tuple[str, ...]) -> int:
     if not root.is_dir():
         return 0
     excluded = tuple(root / name for name in exclude)
-    return len(find_images(root, excluded))
+    try:
+        return len(find_images(root, excluded))
+    except OSError:
+        return 0
+
+
+def _root_rows(settings: Settings, repository: Repository) -> list[dict[str, Any]]:
+    """Settings-page rows with on-disk and analyzed image counts per configured root."""
+    stored = {item["path"]: item for item in repository.roots()}
+    active = set(settings.watched_roots)
+    rows: list[dict[str, Any]] = []
+    for root in _configured_roots(settings):
+        rows.append(
+            {
+                "path": str(root),
+                "exists": root.is_dir(),
+                "enabled": root in active,
+                "disk_images": _count_files(root, tuple(settings.input.exclude)),
+                "analyzed": int(stored.get(str(root), {}).get("photos", 0)),
+            }
+        )
+    return rows
 
 
 def _is_inside(candidate: Path, root: Path) -> bool:
@@ -238,67 +271,37 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/health")
     def health(request: Request) -> dict[str, Any]:
-        return {"ok": True, "input": str(_input_root(_current_settings(request)))}
-
-    @app.get("/setup", response_class=HTMLResponse)
-    def setup_form(request: Request) -> HTMLResponse:
         settings = _current_settings(request)
-        root = _input_root(settings)
-        return TEMPLATES.TemplateResponse(
-            request,
-            "setup.html",
-            {
-                "root": root,
-                "root_exists": root.is_dir(),
-                "file_count": _count_files(root, tuple(settings.input.exclude)),
-                "database_path": settings.database_path,
-                "error": request.query_params.get("error"),
-            },
-        )
+        roots = [str(path) for path in settings.watched_roots]
+        return {"ok": True, "roots": roots, "input": roots[0] if roots else ""}
 
-    @app.post("/setup", response_model=None)
-    def setup(
-        request: Request,
-        repo: Repository = Depends(repository),
-        root: str = Form(...),
-    ) -> HTMLResponse | RedirectResponse:
-        """Switch the library root; rejected while a job reads or writes the state database."""
-        settings = _current_settings(request)
-        candidate = Path(root).expanduser()
-        if not candidate.is_dir():
-            return TEMPLATES.TemplateResponse(
-                request,
-                "setup.html",
-                {
-                    "root": candidate,
-                    "root_exists": False,
-                    "file_count": 0,
-                    "database_path": settings.database_path,
-                    "error": f"not a directory: {candidate}",
-                },
-                status_code=400,
+    @app.get("/setup", response_model=None)
+    def setup_redirect() -> RedirectResponse:
+        """Keep old bookmarks working without exposing the removed setup form."""
+        return RedirectResponse("/settings", status_code=308)
+
+    @app.get("/api/browse")
+    def browse(path: str = "~") -> dict[str, Any]:
+        """List directories below ``path`` for the settings directory picker."""
+        target = Path(path).expanduser()
+        if not target.is_absolute():
+            target = (Path.cwd() / target).resolve()
+        else:
+            target = target.resolve()
+        if not target.is_dir():
+            raise HTTPException(400, "not a directory")
+        try:
+            directories = sorted(
+                (item for item in target.iterdir() if item.is_dir()),
+                key=lambda item: item.name.lower(),
             )
-        active = _active_jobs(repo)
-        if active:
-            running = ", ".join(f"{job['kind']} #{job['id']}" for job in active)
-            return TEMPLATES.TemplateResponse(
-                request,
-                "setup.html",
-                {
-                    "root": _input_root(settings),
-                    "root_exists": True,
-                    "file_count": _count_files(
-                        _input_root(settings), tuple(settings.input.exclude)
-                    ),
-                    "database_path": settings.database_path,
-                    "error": f"cannot change the library while a job is active: {running}",
-                },
-                status_code=409,
-            )
-        app.state.settings = settings.model_copy(
-            update={"input": settings.input.model_copy(update={"root": candidate.resolve()})}
-        )
-        return RedirectResponse("/", status_code=303)
+        except OSError as exc:
+            raise HTTPException(400, f"cannot read directory: {exc}") from exc
+        return {
+            "path": str(target),
+            "parent": None if target.parent == target else str(target.parent),
+            "directories": [{"name": item.name, "path": str(item)} for item in directories],
+        }
 
     def _library_response(
         request: Request,
@@ -498,13 +501,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(404, "no photos to compare")
         return TEMPLATES.TemplateResponse(request, "compare.html", {"photos": photos})
 
-    @app.get("/settings", response_class=HTMLResponse)
-    def settings_form(request: Request, repo: Repository = Depends(repository)) -> HTMLResponse:
+    def _settings_context(
+        request: Request,
+        repo: Repository,
+        *,
+        settings: Settings,
+        active_jobs: list[dict[str, Any]] | None = None,
+        error: str = "",
+        status_code: int = 200,
+        saved: bool = False,
+    ) -> HTMLResponse:
+        """Render the settings page with current root statistics and messages."""
         return TEMPLATES.TemplateResponse(
             request,
             "settings.html",
             {
-                "settings": _current_settings(request),
+                "settings": settings,
+                "root_rows": _root_rows(settings, repo),
                 "tile_field_options": [
                     ("score", "score"),
                     ("rating", "rating"),
@@ -519,16 +532,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     ("group", "group"),
                     ("event", "event"),
                 ],
-                "active_jobs": _active_jobs(repo),
-                "error": request.query_params.get("error"),
+                "active_jobs": _active_jobs(repo) if active_jobs is None else active_jobs,
+                "database_override": settings.input.db_path is not None,
+                "error": error,
+                "saved": saved,
             },
+            status_code=status_code,
+        )
+
+    @app.get("/settings", response_class=HTMLResponse)
+    def settings_form(request: Request, repo: Repository = Depends(repository)) -> HTMLResponse:
+        return _settings_context(
+            request,
+            repo,
+            settings=_current_settings(request),
+            error=request.query_params.get("error") or "",
+            saved=request.query_params.get("saved") == "1",
         )
 
     @app.post("/settings", response_model=None)
     def save_settings(
         request: Request,
         repo: Repository = Depends(repository),
-        roots: str = Form(""),
+        root_paths: list[str] = Form([]),  # noqa: B008
+        enabled_roots: list[str] = Form([]),  # noqa: B008
+        new_root: str = Form(""),
+        add_root: str = Form(""),
+        remove_root: str = Form(""),
         exclude: str = Form(""),
         default_view: str = Form("flat"),
         tile_fields: list[str] = Form([]),  # noqa: B008
@@ -550,20 +580,85 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         settings = _current_settings(request)
         active = _active_jobs(repo)
         if active:
-            return TEMPLATES.TemplateResponse(
+            return _settings_context(
                 request,
-                "settings.html",
-                {
-                    "settings": settings,
-                    "tile_field_options": [],
-                    "active_jobs": active,
-                    "error": "cannot change settings while a job is active",
-                },
+                repo,
+                settings=settings,
+                active_jobs=active,
+                error="cannot change settings while a job is active",
                 status_code=409,
             )
+
+        configured: list[Path] = []
+        for raw in root_paths:
+            candidate = Path(raw.strip()).expanduser().resolve()
+            if candidate not in configured:
+                configured.append(candidate)
+
+        enabled: list[Path] = []
+        for raw in enabled_roots:
+            candidate = Path(raw.strip()).expanduser().resolve()
+            if candidate in configured and candidate not in enabled:
+                enabled.append(candidate)
+
+        if add_root:
+            value = new_root.strip()
+            if not value:
+                return _settings_context(
+                    request,
+                    repo,
+                    settings=settings,
+                    error="enter a folder to add",
+                    status_code=400,
+                )
+            candidate = Path(value).expanduser().resolve()
+            if not candidate.is_dir():
+                return _settings_context(
+                    request,
+                    repo,
+                    settings=settings,
+                    error=f"not a directory: {candidate}",
+                    status_code=400,
+                )
+            if candidate not in configured:
+                configured.append(candidate)
+            if candidate not in enabled:
+                enabled.append(candidate)
+
+        if remove_root:
+            removed = Path(remove_root.strip()).expanduser().resolve()
+            configured = [path for path in configured if path != removed]
+            enabled = [path for path in enabled if path != removed]
+
+        if not configured:
+            return _settings_context(
+                request,
+                repo,
+                settings=settings,
+                error="at least one watched root is required",
+                status_code=400,
+            )
+        if not enabled:
+            return _settings_context(
+                request,
+                repo,
+                settings=settings,
+                error="at least one watched root must be active",
+                status_code=400,
+            )
+        missing = [path for path in enabled if not path.is_dir()]
+        if missing:
+            return _settings_context(
+                request,
+                repo,
+                settings=settings,
+                error=f"active root is not a directory: {missing[0]}",
+                status_code=400,
+            )
+
         data = settings.model_dump(mode="json")
-        root_paths = [line.strip() for line in roots.splitlines() if line.strip()]
-        data["input"]["roots"] = root_paths
+        data["input"]["roots"] = [str(path) for path in configured]
+        data["input"]["disabled_roots"] = [str(path) for path in configured if path not in enabled]
         data["input"]["exclude"] = [item.strip() for item in exclude.split(",") if item.strip()]
         data["gui"]["default_view"] = default_view
         data["gui"]["tile_fields"] = tile_fields or []
@@ -594,17 +689,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             updated = type(settings).model_validate(data)
         except Exception as exc:
-            return TEMPLATES.TemplateResponse(
+            return _settings_context(
                 request,
-                "settings.html",
-                {
-                    "settings": settings,
-                    "tile_field_options": [],
-                    "active_jobs": [],
-                    "error": str(exc),
-                },
+                repo,
+                settings=settings,
+                error=str(exc),
                 status_code=400,
             )
+
+        try:
+            repo.sync_roots(configured, enabled=enabled)
+        except Exception as exc:
+            return _settings_context(
+                request,
+                repo,
+                settings=settings,
+                error=f"could not update root state: {exc}",
+                status_code=400,
+            )
+
         path = updated.config_path
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_suffix(path.suffix + ".tmp")

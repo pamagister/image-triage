@@ -2,87 +2,166 @@
 {% block title %}Settings - Image Triage{% endblock %}
 {% block content %}
 <h1>Settings</h1>
+<p class="page-intro">Manage the watched library roots and the defaults shared by the GUI and CLI.</p>
+
+{% if saved %}<p class="banner" role="status">Settings saved.</p>{% endif %}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% if active_jobs %}<p class="banner">{{ active_jobs | length }} job(s) active; settings are read-only until they finish.</p>{% endif %}
-<form method="post" action="/settings" class="settings-form">
-  <fieldset>
-    <legend>Watched roots</legend>
-    <label>One absolute path per line
-      <textarea name="roots" rows="4" cols="60">{% for root in settings.watched_roots %}{{ root }}
-{% endfor %}</textarea>
-    </label>
-    <label>Excluded directory names (comma separated)
+
+<form method="post" action="/settings" class="settings-form" id="settings-form">
+  <section class="settings-section">
+    <h2>Watched roots</h2>
+    <p class="section-help">Activate the roots to scan. Removing a root keeps its analysis history and never touches originals.</p>
+    <div class="table-wrap">
+      <table class="root-table">
+        <thead>
+          <tr>
+            <th scope="col">Active</th>
+            <th scope="col">Folder</th>
+            <th scope="col">Images</th>
+            <th scope="col">Analyzed</th>
+            <th scope="col">Remove</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for root in root_rows %}
+          <tr class="{% if not root.enabled %}is-disabled{% endif %}">
+            <td><input type="checkbox" name="enabled_roots" value="{{ root.path }}" {% if root.enabled %}checked{% endif %} aria-label="Use {{ root.path }}"></td>
+            <td>
+              <code>{{ root.path }}</code>
+              {% if not root.exists %}<span class="status-warning">not found</span>{% endif %}
+            </td>
+            <td data-disk-count="{{ root.disk_images }}">{{ root.disk_images }}</td>
+            <td data-analyzed-count="{{ root.analyzed }}">{{ root.analyzed }}</td>
+            <td>
+              <button type="button" class="button-danger" data-remove-root="{{ root.path }}" data-confirm="Remove {{ root.path }} from the watched roots?">Remove</button>
+            </td>
+          </tr>
+          {% endfor %}
+          {% if not root_rows %}
+          <tr><td colspan="5">No watched roots configured.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    {% for root in root_rows %}<input type="hidden" name="root_paths" value="{{ root.path }}">{% endfor %}
+
+    <div class="root-add">
+      <label>New root
+        <input type="text" name="new_root" id="new-root" placeholder="/home/user/photos" size="50">
+      </label>
+      <button type="button" class="button-secondary" id="browse-root">Browse...</button>
+      <button type="submit" name="add_root" value="1">Add root</button>
+    </div>
+
+    <label class="field-wide">Excluded directory names (comma separated)
       <input type="text" name="exclude" value="{{ settings.input.exclude | join(', ') }}">
     </label>
-  </fieldset>
+  </section>
 
-  <fieldset>
-    <legend>Library display</legend>
-    <label>Default view
-      <select name="default_view">
-        <option value="flat" {% if settings.gui.default_view == 'flat' %}selected{% endif %}>flat tiles</option>
-        <option value="folders" {% if settings.gui.default_view == 'folders' %}selected{% endif %}>folder tree</option>
-      </select>
-    </label>
-    <label>Tile metadata
-      <span class="checkbox-grid">
-        {% for value, label in tile_field_options %}
-        <label><input type="checkbox" name="tile_fields" value="{{ value }}" {% if value in settings.gui.tile_fields %}checked{% endif %}> {{ label }}</label>
-        {% endfor %}
-      </span>
-    </label>
-  </fieldset>
+  <section class="settings-section">
+    <h2>Database</h2>
+    <p>State database</p>
+    <p><code>{{ settings.database_path }}</code></p>
+    <p class="section-help">This central database is shared by every watched root.
+      {% if database_override %}It uses the explicit <code>input.db_path</code> override.{% else %}It uses the platform default location.{% endif %}
+      The path is shown for reference and cannot be changed here.</p>
+  </section>
 
-  <fieldset>
-    <legend>Export defaults</legend>
-    <label>Mode
-      <select name="export_mode">
-        {% for value in ['copy', 'hardlink', 'symlink'] %}
-        <option value="{{ value }}" {% if settings.export.mode == value %}selected{% endif %}>{{ value }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>Layout
-      <select name="export_layout">
-        <option value="flat" {% if settings.export.layout == 'flat' %}selected{% endif %}>flat</option>
-        <option value="tree" {% if settings.export.layout == 'tree' %}selected{% endif %}>folder tree</option>
-      </select>
-    </label>
-    <label><input type="checkbox" name="rerender" {% if settings.export.rerender %}checked{% endif %}> Re-render as JPEG</label>
-    <label>Maximum long edge (blank = original size)
-      <input type="number" name="max_long_edge" min="64" max="20000" value="{{ settings.export.max_long_edge or '' }}">
-    </label>
-    <label>JPEG quality
-      <input type="number" name="jpeg_quality" min="1" max="100" value="{{ settings.export.jpeg_quality }}">
-    </label>
-  </fieldset>
+  <section class="settings-section">
+    <h2>Library display</h2>
+    <div class="settings-grid">
+      <label>Default view
+        <select name="default_view">
+          <option value="flat" {% if settings.gui.default_view == 'flat' %}selected{% endif %}>flat tiles</option>
+          <option value="folders" {% if settings.gui.default_view == 'folders' %}selected{% endif %}>folder tree</option>
+        </select>
+      </label>
+      <fieldset class="field-wide">
+        <legend>Tile metadata</legend>
+        <span class="checkbox-grid">
+          {% for value, label in tile_field_options %}
+          <label><input type="checkbox" name="tile_fields" value="{{ value }}" {% if value in settings.gui.tile_fields %}checked{% endif %}> {{ label }}</label>
+          {% endfor %}
+        </span>
+      </fieldset>
+    </div>
+  </section>
 
-  <fieldset>
-    <legend>Blur calibration</legend>
-    <label>Sharp reference
-      <input type="number" name="blur_sharp_reference" step="0.1" min="1" value="{{ settings.blur.sharp_reference }}">
-    </label>
-    <label>Blur reference
-      <input type="number" name="blur_blur_reference" step="0.1" min="0.1" value="{{ settings.blur.blur_reference }}">
-    </label>
-  </fieldset>
+  <section class="settings-section">
+    <h2>Export defaults</h2>
+    <div class="settings-grid">
+      <label>Mode
+        <select name="export_mode">
+          {% for value in ['copy', 'hardlink', 'symlink'] %}
+          <option value="{{ value }}" {% if settings.export.mode == value %}selected{% endif %}>{{ value }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Layout
+        <select name="export_layout">
+          <option value="flat" {% if settings.export.layout == 'flat' %}selected{% endif %}>flat</option>
+          <option value="tree" {% if settings.export.layout == 'tree' %}selected{% endif %}>folder tree</option>
+        </select>
+      </label>
+      <label class="checkbox-line"><input type="checkbox" name="rerender" {% if settings.export.rerender %}checked{% endif %}> Re-render as JPEG</label>
+      <label>Maximum long edge (blank = original size)
+        <input type="number" name="max_long_edge" min="64" max="20000" value="{{ settings.export.max_long_edge or '' }}">
+      </label>
+      <label>JPEG quality
+        <input type="number" name="jpeg_quality" min="1" max="100" value="{{ settings.export.jpeg_quality }}">
+      </label>
+    </div>
+  </section>
 
-  <fieldset>
-    <legend>Scoring and analysis</legend>
-    <label>Rating 5 threshold
-      <input type="number" name="min_score_5" step="0.01" min="0" max="1" value="{{ settings.scoring.min_score_5 }}">
-    </label>
-    <label>Rating 4 threshold
-      <input type="number" name="min_score_4" step="0.01" min="0" max="1" value="{{ settings.scoring.min_score_4 }}">
-    </label>
-    <label><input type="checkbox" name="yolo_enabled" {% if settings.analysis.yolo_enabled %}checked{% endif %}> Object detection</label>
-    <label><input type="checkbox" name="aesthetic_enabled" {% if settings.analysis.aesthetic_enabled %}checked{% endif %}> Aesthetic model</label>
-    <label><input type="checkbox" name="save_embeddings" {% if settings.analysis.save_embeddings %}checked{% endif %}> Save embeddings</label>
-    <label>Preview size
-      <input type="number" name="preview_size" min="64" max="4096" value="{{ settings.analysis.preview_size }}">
-    </label>
-  </fieldset>
+  <section class="settings-section">
+    <h2>Blur calibration</h2>
+    <div class="settings-grid">
+      <label>Sharp reference
+        <input type="number" name="blur_sharp_reference" step="0.1" min="1" value="{{ settings.blur.sharp_reference }}">
+      </label>
+      <label>Blur reference
+        <input type="number" name="blur_blur_reference" step="0.1" min="0.1" value="{{ settings.blur.blur_reference }}">
+      </label>
+    </div>
+  </section>
 
-  <button type="submit" {% if active_jobs %}disabled{% endif %}>Save settings</button>
+  <section class="settings-section">
+    <h2>Scoring and analysis</h2>
+    <div class="settings-grid">
+      <label>Rating 5 threshold
+        <input type="number" name="min_score_5" step="0.01" min="0" max="1" value="{{ settings.scoring.min_score_5 }}">
+      </label>
+      <label>Rating 4 threshold
+        <input type="number" name="min_score_4" step="0.01" min="0" max="1" value="{{ settings.scoring.min_score_4 }}">
+      </label>
+      <label class="checkbox-line"><input type="checkbox" name="yolo_enabled" {% if settings.analysis.yolo_enabled %}checked{% endif %}> Object detection</label>
+      <label class="checkbox-line"><input type="checkbox" name="aesthetic_enabled" {% if settings.analysis.aesthetic_enabled %}checked{% endif %}> Aesthetic model</label>
+      <label class="checkbox-line"><input type="checkbox" name="save_embeddings" {% if settings.analysis.save_embeddings %}checked{% endif %}> Save embeddings</label>
+      <label>Preview size
+        <input type="number" name="preview_size" min="64" max="4096" value="{{ settings.analysis.preview_size }}">
+      </label>
+    </div>
+  </section>
+
+  <div class="settings-actions">
+    <button type="submit" {% if active_jobs %}disabled{% endif %}>Save settings</button>
+  </div>
 </form>
+
+<dialog id="browse-dialog" class="browse-dialog" aria-labelledby="browse-title">
+  <div class="browse-header">
+    <strong id="browse-title">Choose a folder</strong>
+    <button type="button" class="button-secondary" id="browse-close" aria-label="Close">Close</button>
+  </div>
+  <p class="browse-path"><button type="button" class="button-secondary" id="browse-up">Up</button> <code id="browse-current"></code></p>
+  <ul id="browse-list" class="browse-list"></ul>
+  <p id="browse-error" class="error" role="alert" hidden></p>
+  <div class="browse-actions">
+    <button type="button" id="browse-select">Use current folder</button>
+    <button type="button" class="button-secondary" id="browse-cancel">Cancel</button>
+  </div>
+</dialog>
+
+<script src="/static/settings.js" defer></script>
 {% endblock %}

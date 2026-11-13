@@ -28,6 +28,7 @@ The generated `config.yaml` contains the same defaults.
 |---|---|---|
 | root | Path | `.` |
 | roots | list[Path] | `[]` |
+| disabled_roots | list[Path] | `[]` |
 | db_path | UnionType[Path, NoneType] | `null` |
 | cache_dir | UnionType[Path, NoneType] | `null` |
 | exclude | list[str] | `[".image-triage", "selected", "previews"]` |

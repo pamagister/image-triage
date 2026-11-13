@@ -389,43 +389,12 @@ def test_media_is_served_concurrently_and_reports_missing_files(
         assert client.get(f"/media/{orphan.id}").status_code == 404
 
 
-def test_setup_switches_library_root(photo_dir: Path, tmp_path: Path) -> None:
-    settings, client = _prepared_client(photo_dir, tmp_path)
-    other = tmp_path / "other-library"
-    other.mkdir()
-
+def test_setup_redirects_to_settings(photo_dir: Path, tmp_path: Path) -> None:
+    _settings, client = _prepared_client(photo_dir, tmp_path)
     with client:
-        form = client.get("/setup")
-        assert form.status_code == 200
-        assert str(photo_dir) in form.text
-        assert settings.database_path.name in form.text
-
-        invalid = client.post("/setup", data={"root": str(tmp_path / "nope")})
-        assert invalid.status_code == 400
-        assert b"not a directory" in invalid.content
-
-        switched = client.post("/setup", data={"root": str(other)}, follow_redirects=False)
-        assert switched.status_code == 303
-        assert client.get("/health").json()["input"] == str(other.resolve())
-        assert client.get("/setup").status_code == 200
-
-
-def test_setup_rejects_root_change_while_a_job_is_active(photo_dir: Path, tmp_path: Path) -> None:
-    settings, client = _prepared_client(photo_dir, tmp_path)
-    repository = Repository.open(settings.database_path)
-    try:
-        job_id = repository.create_job("analyze", {})
-        repository.update_job(job_id, status="running")
-    finally:
-        repository.close()
-
-    other = tmp_path / "blocked-library"
-    other.mkdir()
-    with client:
-        response = client.post("/setup", data={"root": str(other)})
-        assert response.status_code == 409
-        assert b"job is active" in response.content
-        assert client.get("/health").json()["input"] == str(photo_dir.resolve())
+        response = client.get("/setup", follow_redirects=False)
+        assert response.status_code == 308
+        assert response.headers["location"] == "/settings"
 
 
 def test_scan_skips_tool_and_cache_directories(tmp_path: Path) -> None:

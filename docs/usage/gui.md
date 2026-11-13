@@ -23,12 +23,13 @@ are not imported.
 
 ## Pages
 
-- **Setup** - switch the single legacy library folder. Multi-root libraries are managed on the
-  Settings page.
 - **Settings** - manage watched roots, excluded directory names, default view and tile metadata,
-  export defaults, blur calibration, rating thresholds and analysis toggles. Settings are written
-  atomically to the central YAML configuration and shared with the CLI. Changes are rejected
-  while a job is active.
+  export defaults, blur calibration, rating thresholds and analysis toggles. The watched-roots
+  table shows an active checkbox, on-disk and analyzed image counts, and a remove action per root.
+  Roots can be added by path or through a server-side directory browser. Removing a root keeps its
+  analysis history and never touches originals. The central state database path is shown read-only.
+  Settings are written atomically to the central YAML configuration and shared with the CLI.
+  Changes are rejected while a job is active.
 - **Library** - flat grid of every available photo location, or a folder tree with photo counts.
   An empty library is scanned automatically; when files were added, changed or removed the page
   shows a stale-library banner with a **Scan library** button. Filter by search, root, folder,
