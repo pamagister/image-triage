@@ -157,6 +157,14 @@ make lint
 make docs
 ```
 
+### Historical plans
+
+The implementation was planned in three versioned documents, kept for reference in [`docs/develop/`](docs/develop/):
+
+- [`plan_v1_implementation`](docs/develop/plan_v1_implementation.md) - original implementation plan (Phases 1-9, complete).
+- [`plan_v2_gui_workflow`](docs/develop/plan_v2_gui_workflow.md) - GUI workflow and quality plan (superseded by v3).
+- [`plan_v3_multi_root_library`](docs/develop/plan_v3_multi_root_library.md) - multi-root library, content identity and folder workflow (complete).
+
 ## License
 
 Image Triage is distributed under the terms in `LICENSE`. The optional YOLO26 model is

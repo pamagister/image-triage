@@ -2,7 +2,7 @@
 
 **Status:** `[ ]` planned
 **Created:** 2026-11-12
-**Supersedes:** the GUI-related parts of `plan.md` (Phases 8-9). `plan.md` remains the historical record.
+**Supersedes:** the GUI-related parts of [`plan_v1_implementation`](plan_v1_implementation.md) (Phases 8-9). `plan_v1_implementation` remains the historical record.
 **Target:** a local-first GUI workflow that can scan a selected photo library, explain and filter its metadata, curate a temporary selection, and export selected or currently filtered photos without manual CLI steps.
 
 ---

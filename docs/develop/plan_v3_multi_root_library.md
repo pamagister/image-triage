@@ -2,7 +2,7 @@
 
 **Status:** `[x]` complete
 **Created:** 2026-11-12
-**Supersedes:** the GUI parts of `plan_v2.md` (completed). `plan_v2.md` remains the historical record.
+**Supersedes:** the GUI parts of [`plan_v2_gui_workflow`](plan_v2_gui_workflow.md) (completed). `plan_v2_gui_workflow` remains the historical record.
 **Target:** turn the local GUI into a multi-root, content-addressed photo library with folder navigation, tri-state selection, flat/tree export with optional re-rendering, a configurable tile/metadata layout, and a calibrated blur score.
 
 ---
