@@ -44,10 +44,10 @@ Usage: python -m image_triage scan [OPTIONS]
  Recursively find images and print capture time, dimensions and GPS presence.                       
                                                                                                     
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
-│ --input         <path>  Photo library root.                                                      │
-│ --json          <bool>  Emit JSON.                                                               │
-│ --config        <path>  YAML config file.                                                        │
-│ --help          <bool>  Show this message and exit.                                              │
+│ --root,--input        <path>  Restrict the listing to one watched root.                          │
+│ --json                <bool>  Emit JSON.                                                         │
+│ --config              <path>  YAML config file.                                                  │
+│ --help                <bool>  Show this message and exit.                                        │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -59,12 +59,12 @@ Usage: python -m image_triage analyze [OPTIONS]
  Analyze sharpness, blur, composition, subjects and aesthetics for every photo.                     
                                                                                                     
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
-│ --input         <path>  Photo library root.                                                      │
-│ --json          <bool>  Emit a JSON summary.                                                     │
-│ --ndjson        <bool>  Emit progress as NDJSON.                                                 │
-│ --strict        <bool>  Fail on per-file analysis errors.                                        │
-│ --config        <path>  YAML config file.                                                        │
-│ --help          <bool>  Show this message and exit.                                              │
+│ --root,--input        <path>  Restrict analysis to one watched root.                             │
+│ --json                <bool>  Emit a JSON summary.                                               │
+│ --ndjson              <bool>  Emit progress as NDJSON.                                           │
+│ --strict              <bool>  Fail on per-file analysis errors.                                  │
+│ --config              <path>  YAML config file.                                                  │
+│ --help                <bool>  Show this message and exit.                                        │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -144,13 +144,13 @@ Usage: python -m image_triage export [OPTIONS]
  Export selected originals, preserving their paths relative to the input root.                      
                                                                                                     
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
-│ --input         <path>  Photo library root.                                                      │
-│ --output        <path>  Export root. [default: selected]                                         │
-│ --mode          <str>   copy, hardlink or symlink.                                               │
-│ --run-id        <str>   Selection run id.                                                        │
-│ --json          <bool>  Emit JSON.                                                               │
-│ --config        <path>  YAML config file.                                                        │
-│ --help          <bool>  Show this message and exit.                                              │
+│ --root,--input        <path>  Restrict export to one watched root.                               │
+│ --output              <path>  Export root. [default: selected]                                   │
+│ --mode                <str>   copy, hardlink or symlink.                                         │
+│ --run-id              <str>   Selection run id.                                                  │
+│ --json                <bool>  Emit JSON.                                                         │
+│ --config              <path>  YAML config file.                                                  │
+│ --help                <bool>  Show this message and exit.                                        │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -181,15 +181,15 @@ Usage: python -m image_triage run [OPTIONS]
  Analyze, group, score, select, report and export in one deterministic pass.                        
                                                                                                     
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
-│ --input                     <path>  Photo library root.                                          │
-│ --output                    <path>  Output root. [default: selected]                             │
-│ --top-n                     <int>   Maximum selected photos.                                     │
-│ --profile                   <str>   Selection profile.                                           │
-│ --export     --no-export    <bool>  Export selected originals. [default: export]                 │
-│ --json                      <bool>  Emit a JSON summary.                                         │
-│ --strict                    <bool>  Fail on per-file analysis errors.                            │
-│ --config                    <path>  YAML config file.                                            │
-│ --help                      <bool>  Show this message and exit.                                  │
+│ --root,--input                   <path>  Restrict the run to one watched root.                   │
+│ --output                         <path>  Output root. [default: selected]                        │
+│ --top-n                          <int>   Maximum selected photos.                                │
+│ --profile                        <str>   Selection profile.                                      │
+│ --export          --no-export    <bool>  Export selected originals. [default: export]            │
+│ --json                           <bool>  Emit a JSON summary.                                    │
+│ --strict                         <bool>  Fail on per-file analysis errors.                       │
+│ --config                         <path>  YAML config file.                                       │
+│ --help                           <bool>  Show this message and exit.                             │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 

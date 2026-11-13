@@ -124,7 +124,7 @@ def apply_overrides(photos: list[Photo], overrides: list[Override]) -> None:
 
 def score_library(repository: Repository, settings: Settings) -> list[Photo]:
     """Score and rate all photos, persist the results and return them."""
-    photos = repository.all_photos()
+    photos = repository.all_content()
     rate_photos(photos, settings)
     apply_overrides(photos, repository.get_overrides())
     repository.update_scores(

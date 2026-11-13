@@ -11,7 +11,7 @@ from image_triage.grouping.similarity import group_photos
 
 def build_groups_and_events(repository: Repository, settings: Settings) -> list[Photo]:
     """Group similar photos, detect events and persist both assignments."""
-    photos = repository.all_photos()
+    photos = repository.all_content()
     group_ids = group_photos(photos, settings.similarity)
     assignments = [
         (photo.id, group_id) for photo, group_id in zip(photos, group_ids) if photo.id is not None
