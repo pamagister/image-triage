@@ -733,12 +733,19 @@ class Repository:
             where.append(quoted("r.path", roots))
             params.extend(roots)
         folders = values(folder)
-        for value in folders:
-            cleaned = str(value).strip().strip("/")
-            if not cleaned:
-                continue
-            where.append("(l.relative_path = ? OR l.relative_path LIKE ?)")
-            params.extend([cleaned, cleaned + "/%"])
+        cleaned_folders = [str(value).strip().strip("/") for value in folders]
+        # The root folder ("." or an empty value) means every photo below the root,
+        # including all nested folders. It therefore disables the folder restriction.
+        select_all_folders = any(not value or value == "." for value in cleaned_folders)
+        if not select_all_folders:
+            folder_clauses = []
+            for value in cleaned_folders:
+                if not value:
+                    continue
+                folder_clauses.append("(l.relative_path = ? OR l.relative_path LIKE ?)")
+                params.extend([value, value + "/%"])
+            if folder_clauses:
+                where.append("(" + " OR ".join(folder_clauses) + ")")
         ratings = values(rating)
         if ratings:
             where.append(quoted("p.rating", ratings))
@@ -1010,9 +1017,12 @@ class Repository:
         aesthetic_min: float | None = None,
         subject_min: float | None = None,
         root: str | Sequence[str] | None = None,
-        folder: str | Sequence[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Matching photo counts per folder, including ancestor folders."""
+        """Matching photo counts per folder, including ancestor folders.
+
+        The folder selection is deliberately not a filter here: the tree is navigation and
+        must stay complete while the photo grid is narrowed to the selected folder(s).
+        """
         where, params = self._photo_filters(
             rating=rating,
             event_id=event_id,
@@ -1031,7 +1041,6 @@ class Repository:
             aesthetic_min=aesthetic_min,
             subject_min=subject_min,
             root=root,
-            folder=folder,
         )
         sql = (
             "SELECT r.path AS root_path, l.relative_path AS path "
@@ -1052,7 +1061,7 @@ class Repository:
                 counts[key] = counts.get(key, 0) + 1
         items: list[dict[str, Any]] = []
         for (root_path, folder), count in sorted(counts.items()):
-            label = Path(root_path).name if folder == "." else folder
+            label = Path(root_path).name if folder == "." else folder.rsplit("/", 1)[-1]
             items.append({"root": root_path, "folder": folder, "label": label, "count": count})
         return items
 

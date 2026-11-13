@@ -36,7 +36,7 @@
 
 <form method="get" action="/" class="filters" role="search">
   <input type="hidden" name="view" value="{{ view }}">
-  {% if filters.get('folder') %}<input type="hidden" name="folder" value="{{ filters.get('folder')[0] }}">{% endif %}
+  {% for folder in filters.get('folder', []) %}<input type="hidden" name="folder" value="{{ folder }}">{% endfor %}
   <label>Search <input type="search" name="q" value="{{ search or '' }}"></label>
   <label>Root
     <select name="root">
@@ -155,19 +155,40 @@
   <button type="submit" data-export-all>Export all filtered</button>
 </form>
 
+{% macro folder_node(item, selected) %}
+<li class="folder-node" data-folder-node data-root="{{ item.root }}" data-folder="{{ item.folder }}">
+  {% if item.children %}
+  <details {% if item.depth <= 1 %}open{% endif %}>
+    <summary>
+      <span class="folder-row">
+        <input type="checkbox" data-folder-filter data-root="{{ item.root }}" data-folder="{{ item.folder }}" aria-label="Filter {{ item.label }}" {% if item.folder in selected %}checked{% endif %}>
+        <a href="{{ item.url }}" title="{{ item.root if item.folder == '.' else item.root ~ '/' ~ item.folder }}">{{ item.label }}</a>
+        <span class="count" data-count="{{ item.count }}">{{ item.count }}</span>
+      </span>
+    </summary>
+    <ul>
+      {% for child in item.children %}
+      {{ folder_node(child, selected) }}
+      {% endfor %}
+    </ul>
+  </details>
+  {% else %}
+  <span class="folder-row">
+    <input type="checkbox" data-folder-filter data-root="{{ item.root }}" data-folder="{{ item.folder }}" aria-label="Filter {{ item.label }}" {% if item.folder in selected %}checked{% endif %}>
+    <a href="{{ item.url }}" title="{{ item.root if item.folder == '.' else item.root ~ '/' ~ item.folder }}">{{ item.label }}</a>
+    <span class="count" data-count="{{ item.count }}">{{ item.count }}</span>
+  </span>
+  {% endif %}
+</li>
+{% endmacro %}
+
 <div class="library-layout">
   {% if view == 'folders' %}
   <aside class="folder-tree" aria-label="Folders">
     <h2>Folders</h2>
-    <ul>
+    <ul class="folder-list" data-folder-tree>
       {% for item in folders %}
-      <li style="margin-left: {{ item.depth }}rem">
-        <label>
-          <input type="checkbox" data-folder-select data-root="{{ item.root }}" data-folder="{{ item.folder }}">
-          <a href="{{ item.url }}" title="{{ item.root if item.folder == '.' else item.root ~ '/' ~ item.folder }}">{{ item.label }}</a>
-          <span class="count">{{ item.count }}</span>
-        </label>
-      </li>
+      {{ folder_node(item, selected_folders) }}
       {% endfor %}
     </ul>
   </aside>

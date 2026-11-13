@@ -9,6 +9,7 @@
   "use strict";
 
   var STORAGE_KEY = "image-triage:selected";
+  var TREE_KEY = "image-triage:open-folders";
 
   function readSelected() {
     try {
@@ -34,26 +35,66 @@
     return params.toString();
   }
 
-  function updateFolderStates() {
-    document.querySelectorAll("[data-folder-select]").forEach(function (box) {
-      var root = box.getAttribute("data-root");
-      var folder = box.getAttribute("data-folder");
-      var boxes = Array.from(
-        document.querySelectorAll("[data-select-photo]")
-      ).filter(function (item) {
-        var card = item.closest(".card");
-        return (
-          card &&
-          card.getAttribute("data-root") === root &&
-          card.getAttribute("data-folder") === folder
-        );
-      });
-      var checked = boxes.filter(function (item) {
-        return item.checked;
-      }).length;
-      box.checked = boxes.length > 0 && checked === boxes.length;
-      box.indeterminate = checked > 0 && checked < boxes.length;
+  function readOpenFolders() {
+    try {
+      var raw = window.localStorage.getItem(TREE_KEY);
+      var parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function writeOpenFolders(state) {
+    try {
+      window.localStorage.setItem(TREE_KEY, JSON.stringify(state));
+    } catch (err) {
+      /* storage may be unavailable; expansion still works for this page */
+    }
+  }
+
+  function folderKey(details) {
+    var node = details.closest("[data-folder-node]");
+    if (!node) {
+      return null;
+    }
+    return node.getAttribute("data-root") + "\n" + node.getAttribute("data-folder");
+  }
+
+  function restoreOpenFolders() {
+    var open = readOpenFolders();
+    document.querySelectorAll("[data-folder-tree] details").forEach(function (details) {
+      var key = folderKey(details);
+      if (key && Object.prototype.hasOwnProperty.call(open, key)) {
+        details.open = Boolean(open[key]);
+      }
     });
+  }
+
+  function folderFilterUrl() {
+    var params = new URLSearchParams(window.location.search);
+    params.delete("page");
+    params.delete("folder");
+    var checked = Array.from(document.querySelectorAll("[data-folder-filter]")).filter(
+      function (box) {
+        return box.checked;
+      }
+    );
+    if (checked.length > 0) {
+      params.delete("root");
+      var roots = [];
+      checked.forEach(function (box) {
+        params.append("folder", box.getAttribute("data-folder"));
+        var root = box.getAttribute("data-root");
+        if (roots.indexOf(root) === -1) {
+          roots.push(root);
+        }
+      });
+      roots.forEach(function (root) {
+        params.append("root", root);
+      });
+    }
+    return "/?" + params.toString();
   }
 
   function applySelection(selected) {
@@ -65,7 +106,6 @@
     if (counter) {
       counter.textContent = String(chosen.size);
     }
-    updateFolderStates();
   }
 
   function toggle(id, on) {
@@ -101,6 +141,47 @@
     }
 
     applySelection(readSelected());
+    restoreOpenFolders();
+
+    document.addEventListener(
+      "toggle",
+      function (event) {
+        var details = event.target.closest("details");
+        if (!details) {
+          return;
+        }
+        var key = folderKey(details);
+        if (!key) {
+          return;
+        }
+        var open = readOpenFolders();
+        open[key] = details.open;
+        writeOpenFolders(open);
+      },
+      true
+    );
+
+    document.addEventListener("click", function (event) {
+      var summary = event.target.closest(".folder-tree summary");
+      if (!summary) {
+        return;
+      }
+      var box = event.target.closest("[data-folder-filter]");
+      if (box) {
+        // The checkbox lives inside a <summary>; stop the click from toggling the folder.
+        event.preventDefault();
+        event.stopPropagation();
+        box.checked = !box.checked;
+        box.dispatchEvent(new Event("change", { bubbles: true }));
+        return;
+      }
+      var link = event.target.closest("a");
+      if (link && summary.contains(link)) {
+        // Let the link navigate without also collapsing the folder.
+        event.preventDefault();
+        window.location.href = link.href;
+      }
+    });
 
     document.addEventListener("change", function (event) {
       var box = event.target.closest("[data-select-photo]");
@@ -108,21 +189,8 @@
         toggle(Number(box.value), box.checked);
         return;
       }
-      var folder = event.target.closest("[data-folder-select]");
-      if (folder) {
-        var root = folder.getAttribute("data-root");
-        var target = folder.getAttribute("data-folder");
-        document.querySelectorAll("[data-select-photo]").forEach(function (item) {
-          var card = item.closest(".card");
-          if (
-            card &&
-            card.getAttribute("data-root") === root &&
-            card.getAttribute("data-folder") === target
-          ) {
-            toggle(Number(item.value), folder.checked);
-          }
-        });
-        applySelection(readSelected());
+      if (event.target.closest("[data-folder-filter]")) {
+        window.location.href = folderFilterUrl();
       }
     });
 

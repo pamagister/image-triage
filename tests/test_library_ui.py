@@ -81,12 +81,115 @@ def test_folder_tree_link_applies_folder_filter(photo_dir: Path, tmp_path: Path)
         assert b'data-folder="sub"' in response.content
 
 
-def test_folder_rows_expose_tri_state_selection_data(photo_dir: Path, tmp_path: Path) -> None:
+def test_folder_tree_exposes_filter_checkboxes_and_toggle(photo_dir: Path, tmp_path: Path) -> None:
     with _client(photo_dir, tmp_path) as client:
         page = client.get("/?view=folders")
-        assert b"data-folder-select" in page.content
+        assert b"data-folder-node" in page.content
+        assert b"data-folder-filter" in page.content
         assert b"data-select-photo" in page.content
         assert b'data-root="' in page.content
+        assert b"<details open>" in page.content
+
+
+def test_root_folder_filter_aggregates_descendants(photo_dir: Path, tmp_path: Path) -> None:
+    with _client(photo_dir, tmp_path) as client:
+        response = client.get(
+            "/",
+            params={
+                "view": "folders",
+                "root": str(photo_dir.resolve()),
+                "folder": ".",
+                "page": 1,
+            },
+        )
+        assert response.status_code == 200
+        assert b"No photos found" not in response.content
+        assert b"4 photos" in response.content
+
+
+def test_root_folder_disables_folder_restriction(photo_dir: Path, tmp_path: Path) -> None:
+    with _client(photo_dir, tmp_path) as client:
+        response = client.get(
+            "/",
+            params=[
+                ("view", "folders"),
+                ("root", str(photo_dir.resolve())),
+                ("folder", "sub"),
+                ("folder", "."),
+                ("min_score", "0"),
+                ("page", "1"),
+            ],
+        )
+        assert response.status_code == 200
+        assert b"4 photos" in response.content
+
+
+def test_folder_filter_keeps_full_tree_and_aggregated_counts(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    repository = Repository.open(settings.database_path)
+    try:
+        analyze_library(settings, repository)
+    finally:
+        repository.close()
+
+    repository = Repository.open(settings.database_path)
+    try:
+        items = repository.folder_counts(root=str(photo_dir.resolve()))
+    finally:
+        repository.close()
+    counts = {item["folder"]: item["count"] for item in items}
+    assert counts["."] == 4
+    assert counts["sub"] == 1
+
+    with client:
+        response = client.get(
+            "/",
+            params={
+                "view": "folders",
+                "root": str(photo_dir.resolve()),
+                "folder": "sub",
+                "page": 1,
+            },
+        )
+        assert response.status_code == 200
+        assert b'data-folder="."' in response.content
+        assert b'data-folder="sub"' in response.content
+        assert b'data-count="4"' in response.content
+        assert b'data-count="1"' in response.content
+
+
+def test_multiple_folder_filter_returns_union(photo_dir: Path, tmp_path: Path) -> None:
+    from datetime import datetime
+
+    from tests.conftest import _scene, save_jpeg
+
+    save_jpeg(
+        photo_dir / "other" / "second.jpg",
+        _scene(3),
+        datetime(2024, 1, 1, 20, 0, 4),
+    )
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    repository = Repository.open(settings.database_path)
+    try:
+        analyze_library(settings, repository)
+    finally:
+        repository.close()
+
+    with client:
+        response = client.get(
+            "/",
+            params=[
+                ("view", "folders"),
+                ("root", str(photo_dir.resolve())),
+                ("folder", "sub"),
+                ("folder", "other"),
+                ("page", "1"),
+            ],
+        )
+        assert response.status_code == 200
+        assert b"2 photos" in response.content
 
 
 def test_tile_first_line_is_file_name_and_path_is_below(photo_dir: Path, tmp_path: Path) -> None:

@@ -103,6 +103,28 @@ def _url_with(query, **overrides: Any) -> str:
     return "/?" + urlencode(params)
 
 
+def _folder_tree(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group flat folder rows into a nested navigation tree, one root per library root."""
+    nodes: dict[tuple[str, str], dict[str, Any]] = {}
+    roots: list[dict[str, Any]] = []
+    for item in items:
+        node = {**item, "children": []}
+        nodes[(item["root"], item["folder"])] = node
+        if item["folder"] == ".":
+            roots.append(node)
+    for item in items:
+        if item["folder"] == ".":
+            continue
+        node = nodes[(item["root"], item["folder"])]
+        parent_folder = item["folder"].rsplit("/", 1)[0] if "/" in item["folder"] else "."
+        parent = nodes.get((item["root"], parent_folder))
+        if parent is None:
+            roots.append(node)
+        else:
+            parent["children"].append(node)
+    return roots
+
+
 def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]) -> None:
     repository = Repository.open(settings.database_path)
     last_progress = 0.0
@@ -293,16 +315,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         total = repo.count_photos(**filters)
         pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
         page = min(max(1, query.page), pages)
-        folders = repo.folder_counts(**filters)
+        # The tree is navigation: ignore the folder selection so every node stays visible.
+        tree_filters = {key: value for key, value in filters.items() if key != "folder"}
+        folders = repo.folder_counts(**tree_filters)
         for item in folders:
+            folder = None if item["folder"] == "." else item["folder"]
             item["url"] = _url_with(
                 query,
                 view="folders",
                 root=item["root"],
-                folder=item["folder"],
+                folder=folder,
                 page=1,
             )
             item["depth"] = 0 if item["folder"] == "." else item["folder"].count("/") + 1
+        tree = _folder_tree(folders)
         return TEMPLATES.TemplateResponse(
             request,
             "index.html",
@@ -330,7 +356,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "view": query.view,
                 "view_flat": _url_with(query, view="flat", folder=None, page=1),
                 "view_folders": _url_with(query, view="folders", page=1),
-                "folders": folders,
+                "folders": tree,
+                "selected_folders": set(filters.get("folder", [])),
                 "tile_fields": _current_settings(request).gui.tile_fields,
                 "active_jobs": _active_jobs(repo),
                 "status": library_status(_current_settings(request), repo),

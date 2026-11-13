@@ -165,15 +165,49 @@ button {
   padding: 0;
 }
 
+.folder-tree details > ul {
+  margin-left: 0.85rem;
+}
+
 .folder-tree li {
   padding: 0.15rem 0;
 }
 
-.folder-tree label {
+.folder-tree summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.folder-tree summary::-webkit-details-marker {
+  display: none;
+}
+
+.folder-tree summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 1rem;
+  color: var(--muted);
+  transition: transform 0.1s ease;
+}
+
+.folder-tree details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.folder-row {
   display: flex;
   gap: 0.35rem;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.folder-tree a {
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.folder-tree a:hover {
+  text-decoration: underline;
 }
 
 .folder-tree .count {
