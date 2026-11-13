@@ -132,20 +132,25 @@ def run_pipeline(
     preview_paths = []
     use_previews = settings.report.previews if previews is None else previews
     if use_previews:
-        root = Path(settings.input.root).expanduser().resolve()
         preview_paths = write_previews(
             [item.photo for item in selected],
-            root,
-            root / ".image-triage" / "previews",
+            Path(settings.cache_path) / "previews",
             settings,
         )
 
     export_paths = []
     if export:
-        root = Path(settings.input.root).expanduser().resolve()
-        mode = ExportMode(settings.report.export_mode)
+        root = settings.watched_roots[0] if settings.watched_roots else Path(".")
+        mode = ExportMode(settings.export.mode)
         export_paths = export_photos(
-            [item.photo for item in selected], root, output / "originals", mode
+            [item.photo for item in selected],
+            root,
+            output / "originals",
+            mode,
+            layout=settings.export.layout,
+            rerender=settings.export.rerender,
+            max_long_edge=settings.export.max_long_edge,
+            jpeg_quality=settings.export.jpeg_quality,
         )
 
     repository.finish_run(run)

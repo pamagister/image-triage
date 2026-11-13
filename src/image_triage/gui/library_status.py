@@ -1,32 +1,37 @@
-"""Detect whether a photo library is empty, current or stale.
+"""Detect whether a photo library is empty, current or stale across all roots.
 
-The check is deliberately advisory: it compares stored paths and file mtimes against the
-analysis timestamp. A full scan still recomputes digests, so a change that preserves mtime
-is only picked up by an explicit scan.
+The check is advisory: it compares stored locations and file mtimes against the analysis
+timestamp. A full scan still recomputes digests, so a change that preserves mtime is only
+picked up by an explicit scan.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from image_triage.analysis.analyze import scan_plan
 from image_triage.core.settings import Settings
 from image_triage.db.repository import Repository
-from image_triage.io.scan import find_images
 
 
 @dataclass(slots=True)
 class LibraryStatus:
     """Counts describing how far the stored state is from the files on disk."""
 
-    root: str
+    roots: list[str] = field(default_factory=list)
     files: int = 0
     stored: int = 0
     new: int = 0
     missing: int = 0
     changed: int = 0
+    unavailable: int = 0
+
+    @property
+    def root(self) -> str:
+        return self.roots[0] if self.roots else ""
 
     @property
     def empty(self) -> bool:
@@ -43,25 +48,17 @@ class LibraryStatus:
     def to_dict(self) -> dict[str, Any]:
         return {
             "root": self.root,
+            "roots": list(self.roots),
             "files": self.files,
             "stored": self.stored,
             "new": self.new,
             "missing": self.missing,
             "changed": self.changed,
+            "unavailable": self.unavailable,
             "empty": self.empty,
             "stale": self.stale,
             "current": self.current,
         }
-
-
-def scan_paths(settings: Settings) -> tuple[Path, list[Path]]:
-    """Resolve the library root and the analyzable files below it."""
-    root = Path(settings.input.root).expanduser().resolve()
-    if not root.is_dir():
-        return root, []
-    exclude = [root / ".image-triage"]
-    exclude.extend(root / name for name in settings.input.exclude)
-    return root, find_images(root, tuple(exclude))
 
 
 def _analyzed_at(value: str | None) -> datetime | None:
@@ -69,33 +66,38 @@ def _analyzed_at(value: str | None) -> datetime | None:
 
 
 def library_status(settings: Settings, repository: Repository) -> LibraryStatus:
-    """Compare the files on disk with the analyzed photos in the state database."""
-    root, paths = scan_paths(settings)
-    stored = repository.analyzed_paths()
-    files = {path.relative_to(root).as_posix() for path in paths}
-
-    new = files - stored.keys()
-    missing = stored.keys() - files
-    changed = set()
-    for relative in files & stored.keys():
-        analyzed_at = _analyzed_at(stored[relative])
-        if analyzed_at is None:
-            changed.add(relative)
+    """Compare the files on disk with the analyzed locations in the state database."""
+    plan = scan_plan(settings)
+    files = {
+        (str(root), path.relative_to(root).as_posix()) for root, paths in plan for path in paths
+    }
+    stored_map = repository.location_paths(available_only=False)
+    known = set(stored_map)
+    available = {key for key, value in stored_map.items() if value["available"]}
+    changed: set[tuple[str, str]] = set()
+    for key in files & known:
+        value = stored_map[key]
+        if not value["available"]:
+            changed.add(key)
             continue
+        analyzed_at = _analyzed_at(value["analyzed_at"])
+        if analyzed_at is None:
+            changed.add(key)
+            continue
+        root, relative = key
         try:
-            modified = datetime.fromtimestamp((root / relative).stat().st_mtime)
+            modified = datetime.fromtimestamp((Path(root) / relative).stat().st_mtime)
         except OSError:
             continue
-        # Compare with a small tolerance so a rewritten-but-equally-timestamped file is not
-        # reported as changed on every check.
         if modified.timestamp() > analyzed_at.timestamp() + 1.0:
-            changed.add(relative)
-
+            changed.add(key)
+    missing = {key for key in known - files if stored_map[key]["available"]}
     return LibraryStatus(
-        root=str(root),
+        roots=[str(root) for root, _paths in plan],
         files=len(files),
-        stored=len(stored),
-        new=len(new),
+        stored=len(available),
+        new=len(files - known),
         missing=len(missing),
         changed=len(changed),
+        unavailable=sum(1 for value in stored_map.values() if not value["available"]),
     )

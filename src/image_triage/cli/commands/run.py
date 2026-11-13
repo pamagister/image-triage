@@ -15,7 +15,9 @@ from image_triage.db.repository import Repository
 
 def run(
     ctx: typer.Context,
-    input_dir: Path | None = typer.Option(None, "--input", help="Photo library root."),
+    root: Path | None = typer.Option(
+        None, "--root", "--input", help="Restrict the run to one watched root."
+    ),
     output: Path = typer.Option(Path("selected"), "--output", help="Output root."),
     top_n: int | None = typer.Option(None, "--top-n", help="Maximum selected photos."),
     profile_name: str | None = typer.Option(None, "--profile", help="Selection profile."),
@@ -26,8 +28,8 @@ def run(
 ) -> None:
     """Analyze, group, score, select, report and export in one deterministic pass."""
     overrides: dict[str, Any] = {"app": {"strict": strict}}
-    if input_dir is not None:
-        overrides["input"] = {"root": input_dir}
+    if root is not None:
+        overrides["input"] = {"roots": [root]}
     settings = get_settings(ctx, config, overrides)
     repository = Repository.open(settings.database_path)
     try:

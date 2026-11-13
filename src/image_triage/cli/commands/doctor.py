@@ -30,8 +30,23 @@ def build_report(settings: Settings) -> dict[str, object]:
         )
     )
 
-    input_ok = settings.input.root.is_dir()
-    checks.append(_check("input", input_ok, {"path": str(settings.input.root), "is_dir": input_ok}))
+    roots = settings.watched_roots
+    missing_roots = [str(path) for path in roots if not path.is_dir()]
+    checks.append(
+        _check(
+            "input",
+            not missing_roots,
+            {"roots": [str(path) for path in roots], "missing": missing_roots},
+        )
+    )
+    checks.append(
+        _check(
+            "config",
+            settings.config_path.parent.is_dir() or True,
+            {"path": str(settings.config_path)},
+        )
+    )
+    checks.append(_check("cache", True, {"path": str(settings.cache_path)}))
 
     db_path = settings.database_path
     db_ok = False
@@ -42,7 +57,8 @@ def build_report(settings: Settings) -> dict[str, object]:
             db_detail = {
                 "path": str(db_path),
                 "schema_version": SCHEMA_VERSION,
-                "photos": repository.count_photos(),
+                "photos": repository.count_content(),
+                "locations": repository.count_photos(),
             }
             db_ok = True
         finally:
@@ -88,7 +104,9 @@ def build_report(settings: Settings) -> dict[str, object]:
         "schema_version": SCHEMA_VERSION,
         "config": {
             "database": str(db_path),
-            "input": str(settings.input.root),
+            "config_file": str(settings.config_path),
+            "cache": str(settings.cache_path),
+            "roots": [str(path) for path in roots],
             "models_enabled": settings.models.enabled,
         },
         "checks": checks,

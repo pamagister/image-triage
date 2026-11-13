@@ -15,28 +15,24 @@ def preview_path(photo: Photo, preview_dir: Path) -> Path:
     return preview_dir / f"{digest}.webp"
 
 
-def write_previews(
-    photos: list[Photo], input_root: Path, preview_dir: Path, settings: Settings
-) -> list[Path]:
-    """Write WebP previews for selected photos, skipping existing files."""
+def write_previews(photos: list[Photo], preview_dir: Path, settings: Settings) -> list[Path]:
+    """Write WebP previews for selected photos into the central cache.
+
+    Existing files are reused. Previews are keyed by content digest, so they are shared by
+    every location of the same image and are never removed by exporting a subset.
+    """
     preview_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
-    keep: set[str] = set()
     for photo in photos:
         target = preview_path(photo, preview_dir)
-        keep.add(target.name)
         if target.exists():
             written.append(target)
             continue
         preview = decode_preview(
-            input_root / photo.path,
+            photo.absolute_path,
             settings.report.preview_max_side,
             settings.analysis.draft,
         )
         preview.save(target, "WEBP", quality=settings.report.webp_quality, method=4)
         written.append(target)
-    # Previews are a derived cache for the current selection; drop stale files.
-    for stale in preview_dir.glob("*.webp"):
-        if stale.name not in keep:
-            stale.unlink(missing_ok=True)
     return written

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -54,6 +55,7 @@ class AnalyzeResult:
     total: int = 0
     analyzed: int = 0
     reused: int = 0
+    missing: list[str] = field(default_factory=list)
     errors: list[dict[str, str]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     provider: str = "CPUExecutionProvider"
@@ -65,6 +67,7 @@ class AnalyzeResult:
             "total": self.total,
             "analyzed": self.analyzed,
             "reused": self.reused,
+            "missing": self.missing,
             "errors": self.errors,
             "warnings": self.warnings,
             "provider": self.provider,
@@ -94,6 +97,9 @@ def analysis_signature(settings: Settings) -> str:
         "yolo_confidence": settings.analysis.yolo_confidence,
         "aesthetic_enabled": settings.analysis.aesthetic_enabled,
         "sharpness_percentile": settings.scoring.sharpness_percentile,
+        "blur_sharp_reference": settings.blur.sharp_reference,
+        "blur_blur_reference": settings.blur.blur_reference,
+        "blur_floor": settings.blur.floor,
         "subject_classes": sorted(settings.scoring.subject_classes),
     }
     if settings.models.yolo_path.is_file():
@@ -132,6 +138,8 @@ def _analyze_one(
     settings: Settings,
     detector: ObjectDetector | None,
     signature: str,
+    root_path: str,
+    digest: str | None = None,
 ) -> Photo:
     scan = scan_file(path)
     preview = decode_preview(path, settings.analysis.preview_size, settings.analysis.draft)
@@ -143,7 +151,13 @@ def _analyze_one(
         detections = detected.detections
         if settings.analysis.save_embeddings:
             embedding = detected.embedding.astype(np.float32).tolist()
-    sharpness = analyze_sharpness(gray, [item.box for item in detections])
+    sharpness = analyze_sharpness(
+        gray,
+        [item.box for item in detections],
+        sharp_reference=settings.blur.sharp_reference,
+        blur_reference=settings.blur.blur_reference,
+        floor=settings.blur.floor,
+    )
     composition, components = composition_score(gray, detections)
     aesthetic = aesthetic_score(
         preview,
@@ -159,6 +173,7 @@ def _analyze_one(
         bokeh=sharpness.bokeh,
         blur_kind=sharpness.blur_kind,
         blur_confidence=sharpness.blur_confidence,
+        blur_score=sharpness.blur_score,
         composition=composition,
         composition_components=components,
         aesthetic=aesthetic.score,
@@ -171,7 +186,8 @@ def _analyze_one(
         flags.append("blurry")
     return Photo(
         path=relative,
-        digest=file_digest(path),
+        root_path=root_path,
+        digest=digest or file_digest(path),
         phash=str(perceptual_hash(preview)),
         taken=scan.taken,
         width=scan.width,
@@ -189,23 +205,40 @@ def _analyze_one(
     )
 
 
-def _scan_paths(settings: Settings) -> tuple[Path, list[Path]]:
-    root = Path(settings.input.root).expanduser().resolve()
-    if not root.is_dir():
-        raise InputError(f"input folder not found: {root}", path=str(root))
-    exclude = [root / ".image-triage"]
-    for name in settings.input.exclude:
-        exclude.append(root / name)
-    paths = [
-        path
-        for path in find_images(root, tuple(exclude))
-        if not any(part in settings.input.exclude for part in path.relative_to(root).parts)
-    ]
-    return root, paths
+def scan_plan(settings: Settings) -> list[tuple[Path, list[Path]]]:
+    """Return de-overlapped ``(root, paths)`` pairs for every enabled watched root.
+
+    A root contained by an earlier (shorter) root is skipped so nested libraries are not
+    scanned twice.
+    """
+    roots = settings.watched_roots
+    kept: list[Path] = []
+    for root in sorted(roots, key=lambda path: (len(path.parts), str(path))):
+        if any(root == other or root.is_relative_to(other) for other in kept):
+            continue
+        kept.append(root)
+
+    plan: list[tuple[Path, list[Path]]] = []
+    missing: list[Path] = []
+    for root in kept:
+        if not root.is_dir():
+            missing.append(root)
+            continue
+        exclude = [root / ".image-triage"]
+        exclude.extend(root / name for name in settings.input.exclude)
+        paths = [
+            path
+            for path in find_images(root, tuple(exclude))
+            if not any(part in settings.input.exclude for part in path.relative_to(root).parts)
+        ]
+        plan.append((root, paths))
+    if not plan and missing:
+        raise InputError(f"input folder not found: {missing[0]}", path=str(missing[0]))
+    return plan
 
 
 def _normalize_metrics(repository: Repository, settings: Settings) -> None:
-    photos = repository.all_photos()
+    photos = repository.all_content()
     raw_values = [photo.metrics.sharpness_raw or photo.metrics.sharpness for photo in photos]
     subject_values = [
         photo.metrics.sharpness_subject_raw or photo.metrics.sharpness_subject for photo in photos
@@ -276,15 +309,35 @@ def analyze_library(
     Returns:
         An :class:`AnalyzeResult` summary.
     """
-    root, paths = _scan_paths(settings)
+    plan = scan_plan(settings)
+    repository.sync_roots([root for root, _ in plan])
     signature = analysis_signature(settings)
-    if run_id is None:
-        run_id = _deterministic_run_id(
-            "analyze", settings, "\x1f".join(path.relative_to(root).as_posix() for path in paths)
-        )
-    result = AnalyzeResult(run_id=run_id, total=len(paths))
+    prepared: list[tuple[Path, str, Path, str]] = []
+    pre_errors: list[dict[str, str]] = []
+
+    def prepare(root: Path, path: Path) -> tuple[Path, str, Path, str] | None:
+        relative = path.relative_to(root).as_posix()
+        try:
+            scan_file(path)
+            return root, relative, path, file_digest(path)
+        except Exception as exc:  # per-file isolation
+            pre_errors.append({"path": relative, "error": f"{type(exc).__name__}: {exc}"})
+            return None
+
+    with ThreadPoolExecutor(max_workers=settings.app.max_workers) as pool:
+        futures = [pool.submit(prepare, root, path) for root, paths in plan for path in paths]
+        for future in as_completed(futures):
+            item = future.result()
+            if item is not None:
+                prepared.append(item)
+    prepared.sort(key=lambda item: (str(item[0]), item[1]))
+    result = AnalyzeResult(run_id="", total=len(prepared))
+    result.errors.extend(pre_errors)
+    material = "\x1f".join(f"{root}/{relative}" for root, relative, _path, _digest in prepared)
+    run_id = _deterministic_run_id("analyze", settings, material)
+    result.run_id = run_id
     run = Run(
-        id=result.run_id,
+        id=run_id,
         command="analyze",
         started_at=datetime.now(UTC),
         config_hash=settings.fingerprint(),
@@ -296,73 +349,117 @@ def analyze_library(
         if progress is not None:
             progress(event)
 
-    emit({"event": "start", "total": len(paths), "input": str(root)})
-    if not paths:
+    emit(
+        {
+            "event": "start",
+            "total": len(prepared),
+            "inputs": [str(root) for root, _ in plan],
+        }
+    )
+    if not prepared:
+        result.missing = repository.mark_missing_locations(set())
         run.status = RunStatus.COMPLETED
         repository.finish_run(run)
         emit({"event": "summary", **result.to_dict()})
         return result
 
     detector = _build_detector(settings, result)
-    existing = {photo.path: photo for photo in repository.all_photos()}
+    existing = {photo.digest: photo for photo in repository.all_content() if photo.digest}
+    groups: dict[str, list[tuple[Path, str, Path, str]]] = {}
+    for item in prepared:
+        groups.setdefault(item[3], []).append(item)
+    keep = {(str(root), relative) for root, relative, _path, _digest in prepared}
+    lock = threading.Lock()
 
-    def process(path: Path) -> tuple[str, Photo | None, bool, str | None]:
-        relative = path.relative_to(root).as_posix()
+    def process_group(
+        digest: str, entries: list[tuple[Path, str, Path, str]]
+    ) -> tuple[Photo | None, bool, str | None]:
+        cached = existing.get(digest)
+        if cached is not None and cached.model_signature == signature:
+            return cached, True, None
+        root, relative, path, _digest = entries[0]
         try:
-            scan_file(path)
-            digest = file_digest(path)
-            cached = existing.get(relative)
-            if (
-                cached is not None
-                and cached.digest == digest
-                and cached.model_signature == signature
-            ):
-                return relative, cached, True, None
-            photo = _analyze_one(path, relative, settings, detector, signature)
-            if photo.digest != digest:
-                photo.digest = digest
-            return relative, photo, False, None
+            photo = _analyze_one(path, relative, settings, detector, signature, str(root), digest)
+            with lock:
+                existing[digest] = photo
+            return photo, False, None
         except Exception as exc:  # per-file isolation
-            return relative, None, False, f"{type(exc).__name__}: {exc}"
+            return None, False, f"{type(exc).__name__}: {exc}"
 
     analyzed = reused = 0
+    done = 0
     with ThreadPoolExecutor(max_workers=settings.app.max_workers) as pool:
-        futures = [pool.submit(process, path) for path in paths]
-        for done, future in enumerate(as_completed(futures), start=1):
-            relative, photo, was_reused, error = future.result()
+        futures = {
+            pool.submit(process_group, digest, entries): digest
+            for digest, entries in groups.items()
+        }
+        for future in as_completed(futures):
+            digest = futures[future]
+            entries = groups[digest]
+            photo, was_reused, error = future.result()
             if error:
-                result.errors.append({"path": relative, "error": error})
-                emit({"event": "error", "path": relative, "error": error})
-            elif photo is not None:
-                if was_reused:
-                    reused += 1
-                else:
-                    repository.upsert_photo(photo, metric_version=METRIC_VERSION)
-                    analyzed += 1
+                for _root, relative, _path, _digest in entries:
+                    result.errors.append({"path": relative, "error": error})
+                    emit({"event": "error", "path": relative, "error": error})
+                done += len(entries)
+                continue
+            if photo is None:
+                continue
+            if was_reused:
+                reused += len(entries)
+            else:
+                repository.upsert_photo(photo, metric_version=METRIC_VERSION)
+                analyzed += 1
+                reused += len(entries) - 1
+            for root, relative, path, item_digest in entries:
+                try:
+                    mtime = path.stat().st_mtime
+                except OSError:
+                    mtime = None
+                repository.upsert_scanned_location(
+                    photo.id,
+                    str(root),
+                    relative,
+                    digest=item_digest,
+                    keep=keep,
+                    mtime=mtime,
+                    analyzed_at=photo.analyzed_at.isoformat() if photo.analyzed_at else None,
+                )
+                done += 1
                 emit(
                     {
                         "event": "photo",
                         "path": relative,
+                        "root": str(root),
                         "done": done,
-                        "total": len(paths),
+                        "total": len(prepared),
                         "reused": was_reused,
                     }
                 )
-            emit({"event": "progress", "done": done, "total": len(paths), "path": relative})
+                emit(
+                    {
+                        "event": "progress",
+                        "done": done,
+                        "total": len(prepared),
+                        "path": relative,
+                    }
+                )
 
     result.analyzed = analyzed
     result.reused = reused
+    result.missing = repository.mark_missing_locations(keep)
     result.errors.sort(key=lambda item: item["path"])
 
     _normalize_metrics(repository, settings)
 
     run.status = RunStatus.FAILED if strict and result.errors else RunStatus.COMPLETED
     run.counts = {
-        "total": len(paths),
+        "total": len(prepared),
         "analyzed": analyzed,
         "reused": reused,
         "errors": len(result.errors),
-        "photos": repository.count_photos(),
+        "missing": len(result.missing),
+        "photos": repository.count_content(),
     }
     repository.finish_run(run)
     emit({"event": "summary", **result.to_dict()})

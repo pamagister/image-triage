@@ -76,11 +76,12 @@ def validate(
         + settings.scoring.subject_weight
     )
     checks.append({"name": "weights", "ok": weights > 0, "detail": {"sum": weights}})
+    roots = settings.watched_roots
     checks.append(
         {
             "name": "input",
-            "ok": settings.input.root.is_dir(),
-            "detail": {"path": str(settings.input.root)},
+            "ok": all(path.is_dir() for path in roots),
+            "detail": {"roots": [str(path) for path in roots]},
         }
     )
     for name, path in (

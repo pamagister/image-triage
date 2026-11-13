@@ -15,7 +15,9 @@ from image_triage.db.repository import Repository
 
 def analyze(
     ctx: typer.Context,
-    input_dir: Path | None = typer.Option(None, "--input", help="Photo library root."),
+    root: Path | None = typer.Option(
+        None, "--root", "--input", help="Restrict analysis to one watched root."
+    ),
     json_output: bool = typer.Option(False, "--json", help="Emit a JSON summary."),
     ndjson: bool = typer.Option(False, "--ndjson", help="Emit progress as NDJSON."),
     strict: bool = typer.Option(False, "--strict", help="Fail on per-file analysis errors."),
@@ -23,8 +25,8 @@ def analyze(
 ) -> None:
     """Analyze sharpness, blur, composition, subjects and aesthetics for every photo."""
     overrides: dict[str, Any] = {"app": {"strict": strict}}
-    if input_dir is not None:
-        overrides["input"] = {"root": input_dir}
+    if root is not None:
+        overrides["input"] = {"roots": [root]}
     settings = get_settings(ctx, config, overrides)
 
     progress = None
