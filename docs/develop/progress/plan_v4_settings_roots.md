@@ -183,4 +183,4 @@ The settings page displays `Settings.database_path` and whether it is the platfo
 
 ## 7. Progress / handoff
 
-- 2026-11-13: Implemented the Settings-centered root manager. Removed the Setup page and added a redirect, added `input.disabled_roots`, persisted active/inactive root state, rebuilt the settings page with a root table, add/remove/toggle actions, a server-side directory browser, on-disk and analyzed image counts, and a read-only database path. Added tests and documentation. `make fmt`, `make lint` and `make test` pass (100 tests).
+- 2026-11-13: Implemented the Settings-centered root manager. Removed the Setup page and added a redirect, added `input.disabled_roots`, persisted active/inactive root state, rebuilt the settings page with a root table, add/remove/toggle actions, a server-side directory browser, on-disk and analyzed image counts, and a read-only database path. Added tests and documentation. `make fmt`, `make lint` and `make test` pass (100 tests). Commit `bbb203d`, CI run `43469310914` green, issue #19 closed.
