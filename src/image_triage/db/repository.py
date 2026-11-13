@@ -1010,6 +1010,7 @@ class Repository:
         aesthetic_min: float | None = None,
         subject_min: float | None = None,
         root: str | Sequence[str] | None = None,
+        folder: str | Sequence[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Matching photo counts per folder, including ancestor folders."""
         where, params = self._photo_filters(
@@ -1030,6 +1031,7 @@ class Repository:
             aesthetic_min=aesthetic_min,
             subject_min=subject_min,
             root=root,
+            folder=folder,
         )
         sql = (
             "SELECT r.path AS root_path, l.relative_path AS path "
@@ -1048,10 +1050,11 @@ class Repository:
             for folder in folders:
                 key = (root_path, folder)
                 counts[key] = counts.get(key, 0) + 1
-        return [
-            {"root": root_path, "folder": folder, "count": count}
-            for (root_path, folder), count in sorted(counts.items())
-        ]
+        items: list[dict[str, Any]] = []
+        for (root_path, folder), count in sorted(counts.items()):
+            label = Path(root_path).name if folder == "." else folder
+            items.append({"root": root_path, "folder": folder, "label": label, "count": count})
+        return items
 
     def filter_options(self) -> dict[str, list[Any]]:
         """Distinct values available for the multi-select filter controls."""

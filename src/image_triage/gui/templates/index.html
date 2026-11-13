@@ -164,7 +164,7 @@
       <li style="margin-left: {{ item.depth }}rem">
         <label>
           <input type="checkbox" data-folder-select data-root="{{ item.root }}" data-folder="{{ item.folder }}">
-          <a href="{{ item.url }}">{{ item.folder }}</a>
+          <a href="{{ item.url }}" title="{{ item.root if item.folder == '.' else item.root ~ '/' ~ item.folder }}">{{ item.label }}</a>
           <span class="count">{{ item.count }}</span>
         </label>
       </li>

@@ -50,6 +50,8 @@ def test_default_view_is_flat_and_folder_view_is_available(photo_dir: Path, tmp_
         assert b"folder-tree" in folders.content
         assert b'data-folder="."' in folders.content
         assert b'data-folder="sub"' in folders.content
+        assert f">{photo_dir.name}</a>".encode() in folders.content
+        assert f'title="{photo_dir.resolve()}"'.encode() in folders.content
 
 
 def test_folder_counts_respect_active_filters(photo_dir: Path, tmp_path: Path) -> None:
@@ -61,6 +63,22 @@ def test_folder_counts_respect_active_filters(photo_dir: Path, tmp_path: Path) -
         assert filtered.status_code == 200
         assert b'data-folder="."' in filtered.content
         assert b'data-folder="sub"' not in filtered.content
+
+
+def test_folder_tree_link_applies_folder_filter(photo_dir: Path, tmp_path: Path) -> None:
+    with _client(photo_dir, tmp_path) as client:
+        response = client.get(
+            "/",
+            params={
+                "view": "folders",
+                "root": str(photo_dir.resolve()),
+                "folder": "sub",
+                "page": 1,
+            },
+        )
+        assert response.status_code == 200
+        assert b'data-folder="."' in response.content
+        assert b'data-folder="sub"' in response.content
 
 
 def test_folder_rows_expose_tri_state_selection_data(photo_dir: Path, tmp_path: Path) -> None:
