@@ -1,6 +1,6 @@
 # Image Triage v3 - Multi-Root Library, Content Identity and Folder Workflow
 
-**Status:** `[-]` in progress
+**Status:** `[x]` complete
 **Created:** 2026-11-12
 **Supersedes:** the GUI parts of `plan_v2.md` (completed). `plan_v2.md` remains the historical record.
 **Target:** turn the local GUI into a multi-root, content-addressed photo library with folder navigation, tri-state selection, flat/tree export with optional re-rendering, a configurable tile/metadata layout, and a calibrated blur score.
@@ -247,7 +247,7 @@ Behavior:
 
 ## 4. Phases and work packages
 
-### Phase 1 - Foundation: appdata, configuration and content-addressed schema `[-]`
+### Phase 1 - Foundation: appdata, configuration and content-addressed schema `[x]`
 
 Tracking issue: #16
 
@@ -270,7 +270,7 @@ Tracking issue: #16
 
 **Phase gate:** the schema and repository behavior are stable and covered by tests before UI work starts.
 
-### Phase 2 - Multi-root scanning and content identity `[-]`
+### Phase 2 - Multi-root scanning and content identity `[x]`
 
 **Objective:** make scanning operate on all watched roots without duplicate analysis.
 
@@ -292,7 +292,7 @@ Tracking issue: #16
 
 **Phase gate:** multi-root scanning and content identity are proven before building the folder UI.
 
-### Phase 3 - Blur score rework `[-]`
+### Phase 3 - Blur score rework `[x]`
 
 **Objective:** make blur information meaningful for every photo.
 
@@ -311,7 +311,7 @@ Tracking issue: #16
 
 **Phase gate:** blur metrics are stable before they appear throughout the UI.
 
-### Phase 4 - Library UI: filters, folder view, tile metadata `[-]`
+### Phase 4 - Library UI: filters, folder view, tile metadata `[x]`
 
 **Objective:** deliver the new library experience.
 
@@ -333,7 +333,7 @@ Tracking issue: #16
 
 **Phase gate:** the library workflow is usable before export and settings work.
 
-### Phase 5 - Selection, export and settings page `[-]`
+### Phase 5 - Selection, export and settings page `[x]`
 
 **Objective:** complete the curate-and-export workflow and central configuration.
 
@@ -356,14 +356,14 @@ Tracking issue: #16
 
 **Phase gate:** the full curate-and-export workflow works without CLI commands.
 
-### Phase 6 - Documentation, end-to-end verification and release `[-]`
+### Phase 6 - Documentation, end-to-end verification and release `[x]`
 
 **Objective:** document the new workflow and prove it on real multi-root data.
 
 - [x] P6-W01: Update `docs/usage/gui.md`, `docs/getting-started/install.md`, `docs/usage/config.md` and the generated README content through `make syncdocs`.
-- [-] P6-W02: Run `make fmt`, `make lint`, `make test`, `make deptry`, `mkdocs build`, the wheel build and the entry-point checks.
-- [-] P6-W03: Perform an end-to-end walkthrough with two roots: duplicate content, moved file, changed file, missing file, folder view, tri-state selection, flat export, tree export, re-render and EXIF.
-- [ ] P6-W04: Commit, push, confirm CI is green and close the tracking issue.
+- [x] P6-W02: Run `make fmt`, `make lint`, `make test`, `make deptry`, `mkdocs build`, the wheel build and the entry-point checks.
+- [x] P6-W03: Perform an end-to-end walkthrough with two roots: duplicate content, moved file, changed file, missing file, folder view, tri-state selection, flat export, tree export, re-render and EXIF.
+- [x] P6-W04: Commit, push, confirm CI is green and close the tracking issue.
 
 **Acceptance criteria**
 
@@ -432,3 +432,8 @@ None blocking. The following assumptions are part of the plan:
   optional JPEG re-rendering, and a settings page. Phase 6 documentation and CI verification are
   in progress. All 91 local tests pass and Ruff is clean. Commit/push and CI results will be
   recorded here before marking the phases complete.
+
+- 2026-11-13: Implementation pushed as commits 7c7cd09, d1bf824, 47cd5e5, ad92432, cd0e154
+  and 02b2e17. Local `make test`, `make lint`, `make deptry`, `mkdocs build` and `uv build`
+  passed. GitHub Actions CI run 43385336689 is green on `02b2e17`. Issue #16 is closed after
+  this final verification.
