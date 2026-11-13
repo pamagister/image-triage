@@ -157,11 +157,12 @@ make docs
 
 ### Historical plans
 
-The implementation was planned in three versioned documents, kept for reference in [`docs/develop/`](develop/):
+The implementation was planned in four versioned documents, kept for reference in [`docs/develop/`](develop/):
 
-- [`plan_v1_implementation`](develop/plan_v1_implementation.md) - original implementation plan (Phases 1-9, complete).
-- [`plan_v2_gui_workflow`](develop/plan_v2_gui_workflow.md) - GUI workflow and quality plan (superseded by v3).
-- [`plan_v3_multi_root_library`](develop/plan_v3_multi_root_library.md) - multi-root library, content identity and folder workflow (complete).
+- [`plan_v1_implementation`](develop/progress/plan_v1_implementation.md) - original implementation plan (Phases 1-9, complete).
+- [`plan_v2_gui_workflow`](develop/progress/plan_v2_gui_workflow.md) - GUI workflow and quality plan (superseded by v3).
+- [`plan_v3_multi_root_library`](develop/progress/plan_v3_multi_root_library.md) - multi-root library, content identity and folder workflow (complete).
+- [`plan_v4_settings_roots`](develop/progress/plan_v4_settings_roots.md) - Settings-centered watched-root management (complete).
 
 ## License
 

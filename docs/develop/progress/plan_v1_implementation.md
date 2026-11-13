@@ -55,7 +55,7 @@ Turn `image-triage` into a modern, local, deterministic photo selection tool wit
   grouping, scoring, selection, report, export, cli, gui, benchmark).
 - Typer CLI with a rich command tree plus an all-in-one `run` command.
 - `pydantic-settings` configuration: YAML file + environment variables + CLI overrides.
-- SQLite database inside the input root (`.image-triage/triage.db`) as the single state store,
+- SQLite database inside the input root (`../../../.image-triage/triage.db`) as the single state store,
   with schema versioning and migrations.
 - Analysis: decode/preview, EXIF timestamp/GPS, sharpness, blur classification, composition,
   YOLO detections and embeddings, aesthetic score, subject rarity.
@@ -80,7 +80,7 @@ Turn `image-triage` into a modern, local, deterministic photo selection tool wit
   restriction is documented prominently (fallback: heuristic interest score).
 - Sample images: 110 Pixabay images in 10 categories (animals, landscape, technology,
   architecture, food, people, sports, travel, business, nature), max 1600 px long side,
-  max ~200 KB each (~22 MB total), in `images/pixabay/` with `credits.md`.
+  max ~200 KB each (~22 MB total), in `../../../images/pixabay` with `credits.md`.
 - No network access at analysis time; model downloads happen only via explicit commands.
 
 ### 2.3 Non-goals (explicit)
@@ -283,7 +283,7 @@ scan -> decode preview -> EXIF time/GPS -> sharpness/blur -> composition
 - Greedy MMR: `value = score - diversity * max_similarity_to_already_selected`, restricted by
   remaining quotas; deterministic tie-break by `(score desc, taken asc, path asc)`.
 - Reasons recorded per selected photo (e.g. "best of group 12", "event quota", "diversity").
-- Default profile `profiles/best200.yaml`: `top_n: 200`, event quota Sainte-Laguë, max 5 per day,
+- Default profile `../../../profiles/best200.yaml`: `top_n: 200`, event quota Sainte-Laguë, max 5 per day,
   max 3 per semantic cluster, diversity 0.5.
 
 ### 3.12 Reports and artifacts
@@ -329,7 +329,7 @@ image-triage gui        [--host 127.0.0.1] [--port 8765]
   `report`, `gui`.
 - `config init` writes a documented default; `config show` prints the effective merged config;
   `config validate` checks weights, paths, profiles and model files.
-- `make syncdocs` generates `config.yaml`, `docs/usage/config.md` and `docs/usage/cli.md` from the
+- `make syncdocs` generates `../../../config.yaml`, `docs/usage/config.md` and `docs/usage/cli.md` from the
   pydantic models (replacing the config-cli-gui documentation generator).
 
 ### 3.15 Performance strategy
@@ -366,7 +366,7 @@ any analysis work.
 - [x] P1-W01: Replace dependencies: remove `config-cli-gui` and `ttkbootstrap`; add `typer`,
   `pydantic-settings`, `fastapi`, `jinja2`, `uvicorn` (GUI extra), `python-multipart`; keep
   `onnxruntime`, `opencv-python-headless`, `pillow`, `imagehash`, `blake3`, `numpy`, `pyyaml`.
-  Update `pyproject.toml`, `uv.lock` and optional extras (`gui`, `gpu`).
+  Update `../../../pyproject.toml`, `uv.lock` and optional extras (`gui`, `gpu`).
 - [x] P1-W02: Define domain models and enums in `core/models.py` (Photo, Detection, Metrics,
   Event, Group, Selection, Run, Override, BlurKind, ExportMode, Provider).
 - [x] P1-W03: Implement `core/settings.py` with nested pydantic models, YAML source, env prefix
@@ -463,7 +463,7 @@ any analysis work.
 **Objective:** Produce the best N photos, with explainable reasons and all report artifacts.
 
 - [x] P4-W01: Implement `selection/profiles.py`: YAML profile schema, defaults, validation,
-  merging with CLI overrides; add `profiles/best200.yaml`.
+  merging with CLI overrides; add `../../../profiles/best200.yaml`.
 - [x] P4-W02: Implement quota calculation: Sainte-Laguë per event, per-day cap, per-cluster cap,
   global min/max.
 - [x] P4-W03: Implement `selection/select.py`: greedy MMR with YOLO embeddings, quota
@@ -499,7 +499,7 @@ export in one deterministic pass.
   command.
 - [x] P5-W02: Finalize exit codes, error JSON and partial-failure semantics; document `--strict`.
 - [x] P5-W03: Replace the config-cli-gui documentation generator with a pydantic-based generator;
-  update `make syncdocs`, `config.yaml`, `docs/usage/cli.md`, `docs/usage/config.md`.
+  update `make syncdocs`, `../../../config.yaml`, `docs/usage/cli.md`, `docs/usage/config.md`.
 - [x] P5-W04: Rewrite user documentation in English: installation, quickstart, commands, scoring,
   selection profiles, models, JSON for agents, GUI placeholder.
 - [x] P5-W05: Remove legacy `config.py`, `gui.py` (tkinter), config-cli-gui code paths and obsolete
@@ -557,7 +557,7 @@ export in one deterministic pass.
   fresh virtual environment with and without the `gui` and `gpu` extras.
 - [x] P7-W04: Perform the end-to-end acceptance run on the sample set and, if available, the real
   library; verify report, CSV, previews, export and GUI.
-- [x] P7-W05: Update `README.md`, `HISTORY.md`, release notes and documentation links.
+- [x] P7-W05: Update `../../../README.md`, `HISTORY.md`, release notes and documentation links.
 
 **Acceptance criteria**
 
@@ -672,7 +672,7 @@ scale.
 ### 5.3 Test data
 
 - 110 curated Pixabay sample images (~1600 px, ~200 KB each, ~22 MB total) in
-  `images/pixabay/` with `credits.md` (10 categories à 10 images).
+  `../../../images/pixabay` with `credits.md` (10 categories à 10 images).
 - A small committed subset (10–20 images) for fast deterministic tests.
 - Synthetic images for blur, exposure, composition and corrupt-file edge cases.
 - A synthetic 6000-photo library generator for scale tests (no network, no real photos required).
@@ -761,7 +761,7 @@ commits, push/CI status, blockers and decisions._
   Next: Phase 6 (models, benchmark, performance/scale).
 
 - 2026-11-12: Sample images finalized. Downloaded 110 Pixabay photos (10 categories à 10) via
-  `scripts/download_pixabay.py` into `images/pixabay/` with `credits.md`. Removed legacy
+  `../../../scripts/download_pixabay.py` into `images/pixabay/` with `credits.md`. Removed legacy
   `images/testimages_3/`, `images/testimages_4/` and `images/testimages_5/`. Tests do not
   reference the old folders, so no test changes were required. Next: Phase 6 (models,
   benchmark, performance/scale).

@@ -331,10 +331,10 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 
 **Objective:** document the new workflow and prove it works on real sample data.
 
-- [x] P6-W01: Update `docs/usage/gui.md` with the setup screen, scan workflow, filters, selection, export and activity page.
-- [x] P6-W02: Update `docs/getting-started/install.md` and any generated README content through `make syncdocs` where required.
+- [x] P6-W01: Update `../../usage/gui.md` with the setup screen, scan workflow, filters, selection, export and activity page.
+- [x] P6-W02: Update `../../getting-started/install.md` and any generated README content through `make syncdocs` where required.
 - [x] P6-W03: Run `make fmt`, `make lint`, `make test`, `make deptry`, `mkdocs build`, wheel build and entry-point checks.
-- [x] P6-W04: Perform a manual end-to-end walkthrough on `images/pixabay`: empty scan, stale scan, multi-select filters, select-all/opt-out, selected export and filtered export.
+- [x] P6-W04: Perform a manual end-to-end walkthrough on `../../../images/pixabay`: empty scan, stale scan, multi-select filters, select-all/opt-out, selected export and filtered export.
 - [x] P6-W05: Verify bokeh handling with the provided lion image and synthetic blur fixtures.
 - [x] P6-W06: Commit, push, open/close the tracking issue and confirm CI is green.
 
@@ -375,7 +375,7 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed, `[~]` deferre
 
 ### 6.3 Test data
 
-- Existing Pixabay sample set under `images/pixabay/`.
+- Existing Pixabay sample set under `../../../images/pixabay`.
 - Synthetic images for bokeh, motion blur, defocus blur and sharp control.
 - Temporary libraries for empty, stale, missing and changed-file states.
 - No network access in tests.
@@ -431,6 +431,6 @@ _Append a dated entry at each handoff: completed work, current state, next work 
 - 2026-11-12 (Phase 1 complete): Fixed SQLite thread affinity (`check_same_thread=False`, per-request connections), media cache headers and 404s, safe scan exclusions for tool/cache/VCS directories, and the `/setup` library-root screen with a no-active-job guard. Tests: 51 passed, Ruff clean. Commits `4352109` and `a033fc8` pushed; CI run 43268588370 green. Issue #15 open (reused/created for the phase, to be closed with the phase-close commit). Next: Phase 2 (sharpness, bokeh and blur gate).
 - 2026-11-12 (Phases 2-6 complete): Subject/saliency-aware sharpness with a bokeh signal, blur gate limited to real motion/defocus blur, schema v2 migration, unified scan job with freshness detection and auto-scan, multi-select metadata filters with sorting and a flat tile view, ephemeral browser selection with select-all-filtered, selected and filtered export to a user-chosen directory, docs and end-to-end verification.
 
-  Verification: 68 tests pass, Ruff and deptry clean, `mkdocs build` succeeds, wheel installs with all three entry points. End-to-end walkthrough on `images/pixabay` (110 photos): auto-scan, no false stale banner, rating 4+3 = 106 of 110, opt-out selection, 105-file selected export, 47-file filtered export matching the 47 rating-4 photos, both guards returning 400, blank filters returning 200, and add/delete reconciliation removing exactly the deleted file. Bokeh on the real lion image: 0.849 whole-frame, 0.588 subject box, `none` blur; the same frame blurred scores bokeh 0.0 and `defocus`.
+  Verification: 68 tests pass, Ruff and deptry clean, `mkdocs build` succeeds, wheel installs with all three entry points. End-to-end walkthrough on `../../../images/pixabay` (110 photos): auto-scan, no false stale banner, rating 4+3 = 106 of 110, opt-out selection, 105-file selected export, 47-file filtered export matching the 47 rating-4 photos, both guards returning 400, blank filters returning 200, and add/delete reconciliation removing exactly the deleted file. Bokeh on the real lion image: 0.849 whole-frame, 0.588 subject box, `none` blur; the same frame blurred scores bokeh 0.0 and `defocus`.
 
   Commits `4352109`, `a033fc8`, `ec1b63c`, `5c33779`, `a351ab8`, `cb5f1e9`, `87521b3`, `3c9968a`; all pushed and CI green. Issue #15 closed. Next: none; v2 plan complete.
