@@ -231,7 +231,7 @@ Desired outcome:
 
 ### Phase 4 - Export
 
-**Status:** `[-]`
+**Status:** `[x]`
 
 - [x] P4-W01: Change `appdata.default_export_root()` to the home image directory logic.
 - [x] P4-W02: Add the export drawer/dialog with selected/filtered/accepted scopes.
@@ -332,3 +332,4 @@ Desired outcome:
 - 2026-11-15: Phase 1 complete. Added the Folders/Filters sidebar, metric min/max sliders with numeric readouts, group-size and status/hide-rejected filters, blur/group/event sorting, presets and removable filter chips. Added `gui.filters` settings (visible groups and hide-rejected default), Settings controls, docs and generated config updates. Tests: 113 passed; Ruff and mkdocs build clean. Commit `da322e9`, CI run `43772073435` green. Issue #22 closed. Next: Phase 2 (selection review and accepted/rejected) in issue #23.
 - 2026-11-16: Phase 2 complete. Added content-level accepted/rejected via overrides.keep, Photo.keep and status badges, status/hide-rejected filters, POST /api/photos and POST /api/status, a selection tray with accept/reject/review actions, a root/folder-scoped review drawer with stale-id pruning, and accept/reject-all-filtered with confirmation. Tests: 117 passed; Ruff clean. Commit `f534572`, CI run `43773966794` green. Issue #23 closed. Next: Phase 3 (best-N and group review) in issue #24.
 - 2026-11-16: Phase 3 complete. Added best-N and best-of-group APIs with add/replace, rejected-photo handling, accepted preference, background jobs above 2000 candidates, a quick best-N bar, Selection settings, /compare/group/{id}, and compare select/accept/reject actions. Ungrouped photos now count as independent candidates. Tests: 121 passed; Ruff clean. Commit `1595f72`, CI run `43774742733` green. Issue #24 closed. Next: Phase 4 (copy-only export drawer) in issue #25.
+- 2026-11-16: Phase 4 complete. Export now defaults to ~/Bilder/image-triage, ~/Images/image-triage or ~/image-triage, the GUI always copies (no link mode), and the export drawer supports selected/filtered/accepted scopes. Settings no longer exposes a GUI link-mode selector. Tests: 122 passed; Ruff clean. Commit `1e1ea61`, CI run `43775242757` green. Issue #25 closed. Next: Phase 5 (Events timeline, read-only Jobs and curated Settings) in issue #26.
