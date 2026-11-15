@@ -14,6 +14,8 @@ from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
+from starlette.datastructures import QueryParams
 
 from image_triage.analysis.analyze import analyze_library
 from image_triage.analysis.pipeline import run_pipeline
@@ -105,6 +107,20 @@ FILTER_PRESETS = [
 #: Jobs that write to the state database and therefore block a library-root change.
 ACTIVE_JOB_STATUSES = ("pending", "running")
 MEDIA_CACHE_CONTROL = "public, max-age=604800"
+
+
+class PhotoIdsRequest(BaseModel):
+    """Location ids whose summaries the review panel requests."""
+
+    location_ids: list[int] = []
+
+
+class StatusRequest(BaseModel):
+    """Accepted/rejected/none update for explicit locations or a filtered scope."""
+
+    location_ids: list[int] = []
+    filters: dict[str, Any] = {}
+    status: str
 
 
 def _current_settings(request: Request) -> Settings:
@@ -240,6 +256,43 @@ def _filter_chips(query: PhotoQuery) -> list[dict[str, str]]:
             }
         )
     return chips
+
+
+def _filters_from_mapping(values: dict[str, Any], default_view: str) -> dict[str, Any]:
+    """Normalise JSON filter values through the same parser used by library URLs."""
+    params: list[tuple[str, str]] = []
+    for key, value in values.items():
+        if value is None or value is False:
+            continue
+        if isinstance(value, (list, tuple)):
+            params.extend((key, str(item)) for item in value if item is not None)
+        else:
+            params.append((key, str(value)))
+    query = parse_photo_query(QueryParams(params), default_view=default_view)
+    filters = dict(query.filters)
+    if query.search:
+        filters["search"] = query.search
+    return filters
+
+
+def _photo_summary(photo: Photo) -> dict[str, Any]:
+    """Lightweight JSON shape used by the selection review panel."""
+    location_id = photo.location_id or photo.id
+    return {
+        "photo_id": photo.id,
+        "location_id": location_id,
+        "root": photo.root_path,
+        "path": photo.path,
+        "name": photo.name,
+        "score": round(float(photo.score), 3),
+        "rating": photo.rating,
+        "keep": photo.keep,
+        "group_id": photo.group_id,
+        "event_id": photo.event_id,
+        "taken": photo.taken.isoformat() if photo.taken else None,
+        "url": f"/photo/{photo.id}",
+        "media": f"/media/location/{location_id}",
+    }
 
 
 def _folder_tree(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -591,6 +644,44 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             filters["search"] = query.search
         ids = repo.photo_ids(**filters)
         return {"ids": ids, "total": len(ids)}
+
+    @app.post("/api/photos")
+    def photo_summaries(
+        payload: PhotoIdsRequest, repo: Repository = Depends(repository)
+    ) -> dict[str, Any]:
+        """Return review thumbnails for location ids and report stale ids."""
+        photos = repo.photos_by_locations(payload.location_ids)
+        found = {photo.location_id for photo in photos if photo.location_id is not None}
+        missing = sorted({int(value) for value in payload.location_ids} - found)
+        return {
+            "photos": [_photo_summary(photo) for photo in photos],
+            "missing": missing,
+        }
+
+    @app.post("/api/status")
+    def set_status(
+        payload: StatusRequest,
+        request: Request,
+        repo: Repository = Depends(repository),
+    ) -> dict[str, Any]:
+        """Accept, reject or clear the decision for explicit locations or a filtered scope."""
+        settings = _current_settings(request)
+        if payload.status not in {"accepted", "rejected", "none"}:
+            raise HTTPException(400, "status must be accepted, rejected or none")
+        if payload.location_ids:
+            location_ids = [int(value) for value in payload.location_ids]
+            photo_ids = repo.photo_ids_for_locations(location_ids)
+        else:
+            filters = _filters_from_mapping(payload.filters, settings.gui.default_view)
+            location_ids = repo.photo_ids(**filters)
+            photo_ids = repo.photo_ids_for_locations(location_ids)
+        changed = repo.set_status(photo_ids, payload.status)
+        return {
+            "status": payload.status,
+            "photos": changed,
+            "locations": len(location_ids),
+            "photo_ids": photo_ids,
+        }
 
     @app.get("/photo/{photo_id}", response_class=HTMLResponse)
     def photo_detail(

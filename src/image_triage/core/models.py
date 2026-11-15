@@ -155,6 +155,7 @@ class Photo:
     embedding: list[float] | None = None
     score: float = 0.0
     rating: int = 0
+    keep: bool | None = None
     flags: list[str] = field(default_factory=list)
     model_signature: str | None = None
     analyzed_at: datetime | None = None
@@ -200,6 +201,7 @@ class Photo:
             "detections": [d.to_dict() for d in self.detections],
             "score": round(float(self.score), 6),
             "rating": self.rating,
+            "keep": self.keep,
             "flags": list(self.flags),
             "model_signature": self.model_signature,
             "analyzed_at": self.analyzed_at.isoformat() if self.analyzed_at else None,

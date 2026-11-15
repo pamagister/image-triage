@@ -35,6 +35,89 @@
     return params.toString();
   }
 
+  function currentFilters() {
+    var params = new URLSearchParams(window.location.search);
+    ["page", "view", "tab", "sort", "order"].forEach(function (key) {
+      params.delete(key);
+    });
+    var filters = {};
+    params.forEach(function (value, key) {
+      if (key === "q") {
+        key = "search";
+      }
+      if (Object.prototype.hasOwnProperty.call(filters, key)) {
+        if (Array.isArray(filters[key])) {
+          filters[key].push(value);
+        } else {
+          filters[key] = [filters[key], value];
+        }
+      } else {
+        filters[key] = value;
+      }
+    });
+    return filters;
+  }
+
+  function postJson(url, body) {
+    return window
+      .fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("request failed: " + response.status);
+        }
+        return response.json();
+      });
+  }
+
+  function keepLabel(keep) {
+    if (keep === true) {
+      return "accepted";
+    }
+    if (keep === false) {
+      return "rejected";
+    }
+    return "undecided";
+  }
+
+  function updateBadges(photoId, keep) {
+    document.querySelectorAll('[data-photo-id="' + photoId + '"]').forEach(function (card) {
+      var existing = card.querySelector(".status-badge");
+      if (existing) {
+        existing.remove();
+      }
+      if (keep === true || keep === false) {
+        var badge = document.createElement("span");
+        badge.className = "status-badge " + (keep ? "status-accepted" : "status-rejected");
+        badge.textContent = keepLabel(keep);
+        card.appendChild(badge);
+      }
+    });
+    document.querySelectorAll('[data-review-photo-id="' + photoId + '"]').forEach(function (card) {
+      var badge = card.querySelector(".status-badge");
+      if (badge) {
+        badge.className = "status-badge " + (keep ? "status-accepted" : "status-rejected");
+        badge.textContent = keepLabel(keep);
+      } else if (keep === true || keep === false) {
+        var created = document.createElement("span");
+        created.className = "status-badge " + (keep ? "status-accepted" : "status-rejected");
+        created.textContent = keepLabel(keep);
+        card.appendChild(created);
+      }
+    });
+  }
+
+  function changeStatus(locationIds, status, after) {
+    postJson("/api/status", { location_ids: locationIds, status: status }).then(function (data) {
+      if (after) {
+        after(data);
+      }
+    });
+  }
+
   function readOpenFolders() {
     try {
       var raw = window.localStorage.getItem(TREE_KEY);
@@ -155,6 +238,231 @@
     if (field) {
       field.value = scope;
     }
+  }
+
+  var reviewPhotos = [];
+
+  function photoFolder(photo) {
+    return photo.path.indexOf("/") === -1 ? "." : photo.path.slice(0, photo.path.lastIndexOf("/"));
+  }
+
+  function reviewScopeValue(root, folder) {
+    return root + "\n" + folder;
+  }
+
+  function populateReviewScope() {
+    var rootSelect = document.querySelector("[data-review-root]");
+    var folderSelect = document.querySelector("[data-review-folder]");
+    if (!rootSelect || !folderSelect) {
+      return;
+    }
+    var previousRoot = rootSelect.value;
+    var previousFolder = folderSelect.value;
+    rootSelect.innerHTML = '<option value="">All roots</option>';
+    folderSelect.innerHTML = '<option value="">All folders</option>';
+    var roots = [];
+    var folders = [];
+    reviewPhotos.forEach(function (photo) {
+      if (roots.indexOf(photo.root) === -1) {
+        roots.push(photo.root);
+      }
+      var key = reviewScopeValue(photo.root, photoFolder(photo));
+      if (!folders.some(function (item) { return item.key === key; })) {
+        folders.push({ key: key, root: photo.root, folder: photoFolder(photo) });
+      }
+    });
+    roots.sort().forEach(function (root) {
+      var option = document.createElement("option");
+      option.value = root;
+      option.textContent = root;
+      rootSelect.appendChild(option);
+    });
+    folders
+      .sort(function (a, b) { return a.key.localeCompare(b.key); })
+      .forEach(function (item) {
+        var option = document.createElement("option");
+        option.value = item.key;
+        option.textContent = item.folder === "." ? item.root : item.folder;
+        option.title = item.root;
+        folderSelect.appendChild(option);
+      });
+    if (Array.from(rootSelect.options).some(function (option) { return option.value === previousRoot; })) {
+      rootSelect.value = previousRoot;
+    }
+    if (
+      Array.from(folderSelect.options).some(function (option) { return option.value === previousFolder; })
+    ) {
+      folderSelect.value = previousFolder;
+    }
+  }
+
+  function reviewCard(photo) {
+    var card = document.createElement("article");
+    card.className = "review-card";
+    card.setAttribute("data-review-photo-id", String(photo.photo_id));
+    card.setAttribute("data-review-location-id", String(photo.location_id));
+    card.setAttribute("data-root", photo.root);
+    card.setAttribute("data-folder", photoFolder(photo));
+
+    var link = document.createElement("a");
+    link.href = photo.url;
+    var image = document.createElement("img");
+    image.src = photo.media;
+    image.alt = photo.path;
+    image.loading = "lazy";
+    link.appendChild(image);
+    card.appendChild(link);
+
+    var meta = document.createElement("div");
+    meta.className = "meta";
+    var name = document.createElement("div");
+    name.className = "name";
+    name.textContent = photo.name;
+    var path = document.createElement("div");
+    path.className = "path";
+    path.textContent = photo.root + "/" + photo.path;
+    path.title = path.textContent;
+    meta.appendChild(name);
+    meta.appendChild(path);
+    var score = document.createElement("div");
+    score.textContent = "score " + Number(photo.score).toFixed(2) + " - rating " + photo.rating + "/5";
+    meta.appendChild(score);
+    card.appendChild(meta);
+
+    if (photo.keep === true || photo.keep === false) {
+      var badge = document.createElement("span");
+      badge.className = "status-badge " + (photo.keep ? "status-accepted" : "status-rejected");
+      badge.textContent = keepLabel(photo.keep);
+      card.appendChild(badge);
+    }
+
+    var actions = document.createElement("div");
+    actions.className = "review-actions";
+
+    var remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "button-secondary";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", function () {
+      subtractSelected([photo.location_id]);
+      reviewPhotos = reviewPhotos.filter(function (item) {
+        return item.location_id !== photo.location_id;
+      });
+      renderReview();
+    });
+    actions.appendChild(remove);
+
+    ["accepted", "rejected"].forEach(function (status) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = status === "accepted" ? "" : "button-secondary";
+      button.textContent = status === "accepted" ? "Accept" : "Reject";
+      button.addEventListener("click", function () {
+        changeStatus([photo.location_id], status, function () {
+          photo.keep = status === "accepted";
+          updateBadges(photo.photo_id, photo.keep);
+        });
+      });
+      actions.appendChild(button);
+    });
+
+    card.appendChild(actions);
+    return card;
+  }
+
+  function renderReview() {
+    var grid = document.querySelector("[data-review-grid]");
+    if (!grid) {
+      return;
+    }
+    var root = document.querySelector("[data-review-root]").value;
+    var folder = document.querySelector("[data-review-folder]").value;
+    var visible = reviewPhotos.filter(function (photo) {
+      if (root && photo.root !== root) {
+        return false;
+      }
+      if (folder && reviewScopeValue(photo.root, photoFolder(photo)) !== folder) {
+        return false;
+      }
+      return true;
+    });
+    grid.innerHTML = "";
+    visible.forEach(function (photo) {
+      grid.appendChild(reviewCard(photo));
+    });
+    var count = document.querySelector("[data-review-count]");
+    if (count) {
+      count.textContent = String(visible.length) + (visible.length === reviewPhotos.length ? "" : " / " + reviewPhotos.length);
+    }
+    var empty = document.querySelector("[data-review-empty]");
+    if (empty) {
+      empty.hidden = visible.length > 0;
+    }
+  }
+
+  function openReview() {
+    var selected = readSelected();
+    if (selected.length === 0) {
+      window.alert("Select at least one photo first.");
+      return;
+    }
+    postJson("/api/photos", { location_ids: selected }).then(function (data) {
+      reviewPhotos = data.photos || [];
+      var found = new Set(
+        reviewPhotos.map(function (photo) {
+          return photo.location_id;
+        })
+      );
+      var pruned = selected.filter(function (id) {
+        return found.has(id);
+      });
+      if (pruned.length !== selected.length) {
+        writeSelected(pruned);
+        applySelection(pruned);
+      }
+      var missing = document.querySelector("[data-review-missing]");
+      if (missing) {
+        missing.textContent = data.missing && data.missing.length
+          ? data.missing.length + " stale id(s) removed"
+          : "";
+      }
+      populateReviewScope();
+      renderReview();
+      var dialog = document.getElementById("review-dialog");
+      if (dialog) {
+        dialog.showModal();
+      }
+    });
+  }
+
+  function changeFilteredStatus(status) {
+    var filters = currentFilters();
+    var query = new URLSearchParams();
+    Object.keys(filters).forEach(function (key) {
+      var value = filters[key];
+      if (Array.isArray(value)) {
+        value.forEach(function (item) { query.append(key, item); });
+      } else {
+        query.append(key, value);
+      }
+    });
+    var url = "/api/photo-ids" + (query.toString() ? "?" + query.toString() : "");
+    window
+      .fetch(url)
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        var total = data.total || 0;
+        if (total === 0) {
+          window.alert("No photos match the current filters.");
+          return;
+        }
+        if (!window.confirm((status === "accepted" ? "Accept " : "Reject ") + total + " filtered photos?")) {
+          return;
+        }
+        postJson("/api/status", { filters: filters, status: status }).then(function () {
+          window.location.reload();
+        });
+      });
   }
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -296,10 +604,91 @@
       });
     }
 
+    function changeSelectedStatus(status) {
+      var selected = readSelected();
+      if (selected.length === 0) {
+        window.alert("Select at least one photo first.");
+        return;
+      }
+      if (
+        !window.confirm(
+          (status === "accepted" ? "Accept " : "Reject ") + selected.length + " selected photos?"
+        )
+      ) {
+        return;
+      }
+      changeStatus(selected, status, function () {
+        window.location.reload();
+      });
+    }
+
+    var acceptSelected = document.querySelector("[data-accept-selected]");
+    if (acceptSelected) {
+      acceptSelected.addEventListener("click", function () {
+        changeSelectedStatus("accepted");
+      });
+    }
+
+    var rejectSelected = document.querySelector("[data-reject-selected]");
+    if (rejectSelected) {
+      rejectSelected.addEventListener("click", function () {
+        changeSelectedStatus("rejected");
+      });
+    }
+
+    var reviewOpen = document.querySelector("[data-open-review]");
+    if (reviewOpen) {
+      reviewOpen.addEventListener("click", openReview);
+    }
+
+    var reviewClose = document.querySelector("[data-review-close]");
+    if (reviewClose) {
+      reviewClose.addEventListener("click", function () {
+        var dialog = document.getElementById("review-dialog");
+        if (dialog) {
+          dialog.close();
+        }
+      });
+    }
+
+    ["[data-review-root]", "[data-review-folder]"].forEach(function (selector) {
+      var field = document.querySelector(selector);
+      if (field) {
+        field.addEventListener("change", renderReview);
+      }
+    });
+
+    var acceptFiltered = document.querySelector("[data-accept-filtered]");
+    if (acceptFiltered) {
+      acceptFiltered.addEventListener("click", function () {
+        changeFilteredStatus("accepted");
+      });
+    }
+
+    var rejectFiltered = document.querySelector("[data-reject-filtered]");
+    if (rejectFiltered) {
+      rejectFiltered.addEventListener("click", function () {
+        changeFilteredStatus("rejected");
+      });
+    }
+
     var exportOpen = document.querySelector("[data-export-open]");
     var exportDialog = document.getElementById("export-dialog");
     if (exportOpen && exportDialog) {
       exportOpen.addEventListener("click", function () {
+        setScope("selected");
+        setPhotoIdsField(readSelected());
+        exportDialog.showModal();
+      });
+    }
+
+    var reviewExport = document.querySelector("[data-review-export]");
+    if (reviewExport && exportDialog) {
+      reviewExport.addEventListener("click", function () {
+        var reviewDialog = document.getElementById("review-dialog");
+        if (reviewDialog) {
+          reviewDialog.close();
+        }
         setScope("selected");
         setPhotoIdsField(readSelected());
         exportDialog.showModal();

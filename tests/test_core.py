@@ -324,3 +324,26 @@ def test_database_rejects_newer_schema(tmp_path: Path) -> None:
     connection.close()
     with pytest.raises(RuntimeError, match="newer"):
         Repository.open(path)
+
+
+def test_set_status_preserves_rating_and_clears_keep(tmp_path: Path) -> None:
+    repository = Repository.open(tmp_path / "status.db")
+    try:
+        photo = repository.upsert_photo(_photo("status.jpg"))
+        repository.set_override(photo, rating=4, source=OverrideSource.GUI)
+        repository.set_status([photo], "accepted")
+        stored = repository.photo_by_id(photo)
+        assert stored.keep is True
+        assert stored.rating == 4
+
+        repository.set_status([photo], "rejected")
+        stored = repository.photo_by_id(photo)
+        assert stored.keep is False
+        assert stored.rating == 4
+
+        repository.set_status([photo], "none")
+        stored = repository.photo_by_id(photo)
+        assert stored.keep is None
+        assert stored.rating == 4
+    finally:
+        repository.close()

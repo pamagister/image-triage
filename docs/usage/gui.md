@@ -34,10 +34,11 @@ are not imported.
   library is scanned automatically; when files were added, changed or removed the page shows a
   stale-library banner with a **Scan library** button. The left sidebar has **Folders** and
   **Filters** tabs. The Folders tab always shows every watched root; selecting folders scopes
-  the grid. The Filters tab contains rating, quality, sharpness/blur, capture date and
-  similar-shot controls. Metric filters use min/max sliders with numeric readouts, and quick
-  presets (Good, Blurry, Low quality, Similar, Accepted, Rejected) apply within the current
-  root/folder scope. Active filters appear as removable chips above the result count. Sort by
+  the grid. The Filters tab contains rating, quality, sharpness/blur, capture date, status and
+  similar-shot controls. Metric filters use dual-handle min/max sliders with live numeric
+  readouts, and quick presets (Good, Blurry, Low quality, Similar, Accepted, Rejected) apply
+  within the current root/folder scope. Active filters appear as removable badges above the
+  result count. Accepted and rejected photos carry status badges on their tiles. Sort by
   capture time, score, rating, sharpness, bokeh, blur, aesthetic, subject, group or event in
   either direction, and page through the result with the active filters preserved. The first
   tile line is the file name; the full path is below it. Optional metadata fields and the
@@ -66,6 +67,15 @@ are not imported.
 - **De-select all filtered** removes only the photos matching the current filters from the
   selection; selections from other roots/folders remain.
 - **Clear all** empties the selection and asks for confirmation.
+- **Review selection** opens a drawer with thumbnails for every selected location across all
+  roots/folders. It can be scoped by root and folder, stale location ids are pruned, and each
+  photo can be removed, accepted or rejected without leaving the library.
+- **Accept** and **Reject** apply to the current selection. **Accept filtered** and
+  **Reject filtered** apply to every photo matching the current filters, after a confirmation
+  that shows the affected count. Accepted/rejected is a content-level decision stored in
+  `overrides.keep` (`1`, `0` or `NULL`); it is independent of the browser-local location
+  selection. A decision can be cleared by filtering for undecided photos and accepting/rejecting
+  a different decision, or from the photo detail override form.
 - **Export** opens a dialog over the library instead of navigating away. The scope can be
   selected photos or all filtered photos. The dialog exposes the target directory, layout and
   re-render options; it does not expose link modes, so browsing and selection stay in place

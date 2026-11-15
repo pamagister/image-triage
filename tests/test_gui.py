@@ -673,3 +673,67 @@ def test_events_page_and_job_runner(photo_dir: Path, tmp_path: Path) -> None:
         job = _wait_for_terminal_job(client, settings)
         assert job["status"] == "completed", job
         assert job["result"]["selected"] == 1
+
+
+def test_selection_review_and_status_api_round_trip(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    with client:
+        repository = Repository.open(settings.database_path)
+        try:
+            photos = repository.all_photos()
+        finally:
+            repository.close()
+        location_id = photos[0].location_id
+        assert location_id is not None
+
+        summaries = client.post("/api/photos", json={"location_ids": [location_id, 999999]})
+        assert summaries.status_code == 200
+        body = summaries.json()
+        assert len(body["photos"]) == 1
+        assert body["missing"] == [999999]
+        assert body["photos"][0]["location_id"] == location_id
+        assert body["photos"][0]["keep"] is None
+
+        accepted = client.post(
+            "/api/status", json={"location_ids": [location_id], "status": "accepted"}
+        )
+        assert accepted.status_code == 200
+        assert accepted.json()["photos"] == 1
+
+        page = client.get("/")
+        assert b"status-badge status-accepted" in page.content
+        detail = client.get(f"/photo/{photos[0].id}")
+        assert b"status-badge status-accepted" in detail.content
+
+        rejected = client.post(
+            "/api/status", json={"location_ids": [location_id], "status": "rejected"}
+        )
+        assert rejected.status_code == 200
+        repository = Repository.open(settings.database_path)
+        try:
+            assert repository.photo_by_location(location_id).keep is False
+        finally:
+            repository.close()
+
+        cleared = client.post("/api/status", json={"location_ids": [location_id], "status": "none"})
+        assert cleared.status_code == 200
+        repository = Repository.open(settings.database_path)
+        try:
+            assert repository.photo_by_location(location_id).keep is None
+        finally:
+            repository.close()
+
+
+def test_status_filter_accepts_bulk_filtered_scope(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    with client:
+        response = client.post(
+            "/api/status",
+            json={"filters": {"min_score": 0}, "status": "accepted"},
+        )
+        assert response.status_code == 200
+        assert response.json()["photos"] >= 1
+
+        filtered = client.get("/?status=accepted")
+        assert filtered.status_code == 200
+        assert b"status-badge status-accepted" in filtered.content

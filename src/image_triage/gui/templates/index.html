@@ -220,6 +220,18 @@
             </label>
           </details>
 
+          <details class="filter-group" open>
+            <summary>Status</summary>
+            <div class="checkbox-row status-row">
+              <label><input type="checkbox" name="status" value="accepted" {% if 'accepted' in filters.get('status', []) %}checked{% endif %}> <span>accepted</span></label>
+              <label><input type="checkbox" name="status" value="rejected" {% if 'rejected' in filters.get('status', []) %}checked{% endif %}> <span>rejected</span></label>
+              <label><input type="checkbox" name="status" value="none" {% if 'none' in filters.get('status', []) %}checked{% endif %}> <span>undecided</span></label>
+            </div>
+            <div class="checkbox-row">
+              <label><input type="checkbox" name="hide_rejected" value="true" {% if filters.get('hide_rejected') %}checked{% endif %}> <span>Hide rejected</span></label>
+            </div>
+          </details>
+
           <details class="filter-group">
             <summary>Advanced</summary>
             <label>Camera make
@@ -243,14 +255,15 @@
                 {% endfor %}
               </select>
             </label>
-            <div class="checkbox-row">
-              <label><input type="checkbox" name="hide_rejected" value="true" {% if filters.get('hide_rejected') %}checked{% endif %}> Hide rejected</label>
-            </div>
           </details>
 
           <div class="filter-actions">
             <button type="submit">Apply filters</button>
             <a class="button-link" href="/">Reset</a>
+          </div>
+          <div class="decision-actions">
+            <button type="button" class="button-secondary" data-accept-filtered>Accept filtered</button>
+            <button type="button" class="button-secondary" data-reject-filtered>Reject filtered</button>
           </div>
         </form>
       </section>
@@ -267,6 +280,8 @@
         <label class="select-box">
           <input type="checkbox" data-select-photo value="{{ photo.location_id or photo.id }}">
         </label>
+        {% if photo.keep is true %}<span class="status-badge status-accepted">accepted</span>
+        {% elif photo.keep is false %}<span class="status-badge status-rejected">rejected</span>{% endif %}
         <a href="/photo/{{ photo.id }}">
           <img src="/media/location/{{ photo.location_id or photo.id }}" alt="{{ photo.name }}" loading="lazy">
         </a>
@@ -303,6 +318,9 @@
 <div class="selection-tray" data-selection>
   <div class="selection-count"><span data-selected-count>0</span> selected</div>
   <div class="selection-actions">
+    <button type="button" data-open-review>Review selection</button>
+    <button type="button" data-accept-selected>Accept</button>
+    <button type="button" data-reject-selected>Reject</button>
     <button type="button" data-select-all>Select all filtered</button>
     <button type="button" data-deselect-all>De-select all filtered</button>
     <button type="button" data-clear>Clear all</button>
@@ -341,5 +359,28 @@
       <button type="submit">Start export</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="review-dialog" class="review-dialog" aria-labelledby="review-title">
+  <div class="dialog-header">
+    <strong id="review-title">Selected photos <span class="review-count" data-review-count>0</span></strong>
+    <button type="button" class="button-secondary" data-review-close aria-label="Close">Close</button>
+  </div>
+  <div class="review-scope">
+    <label>Root
+      <select data-review-root>
+        <option value="">All roots</option>
+      </select>
+    </label>
+    <label>Folder
+      <select data-review-folder>
+        <option value="">All folders</option>
+      </select>
+    </label>
+    <span class="review-missing" data-review-missing></span>
+    <button type="button" class="button-secondary" data-review-export>Export selected</button>
+  </div>
+  <div class="review-grid" data-review-grid></div>
+  <p class="review-empty" data-review-empty hidden>No photos selected.</p>
 </dialog>
 {% endblock %}

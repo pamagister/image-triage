@@ -545,3 +545,25 @@ def _wait(client: TestClient, settings, timeout: float = 15.0) -> dict:
             return jobs[0]
         time.sleep(0.1)
     raise AssertionError("job did not finish")
+
+
+def test_selection_review_panel_and_status_controls_are_available(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    with _client(photo_dir, tmp_path) as client:
+        page = client.get("/")
+        assert page.status_code == 200
+        assert b"data-open-review" in page.content
+        assert b"data-accept-selected" in page.content
+        assert b"data-reject-selected" in page.content
+        assert b"data-accept-filtered" in page.content
+        assert b"data-reject-filtered" in page.content
+        assert b'id="review-dialog"' in page.content
+        assert b"data-review-grid" in page.content
+        assert b'name="status" value="accepted"' in page.content
+
+        script = Path("src/image_triage/gui/static/selection.js").read_text()
+        assert "/api/photos" in script
+        assert "/api/status" in script
+        assert "renderReview" in script
+        assert "stale id(s) removed" in script

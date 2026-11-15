@@ -3,6 +3,8 @@
 {% block content %}
 <p><a href="/">back to library</a></p>
 <h1>{{ photo.path }}</h1>
+{% if photo.keep is true %}<p><span class="status-badge status-accepted">accepted</span></p>
+{% elif photo.keep is false %}<p><span class="status-badge status-rejected">rejected</span></p>{% endif %}
 <div class="detail">
   <img class="detail-image" src="/media/{{ photo.id }}" alt="{{ photo.path }}">
   <div>

@@ -185,16 +185,16 @@ Desired outcome:
 
 ### Phase 2 - Selection review and accepted/rejected
 
-**Status:** `[ ]`
+**Status:** `[-]`
 
-- [ ] P2-W01: Add `Photo.keep` to the model and SELECTs; render accepted/rejected badges.
-- [ ] P2-W02: Add `POST /api/photos` returning lightweight summaries for location ids; prune missing ids.
-- [ ] P2-W03: Add `POST /api/status` for selected ids or a filter query; support accepted/rejected/none.
-- [ ] P2-W04: Add `status` and `hide_rejected` filters.
-- [ ] P2-W05: Build the selection tray with count, add/remove/clear, accept/reject, export.
-- [ ] P2-W06: Build the selection review panel with thumbnails, scope, remove, accept/reject and export.
-- [ ] P2-W07: Add accept/reject all filtered with confirmation in the sidebar.
-- [ ] P2-W08: Update docs.
+- [x] P2-W01: Add `Photo.keep` to the model and SELECTs; render accepted/rejected badges.
+- [x] P2-W02: Add `POST /api/photos` returning lightweight summaries for location ids; prune missing ids.
+- [x] P2-W03: Add `POST /api/status` for selected ids or a filter query; support accepted/rejected/none.
+- [x] P2-W04: Add `status` and `hide_rejected` filters.
+- [x] P2-W05: Build the selection tray with count, add/remove/clear, accept/reject, export.
+- [x] P2-W06: Build the selection review panel with thumbnails, scope, remove, accept/reject and export.
+- [x] P2-W07: Add accept/reject all filtered with confirmation in the sidebar.
+- [x] P2-W08: Update docs.
 
 **Acceptance criteria**
 

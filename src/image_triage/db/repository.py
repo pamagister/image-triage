@@ -70,17 +70,19 @@ _CONTENT_SELECT = (
             ORDER BY l.relative_path LIMIT 1) AS root_path,
            (SELECT l.available FROM photo_locations l
             WHERE l.photo_id = p.id AND l.available = 1
-            ORDER BY l.relative_path LIMIT 1) AS available
+            ORDER BY l.relative_path LIMIT 1) AS available,
+           o.keep AS keep
     FROM photos p
     LEFT JOIN metrics m ON m.photo_id = p.id
     LEFT JOIN groups g ON g.id = p.group_id
+    LEFT JOIN overrides o ON o.photo_id = p.id
     """
 )
 
 _LOCATION_SELECT = (
     """
     SELECT p.*, l.id AS location_id, l.root_id, l.relative_path AS path,
-           l.available, r.path AS root_path,
+           l.available, r.path AS root_path, o.keep AS keep,
     """
     + _METRICS_COLUMNS
     + """
@@ -89,6 +91,7 @@ _LOCATION_SELECT = (
     JOIN roots r ON r.id = l.root_id
     LEFT JOIN metrics m ON m.photo_id = p.id
     LEFT JOIN groups g ON g.id = p.group_id
+    LEFT JOIN overrides o ON o.photo_id = p.id
     """
 )
 
@@ -494,6 +497,41 @@ class Repository:
         ).fetchone()
         return self._row_to_photo(row) if row else None
 
+    def photos_by_locations(self, location_ids: Sequence[int]) -> list[Photo]:
+        """Return available photos for the given location ids, ignoring stale ids."""
+        wanted = [int(value) for value in location_ids]
+        if not wanted:
+            return []
+        photos: list[Photo] = []
+        for start in range(0, len(wanted), 500):
+            chunk = wanted[start : start + 500]
+            placeholders = ", ".join("?" for _ in chunk)
+            rows = self.connection.execute(
+                _LOCATION_SELECT
+                + f" WHERE l.id IN ({placeholders}) AND l.available = 1 "
+                + "ORDER BY p.taken, r.path, l.relative_path",
+                tuple(chunk),
+            ).fetchall()
+            photos.extend(self._row_to_photo(row) for row in rows)
+        return photos
+
+    def photo_ids_for_locations(self, location_ids: Sequence[int]) -> list[int]:
+        """Content ids for the given location ids, deduplicated and ordered."""
+        wanted = [int(value) for value in location_ids]
+        if not wanted:
+            return []
+        photo_ids: set[int] = set()
+        for start in range(0, len(wanted), 500):
+            chunk = wanted[start : start + 500]
+            placeholders = ", ".join("?" for _ in chunk)
+            rows = self.connection.execute(
+                "SELECT DISTINCT photo_id FROM photo_locations "
+                f"WHERE id IN ({placeholders}) AND available = 1",
+                tuple(chunk),
+            ).fetchall()
+            photo_ids.update(int(row["photo_id"]) for row in rows)
+        return sorted(photo_ids)
+
     def location_by_id(self, location_id: int) -> PhotoLocation | None:
         row = self.connection.execute(
             """
@@ -696,6 +734,7 @@ class Repository:
             embedding=embedding,
             score=float(row["score"] or 0.0),
             rating=int(row["rating"] or 0),
+            keep=None if "keep" not in keys or row["keep"] is None else bool(row["keep"]),
             flags=flags,
             model_signature=row["model_signature"],
             analyzed_at=_parse_dt(row["analyzed_at"]),
@@ -1493,6 +1532,7 @@ class Repository:
                    m.bokeh, m.blur_kind, m.blur_confidence, m.blur_score,
                    m.composition, m.composition_components, m.aesthetic, m.aesthetic_source,
                    m.subject_score, m.subject_rarity, m.exposure, s.rank, s.reason, s.quota_rule,
+                   o.keep AS keep,
                    (SELECT l.id FROM photo_locations l
                     WHERE l.photo_id = p.id AND l.available = 1
                     ORDER BY l.relative_path LIMIT 1) AS location_id,
@@ -1512,6 +1552,7 @@ class Repository:
             FROM selections s
             JOIN photos p ON p.id = s.photo_id
             LEFT JOIN metrics m ON m.photo_id = p.id
+            LEFT JOIN overrides o ON o.photo_id = p.id
             WHERE s.run_id = ?
             ORDER BY s.rank
             """,
@@ -1560,6 +1601,37 @@ class Repository:
                     _iso(utcnow()),
                 ),
             )
+
+    def set_status(self, photo_ids: Sequence[int], status: str) -> int:
+        """Set accepted/rejected/none for content ids while preserving rating overrides."""
+        if status not in {"accepted", "rejected", "none"}:
+            raise ValueError(f"unknown status: {status}")
+        ids = [int(value) for value in photo_ids]
+        if not ids:
+            return 0
+        now = _iso(utcnow())
+        with self.connection:
+            if status == "none":
+                placeholders = ", ".join("?" for _ in ids)
+                self.connection.execute(
+                    "UPDATE overrides SET keep = NULL, source = ?, created_at = ? "
+                    f"WHERE photo_id IN ({placeholders})",
+                    (OverrideSource.GUI.value, now, *ids),
+                )
+            else:
+                keep = 1 if status == "accepted" else 0
+                self.connection.executemany(
+                    """
+                    INSERT INTO overrides (photo_id, rating, keep, source, created_at)
+                    VALUES (?, NULL, ?, ?, ?)
+                    ON CONFLICT(photo_id) DO UPDATE SET
+                        keep=excluded.keep,
+                        source=excluded.source,
+                        created_at=excluded.created_at
+                    """,
+                    [(photo_id, keep, OverrideSource.GUI.value, now) for photo_id in ids],
+                )
+        return len(ids)
 
     def get_overrides(self) -> list[Override]:
         rows = self.connection.execute(
