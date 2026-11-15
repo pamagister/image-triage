@@ -832,6 +832,7 @@ def test_library_has_best_n_controls(photo_dir: Path, tmp_path: Path) -> None:
         assert b"data-best-mode" in page.content
         assert b"data-best-run" in page.content
         assert b"data-group-best" in page.content
+        assert b'value="accepted">Accepted photos' in page.content
 
 
 def test_large_best_n_runs_as_background_job(
@@ -854,3 +855,38 @@ def test_large_best_n_runs_as_background_job(
         job = _wait_for_terminal_job(client, settings)
         assert job["status"] == "completed"
         assert job["result"]["location_ids"]
+
+
+def test_export_accepted_scope_copies_only_accepted_photos(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    repository = Repository.open(settings.database_path)
+    try:
+        photos = sorted(repository.all_photos(), key=lambda photo: photo.path)
+    finally:
+        repository.close()
+    accepted_id = photos[0].location_id
+    target = tmp_path / "export-accepted"
+
+    with client:
+        status = client.post(
+            "/api/status",
+            json={"location_ids": [accepted_id], "status": "accepted"},
+        )
+        assert status.status_code == 200
+
+        response = client.post(
+            "/export",
+            data={"scope": "accepted", "output": str(target)},
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        job = _wait_for_terminal_job(client, settings)
+        assert job["status"] == "completed", job
+        assert job["result"]["exported"] == 1
+        assert job["result"]["mode"] == "copy"
+        assert job["result"]["scope"] == "accepted"
+
+    copied = [path for path in target.rglob("*") if path.is_file()]
+    assert len(copied) == 1
+    assert not copied[0].is_symlink()
+    assert copied[0].stat().st_nlink == 1

@@ -44,7 +44,12 @@ def test_appdata_directories_follow_environment_overrides(
     assert appdata.config_file() == tmp_path / "config" / "config.yaml"
     assert appdata.database_file() == tmp_path / "data" / "triage.db"
     assert appdata.cache_subdir("previews") == tmp_path / "cache" / "previews"
-    assert appdata.default_export_root() == tmp_path / "data" / "exports"
+
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    assert appdata.default_export_root() == home / "image-triage"
+    (home / "Bilder").mkdir(parents=True)
+    assert appdata.default_export_root() == home / "Bilder" / "image-triage"
 
 
 def test_central_config_is_overridden_by_project_env_and_cli(

@@ -482,7 +482,7 @@ def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]
             )
             summary = result
         elif kind == "export":
-            mode = ExportMode(payload.get("mode", settings.report.export_mode))
+            mode = ExportMode.COPY
             target = Path(payload["output"]).expanduser() if payload.get("output") else output
             if any(_is_inside(target, root) for root in roots):
                 raise ValueError("the export target must be outside every library root")
@@ -695,7 +695,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         repo: Repository = Depends(repository),
         scope: str = Form("selected"),
         output: str = Form(""),
-        mode: str = Form(""),
         photo_ids: str = Form(""),
         layout: str = Form(""),
         rerender: bool = Form(False),
@@ -726,14 +725,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 return _export_error(request, repo, "no photos are selected")
             export_payload: dict[str, Any] = {"location_ids": ids}
         else:
-            if repo.count_photos(**filters) == 0:
-                return _export_error(request, repo, "no photos match the current filters")
-            export_payload = {"filters": filters}
+            scope_filters = dict(filters)
+            if scope == "accepted":
+                scope_filters["status"] = ["accepted"]
+            if repo.count_photos(**scope_filters) == 0:
+                noun = "accepted" if scope == "accepted" else "filtered"
+                return _export_error(request, repo, f"no {noun} photos to export")
+            export_payload = {"filters": scope_filters}
 
-        export_mode = mode or settings.export.mode
         payload: dict[str, Any] = {
             "output": str(target),
-            "mode": export_mode,
             "scope": scope,
             "layout": layout or settings.export.layout,
             "rerender": rerender or settings.export.rerender,
@@ -1016,7 +1017,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         selection_event_quota: str = Form("sainte_lague"),
         selection_include_rejected: bool = Form(False),
         selection_prefer_accepted: bool = Form(True),
-        export_mode: str = Form("copy"),
         export_layout: str = Form("flat"),
         rerender: bool = Form(False),
         max_long_edge: str = Form(""),
@@ -1122,7 +1122,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             data["gui"]["filters"]["hide_rejected"] = filter_hide_rejected
         data["export"].update(
             {
-                "mode": export_mode,
                 "layout": export_layout,
                 "rerender": rerender,
                 "max_long_edge": int(max_long_edge) if max_long_edge.strip() else None,

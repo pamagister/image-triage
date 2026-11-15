@@ -88,12 +88,14 @@ are not imported.
   selection. A decision can be cleared by filtering for undecided photos and accepting/rejecting
   a different decision, or from the photo detail override form.
 - **Export** opens a dialog over the library instead of navigating away. The scope can be
-  selected photos or all filtered photos. The dialog exposes the target directory, layout and
-  re-render options; it does not expose link modes, so browsing and selection stay in place
-  while the export is configured.
-- The target directory defaults to a timestamped folder under the central data directory, and
-  the layout defaults to flat; a folder-tree layout is optional. Flat collisions are resolved
-  with `_1`, `_2` suffixes.
+  selected photos, all filtered photos, or accepted photos. The dialog exposes the target
+  directory, layout and re-render options; it does not expose link modes, so the GUI always
+  copies originals and never creates symlinks or hard links.
+- The target directory defaults to a timestamped folder under the user's image directory:
+  `~/Bilder/image-triage/export_<stamp>`, then `~/Images/image-triage/...`, then
+  `~/image-triage/...`. `export.destination` remains an explicit override. The default layout
+  is flat; a folder-tree layout is optional. Flat collisions are resolved with `_1`, `_2`
+  suffixes.
 - Optional **Re-render** writes JPEGs at the configured maximum long edge and quality (default
   85), preserving EXIF and ICC. Re-rendering forces copy mode. RAW files are copied or linked
   unchanged.

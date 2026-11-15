@@ -141,13 +141,6 @@
   <section class="settings-section">
     <h2>Export defaults</h2>
     <div class="settings-grid">
-      <label>Mode
-        <select name="export_mode">
-          {% for value in ['copy', 'hardlink', 'symlink'] %}
-          <option value="{{ value }}" {% if settings.export.mode == value %}selected{% endif %}>{{ value }}</option>
-          {% endfor %}
-        </select>
-      </label>
       <label>Layout
         <select name="export_layout">
           <option value="flat" {% if settings.export.layout == 'flat' %}selected{% endif %}>flat</option>

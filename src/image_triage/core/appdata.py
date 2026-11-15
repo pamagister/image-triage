@@ -94,8 +94,18 @@ def cache_subdir(name: str) -> Path:
 
 
 def default_export_root() -> Path:
-    """Root directory for timestamped exports."""
-    return data_dir() / "exports"
+    """Root directory for timestamped exports.
+
+    Prefer the platform's user image directory: ``~/Bilder`` on Linux, then ``~/Images``,
+    then ``~/image-triage``. The image directory is only used when it already exists so an
+    unexpected home layout does not silently create a new top-level folder.
+    """
+    home = Path.home()
+    for name in ("Bilder", "Images"):
+        candidate = home / name
+        if candidate.is_dir():
+            return candidate / APP_NAME
+    return home / APP_NAME
 
 
 def ensure_directories() -> None:

@@ -231,14 +231,14 @@ Desired outcome:
 
 ### Phase 4 - Export
 
-**Status:** `[ ]`
+**Status:** `[-]`
 
-- [ ] P4-W01: Change `appdata.default_export_root()` to the home image directory logic.
-- [ ] P4-W02: Add the export drawer/dialog with selected/filtered/accepted scopes.
-- [ ] P4-W03: Force copy mode in the GUI; remove the mode selector.
-- [ ] P4-W04: Add accepted scope to the export job.
-- [ ] P4-W05: Add tests for the default path, copy-only behavior, accepted scope and drawer markup.
-- [ ] P4-W06: Update docs.
+- [x] P4-W01: Change `appdata.default_export_root()` to the home image directory logic.
+- [x] P4-W02: Add the export drawer/dialog with selected/filtered/accepted scopes.
+- [x] P4-W03: Force copy mode in the GUI; remove the mode selector.
+- [x] P4-W04: Add accepted scope to the export job.
+- [x] P4-W05: Add tests for the default path, copy-only behavior, accepted scope and drawer markup.
+- [x] P4-W06: Update docs.
 
 **Acceptance criteria**
 
