@@ -354,3 +354,42 @@ def test_folder_tree_keeps_all_roots_when_a_root_scope_is_active(tmp_path: Path)
         assert response.status_code == 200
         assert b"alpha" in response.content
         assert b"beta" in response.content
+
+
+def test_two_root_workflow_smoke(tmp_path: Path) -> None:
+    first = tmp_path / "library-a"
+    second = tmp_path / "library-b"
+    save_jpeg(first / "2026" / "a.jpg", _scene(11), datetime(2026, 1, 1, tzinfo=UTC))
+    save_jpeg(second / "2025" / "b.jpg", _scene(12), datetime(2025, 1, 1, tzinfo=UTC))
+
+    settings = _settings([first, second], tmp_path / "workflow.db")
+    repository = Repository.open(settings.database_path)
+    try:
+        analyze_library(settings, repository)
+        build_groups_and_events(repository, settings)
+        score_library(repository, settings)
+        photos = repository.all_photos()
+        group_id = photos[0].group_id
+    finally:
+        repository.close()
+
+    with TestClient(create_app(settings)) as client:
+        library = client.get("/")
+        assert library.status_code == 200
+        assert b"library-a" in library.content
+        assert b"library-b" in library.content
+
+        assert client.get("/events").status_code == 200
+        assert client.get("/jobs").status_code == 200
+        assert client.get("/settings").status_code == 200
+        assert client.get("/api/jobs/active").json()["count"] == 0
+
+        if group_id is not None:
+            assert client.get(f"/compare/group/{group_id}").status_code == 200
+
+        best = client.post(
+            "/api/select-best",
+            json={"filters": {"min_score": 0}, "n": 1, "mode": "replace"},
+        )
+        assert best.status_code == 200
+        assert len(best.json()["location_ids"]) == 1

@@ -20,7 +20,8 @@ explainable quotas and diversity rules. Originals are never modified or deleted.
 - Deterministic "best N" selection with event/day/cluster quotas and MMR diversity.
 - Typer CLI with stable JSON/NDJSON output and documented exit codes.
 - Versioned SQLite state store for 6000+ photos.
-- Local FastAPI web GUI (later phase).
+- Local FastAPI web GUI with a filter sidebar, browser-local selection review, accepted/rejected
+  decisions, best-N and group compare, copy-only export, an event timeline and read-only jobs.
 
 ## Installation
 
@@ -57,8 +58,9 @@ The output directory contains:
 - `originals/<relative path>` - copies/hard links/symlinks of the selected originals.
 - `<input>/.image-triage/previews/<digest>.webp` - WebP previews of selected photos.
 
-State is stored in `<input>/.image-triage/triage.db` (SQLite, WAL). Re-running reuses unchanged
-analysis and is deterministic for the same inputs, models, config and DB state.
+State is stored in the central application data directory (platform-specific, for example
+`~/.local/share/image-triage/triage.db` on Linux) rather than in the photo library. Re-running
+reuses unchanged analysis and is deterministic for the same inputs, models, config and DB state.
 
 ## Commands
 
@@ -142,9 +144,10 @@ uv run python -m image_triage.gui
 # or: uv run image-triage gui
 ```
 
-It provides library filtering, photo detail, comparison, soft rating/keep-reject overrides, an
-event timeline with a GPS scatter plot and run/export job control. See
-[`docs/usage/gui.md`](usage/gui.md).
+It provides a library workbench with a folder/filter sidebar, dual-handle metric filters, a
+browser-local selection that survives filtering and reloads, accepted/rejected decisions, a
+selection review drawer, best-N and best-of-group selection, side-by-side compare, copy-only
+export, an event timeline and read-only jobs. See [`docs/usage/gui.md`](usage/gui.md).
 
 ## Development
 
@@ -163,6 +166,7 @@ The implementation was planned in four versioned documents, kept for reference i
 - [`plan_v2_gui_workflow`](develop/progress/plan_v2_gui_workflow.md) - GUI workflow and quality plan (superseded by v3).
 - [`plan_v3_multi_root_library`](develop/progress/plan_v3_multi_root_library.md) - multi-root library, content identity and folder workflow (complete).
 - [`plan_v4_settings_roots`](develop/progress/plan_v4_settings_roots.md) - Settings-centered watched-root management (complete).
+- [`plan_v5_library_workbench`](develop/progress/plan_v5_library_workbench.md) - library workbench, selection review, best-N, group review and copy-only export (complete).
 
 ## License
 

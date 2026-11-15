@@ -271,11 +271,11 @@ Desired outcome:
 
 ### Phase 6 - Verification and release
 
-**Status:** `[ ]`
+**Status:** `[-]`
 
-- [ ] P6-W01: Run `make fmt`, `make lint`, `make test`, `make syncdocs`, `mkdocs build` and the wheel/entry-point checks.
-- [ ] P6-W02: Manual end-to-end walkthrough with at least two roots.
-- [ ] P6-W03: Update README/docs, commit, push, confirm CI and close the tracking issue.
+- [x] P6-W01: Run `make fmt`, `make lint`, `make test`, `make syncdocs`, `mkdocs build` and the wheel/entry-point checks.
+- [x] P6-W02: Manual end-to-end walkthrough with at least two roots.
+- [x] P6-W03: Update README/docs, commit, push, confirm CI and close the tracking issue.
 
 **Acceptance criteria**
 
