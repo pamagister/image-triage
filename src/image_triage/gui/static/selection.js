@@ -166,15 +166,45 @@
     applySelection(readSelected());
     restoreOpenFolders();
 
-    document.querySelectorAll("[data-range-output]").forEach(function (range) {
-      var output = document.querySelector('[data-output-for="' + range.name + '"]');
-      function update() {
-        if (output) {
-          output.textContent = Number(range.value).toFixed(2);
-        }
+    document.querySelectorAll("[data-dual-range]").forEach(function (group) {
+      var minInput = group.querySelector("[data-range-min]");
+      var maxInput = group.querySelector("[data-range-max]");
+      var fill = group.querySelector("[data-range-fill]");
+      if (!minInput || !maxInput || !fill) {
+        return;
       }
-      range.addEventListener("input", update);
-      update();
+      var minOutput = group.querySelector('[data-output-for="' + minInput.name + '"]');
+      var maxOutput = group.querySelector('[data-output-for="' + maxInput.name + '"]');
+
+      function update(changed) {
+        var low = Number(minInput.value);
+        var high = Number(maxInput.value);
+        if (low > high) {
+          if (changed === minInput) {
+            high = low;
+            maxInput.value = String(high);
+          } else {
+            low = high;
+            minInput.value = String(low);
+          }
+        }
+        if (minOutput) {
+          minOutput.textContent = low.toFixed(2);
+        }
+        if (maxOutput) {
+          maxOutput.textContent = high.toFixed(2);
+        }
+        fill.style.left = low * 100 + "%";
+        fill.style.width = (high - low) * 100 + "%";
+      }
+
+      minInput.addEventListener("input", function () {
+        update(minInput);
+      });
+      maxInput.addEventListener("input", function () {
+        update(maxInput);
+      });
+      update(minInput);
     });
 
     document.addEventListener(

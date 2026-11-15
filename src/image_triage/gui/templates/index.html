@@ -74,7 +74,11 @@
 {% if chips %}
 <div class="chips" aria-label="Active filters">
   {% for chip in chips %}
-  <a class="chip" href="{{ chip.url }}" title="Remove {{ chip.label }}">{{ chip.label }}: {{ chip.value }} <span aria-hidden="true">×</span></a>
+  <a class="chip" href="{{ chip.url }}" title="Remove {{ chip.label }}">
+    <span class="chip-label">{{ chip.label }}</span>
+    <span class="chip-value">{{ chip.value }}</span>
+    <span class="chip-remove" aria-hidden="true">×</span>
+  </a>
   {% endfor %}
   <a class="chip chip-reset" href="/">Reset all</a>
 </div>
@@ -83,21 +87,26 @@
 {% macro range_filter(label, min_name, max_name, step=0.01) %}
 {% set min_value = filters.get(min_name) %}
 {% set max_value = filters.get(max_name) %}
-<div class="range-filter">
-  <div class="range-label">{{ label }}</div>
-  <div class="range-row">
-    <span>min</span>
-    <input type="range" min="0" max="1" step="{{ step }}" name="{{ min_name }}"
-           value="{{ min_value if min_value is not none else 0 }}"
-           data-range-output="{{ min_name }}" aria-label="Minimum {{ label }}">
-    <output data-output-for="{{ min_name }}">{{ '%.2f'|format(min_value if min_value is not none else 0) }}</output>
+{% set min_number = min_value if min_value is not none else 0 %}
+{% set max_number = max_value if max_value is not none else 1 %}
+<div class="range-filter" data-dual-range>
+  <div class="range-label">
+    <span>{{ label }}</span>
+    <span class="range-readout">
+      <output data-output-for="{{ min_name }}">{{ '%.2f'|format(min_number) }}</output>
+      <span aria-hidden="true">–</span>
+      <output data-output-for="{{ max_name }}">{{ '%.2f'|format(max_number) }}</output>
+    </span>
   </div>
-  <div class="range-row">
-    <span>max</span>
+  <div class="dual-range">
+    <span class="dual-range-track" aria-hidden="true"></span>
+    <span class="dual-range-fill" data-range-fill aria-hidden="true"></span>
+    <input type="range" min="0" max="1" step="{{ step }}" name="{{ min_name }}"
+           value="{{ min_number }}" data-range-min data-range-pair="{{ max_name }}"
+           aria-label="Minimum {{ label }}">
     <input type="range" min="0" max="1" step="{{ step }}" name="{{ max_name }}"
-           value="{{ max_value if max_value is not none else 1 }}"
-           data-range-output="{{ max_name }}" aria-label="Maximum {{ label }}">
-    <output data-output-for="{{ max_name }}">{{ '%.2f'|format(max_value if max_value is not none else 1) }}</output>
+           value="{{ max_number }}" data-range-max data-range-pair="{{ min_name }}"
+           aria-label="Maximum {{ label }}">
   </div>
 </div>
 {% endmacro %}
@@ -165,9 +174,9 @@
 
           <details class="filter-group" {% if 'rating' not in filter_settings.visible %}hidden{% endif %}>
             <summary>Rating</summary>
-            <div class="checkbox-row">
+            <div class="checkbox-row rating-row">
               {% for value in [5, 4, 3, 2, 1] %}
-              <label><input type="checkbox" name="rating" value="{{ value }}" {% if value in filters.get('rating', []) %}checked{% endif %}> {{ value }}</label>
+              <label><input type="checkbox" name="rating" value="{{ value }}" {% if value in filters.get('rating', []) %}checked{% endif %}> <span>{{ value }}</span></label>
               {% endfor %}
             </div>
           </details>
@@ -185,9 +194,9 @@
             {{ range_filter('Sharpness', 'sharpness_min', 'sharpness_max') }}
             {{ range_filter('Bokeh', 'bokeh_min', 'bokeh_max') }}
             {{ range_filter('Blur score', 'blur_min', 'blur_max') }}
-            <div class="checkbox-row">
+            <div class="checkbox-row blur-row">
               {% for kind in blur_kinds %}
-              <label><input type="checkbox" name="blur" value="{{ kind }}" {% if kind in filters.get('blur', []) %}checked{% endif %}> {{ kind }}</label>
+              <label><input type="checkbox" name="blur" value="{{ kind }}" {% if kind in filters.get('blur', []) %}checked{% endif %}> <span>{{ kind }}</span></label>
               {% endfor %}
             </div>
           </details>

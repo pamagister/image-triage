@@ -52,12 +52,24 @@ def test_library_sidebar_has_tabs_ranges_presets_and_filter_chips(
         assert b'name="group_size_min"' in page.content
         assert b"Good" in page.content and b"Blurry" in page.content
         assert b'class="chip"' in page.content
-        assert b"rating: 4" in page.content
-        assert b"blur min: 0.6" in page.content
+        assert b'class="chip-label"' in page.content
+        assert b'class="chip-value"' in page.content
+        assert b'class="chip-remove"' in page.content
+        assert b"data-dual-range" in page.content
+        assert b"data-range-min" in page.content
+        assert b"data-range-max" in page.content
+        assert b'class="checkbox-row rating-row"' in page.content
+        assert b'class="checkbox-row blur-row"' in page.content
+
+        script = Path("src/image_triage/gui/static/selection.js").read_text()
+        assert "data-range-min" in script and "data-range-max" in script
+        assert "low > high" in script
 
         css = Path("src/image_triage/gui/static/style.css").read_text()
         assert "grid-template-columns: minmax(260px, 320px) 1fr;" in css
         assert "position: sticky;" in css
+        assert "pointer-events: none;" in css
+        assert "pointer-events: auto;" in css
 
 
 def test_default_view_is_folders_and_flat_view_is_available(

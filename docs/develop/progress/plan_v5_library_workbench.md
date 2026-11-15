@@ -170,6 +170,7 @@ Desired outcome:
 - [x] P1-W05: Build filter groups with dual-thumb range sliders and numeric readouts.
 - [x] P1-W06: Add presets and active filter chips.
 - [x] P1-W07: Add Settings controls for filter visibility and update docs.
+- [x] P1-W08: Polish the sidebar UI: compact filter badges, aligned option rows and dual-handle range sliders with live readouts and min<=max enforcement.
 
 **Acceptance criteria**
 
