@@ -1,6 +1,6 @@
 # Image Triage v5 - Library Workbench and Curation Workflow
 
-**Status:** `[ ]` planned
+**Status:** `[x]` complete
 **Created:** 2026-11-15
 **Supersedes:** the GUI workflow parts of v2-v4. The v3/v4 data model, multi-root scanning and central appdata layout remain authoritative.
 **Target:** turn the GUI into a workflow-centric curation workbench with a left filter sidebar, a persistent browser-local selection, bulk accepted/rejected decisions, group-aware review, best-N selection, a non-intrusive copy-only export drawer, and a useful Events timeline.
@@ -271,7 +271,7 @@ Desired outcome:
 
 ### Phase 6 - Verification and release
 
-**Status:** `[-]`
+**Status:** `[x]`
 
 - [x] P6-W01: Run `make fmt`, `make lint`, `make test`, `make syncdocs`, `mkdocs build` and the wheel/entry-point checks.
 - [x] P6-W02: Manual end-to-end walkthrough with at least two roots.
@@ -334,3 +334,4 @@ Desired outcome:
 - 2026-11-16: Phase 3 complete. Added best-N and best-of-group APIs with add/replace, rejected-photo handling, accepted preference, background jobs above 2000 candidates, a quick best-N bar, Selection settings, /compare/group/{id}, and compare select/accept/reject actions. Ungrouped photos now count as independent candidates. Tests: 121 passed; Ruff clean. Commit `1595f72`, CI run `43774742733` green. Issue #24 closed. Next: Phase 4 (copy-only export drawer) in issue #25.
 - 2026-11-16: Phase 4 complete. Export now defaults to ~/Bilder/image-triage, ~/Images/image-triage or ~/image-triage, the GUI always copies (no link mode), and the export drawer supports selected/filtered/accepted scopes. Settings no longer exposes a GUI link-mode selector. Tests: 122 passed; Ruff clean. Commit `1e1ea61`, CI run `43775242757` green. Issue #25 closed. Next: Phase 5 (Events timeline, read-only Jobs and curated Settings) in issue #26.
 - 2026-11-16: Phase 5 complete. Events is now a card timeline with representative covers and library links; Jobs is read-only and reachable from a polling header indicator; Settings is organized into Library, Filters, Selection, Export, Scoring, Analysis and Advanced with rescan hints. Tests: 123 passed; Ruff and mkdocs build clean. Commit `401ddc5`, CI run `43775870126` green. Issue #26 closed. Next: Phase 6 (verification and release) in issue #27.
+- 2026-11-16: Phase 6 complete and the v5 plan is done. Final checks: make fmt, make lint, make test (124 passed), make syncdocs, mkdocs build, wheel build with entry_points and bundled GUI assets, CLI --help and GUI import. Added an automated two-root workflow smoke test covering library, events, read-only jobs, settings, group compare and best-N. Commit `1b20369`, CI run `43776436558` green, README sync run `43776436566` green. Issue #27 closed. No work remains from this plan.
