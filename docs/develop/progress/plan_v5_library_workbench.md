@@ -161,7 +161,7 @@ Desired outcome:
 
 ### Phase 1 - Filter sidebar and filter model
 
-**Status:** `[-]`
+**Status:** `[x]`
 
 - [x] P1-W01: Add `gui.filters` settings (visible groups, hide-rejected default).
 - [x] P1-W02: Extend the query parser and repository with metric min/max ranges.
@@ -328,3 +328,4 @@ Desired outcome:
 ## 7. Progress / Handoff
 
 - 2026-11-15: Phase 0 complete. Fixed event/group filter parsing, kept the folder tree complete under a root scope, hid single-photo groups, changed the default view to folders, made select-all add with de-select/clear confirmation, and preserved rating on partial keep updates. Tests: 107 passed; Ruff clean. Commit `9fc70b7`, CI run `43770223757` green. Issue #21 closed. Existing issue #17 referenced. Next: Phase 1 (filter sidebar and filter model).
+- 2026-11-15: Phase 1 complete. Added the Folders/Filters sidebar, metric min/max sliders with numeric readouts, group-size and status/hide-rejected filters, blur/group/event sorting, presets and removable filter chips. Added `gui.filters` settings (visible groups and hide-rejected default), Settings controls, docs and generated config updates. Tests: 113 passed; Ruff and mkdocs build clean. Commit `da322e9`, CI run `43772073435` green. Issue #22 closed. Next: Phase 2 (selection review and accepted/rejected) in issue #23.
