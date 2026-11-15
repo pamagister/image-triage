@@ -252,7 +252,7 @@ Desired outcome:
 
 ### Phase 5 - Events, Jobs and Settings
 
-**Status:** `[-]`
+**Status:** `[x]`
 
 - [x] P5-W01: Turn Events into a timeline with cards and representative thumbnails.
 - [x] P5-W02: Remove the manual job-start form; make Jobs read-only; add a header job status indicator.
@@ -333,3 +333,4 @@ Desired outcome:
 - 2026-11-16: Phase 2 complete. Added content-level accepted/rejected via overrides.keep, Photo.keep and status badges, status/hide-rejected filters, POST /api/photos and POST /api/status, a selection tray with accept/reject/review actions, a root/folder-scoped review drawer with stale-id pruning, and accept/reject-all-filtered with confirmation. Tests: 117 passed; Ruff clean. Commit `f534572`, CI run `43773966794` green. Issue #23 closed. Next: Phase 3 (best-N and group review) in issue #24.
 - 2026-11-16: Phase 3 complete. Added best-N and best-of-group APIs with add/replace, rejected-photo handling, accepted preference, background jobs above 2000 candidates, a quick best-N bar, Selection settings, /compare/group/{id}, and compare select/accept/reject actions. Ungrouped photos now count as independent candidates. Tests: 121 passed; Ruff clean. Commit `1595f72`, CI run `43774742733` green. Issue #24 closed. Next: Phase 4 (copy-only export drawer) in issue #25.
 - 2026-11-16: Phase 4 complete. Export now defaults to ~/Bilder/image-triage, ~/Images/image-triage or ~/image-triage, the GUI always copies (no link mode), and the export drawer supports selected/filtered/accepted scopes. Settings no longer exposes a GUI link-mode selector. Tests: 122 passed; Ruff clean. Commit `1e1ea61`, CI run `43775242757` green. Issue #25 closed. Next: Phase 5 (Events timeline, read-only Jobs and curated Settings) in issue #26.
+- 2026-11-16: Phase 5 complete. Events is now a card timeline with representative covers and library links; Jobs is read-only and reachable from a polling header indicator; Settings is organized into Library, Filters, Selection, Export, Scoring, Analysis and Advanced with rescan hints. Tests: 123 passed; Ruff and mkdocs build clean. Commit `401ddc5`, CI run `43775870126` green. Issue #26 closed. Next: Phase 6 (verification and release) in issue #27.
