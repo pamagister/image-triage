@@ -1095,9 +1095,10 @@ class Repository:
         return {"camera_make": makes, "camera_model": models}
 
     def group_options(self) -> list[dict[str, Any]]:
-        """Similarity groups with their member counts, for the group filter."""
+        """Similarity groups with at least two members, for the group filter."""
         rows = self.connection.execute(
-            "SELECT g.id, g.member_count FROM groups g ORDER BY g.id"
+            "SELECT g.id, g.member_count FROM groups g "
+            "WHERE g.member_count >= 2 ORDER BY g.member_count DESC, g.id"
         ).fetchall()
         return [{"id": int(row["id"]), "count": int(row["member_count"])} for row in rows]
 
@@ -1364,14 +1365,19 @@ class Repository:
         keep: bool | None = None,
         source: OverrideSource = OverrideSource.CLI,
     ) -> None:
+        """Create or update a soft override without clearing fields that were not supplied.
+
+        ``rating`` and ``keep`` are independent. Passing ``None`` means "leave unchanged",
+        which lets the GUI submit only the decision the user actually edited.
+        """
         with self.connection:
             self.connection.execute(
                 """
                 INSERT INTO overrides (photo_id, rating, keep, source, created_at)
                 VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(photo_id) DO UPDATE SET
-                    rating=excluded.rating,
-                    keep=excluded.keep,
+                    rating=COALESCE(excluded.rating, overrides.rating),
+                    keep=COALESCE(excluded.keep, overrides.keep),
                     source=excluded.source,
                     created_at=excluded.created_at
                 """,

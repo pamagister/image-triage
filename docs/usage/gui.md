@@ -30,17 +30,19 @@ are not imported.
   analysis history and never touches originals. The central state database path is shown read-only.
   Settings are written atomically to the central YAML configuration and shared with the CLI.
   Changes are rejected while a job is active.
-- **Library** - flat grid of every available photo location, or a folder tree with photo counts.
-  An empty library is scanned automatically; when files were added, changed or removed the page
-  shows a stale-library banner with a **Scan library** button. Filter by search, root, folder,
-  rating, event, group, label, blur, camera make and model (all multi-select), capture-date
-  range, score/sharpness/aesthetic/subject ranges; sort by capture time, score, rating, sharpness,
-  bokeh, aesthetic or subject in either direction, and page through the result with the active
-  filters preserved. The first tile line is the file name; the full path is below it. Optional
-  metadata fields are selected in Settings (default: score, rating, date).
+- **Library** - folder tree with photo counts by default, or a flat tile grid. An empty library
+  is scanned automatically; when files were added, changed or removed the page shows a
+  stale-library banner with a **Scan library** button. Filter by search, root, folder,
+  rating, event, group (groups with at least two photos), label, blur, camera make and model
+  (all multi-select), capture-date range, score/sharpness/aesthetic/subject ranges; sort by
+  capture time, score, rating, sharpness, bokeh, aesthetic or subject in either direction,
+  and page through the result with the active filters preserved. The first tile line is the
+  file name; the full path is below it. Optional metadata fields are selected in Settings
+  (default: score, rating, date).
 - **Folder view** - the left tree lists only folders that contain matching photos, with counts
-  that respect the active filters. Each folder row has a checkbox that selects all descendant
-  locations; a partially selected folder is shown as indeterminate.
+  that respect the active filters. The tree is navigation and always shows every watched root,
+  even when the photo grid is scoped to one root or folder. Each folder row has a checkbox that
+  selects all descendant locations; a partially selected folder is shown as indeterminate.
 - **Photo detail** - image, global and subject sharpness, bokeh, blur, composition breakdown,
   detections, similar shots, the current soft rating/keep/reject override and a form to change it.
 - **Compare** - side-by-side view of similar shots with their metric tables.
@@ -53,11 +55,13 @@ are not imported.
 
 - Tick the checkbox on a tile to select it. The selection unit is the location, so the same
   image in two watched folders can be selected independently. The selection lives in
-  `localStorage`, so it survives filtering and pagination within the browser session; it is
-  deliberately not stored on the server.
-- **Select all filtered** replaces the selection with every photo matching the current filters,
-  across all pages. Individual checkboxes can then be unticked to opt out.
-- **Clear** empties the selection.
+  `localStorage`, so it survives filtering, pagination, folder/root changes and reloads within
+  the same browser; it is deliberately not stored on the server.
+- **Select all filtered** adds every photo matching the current filters, across all pages, to the
+  existing selection. Individual checkboxes can then be unticked to opt out.
+- **De-select all filtered** removes only the photos matching the current filters from the
+  selection; selections from other roots/folders remain.
+- **Clear all** empties the selection and asks for confirmation.
 - **Export selected** exports exactly the ticked photos. **Export all filtered** exports every
   photo matching the current filters, not just the visible page.
 - The export form takes a target directory, defaulting to a timestamped folder under the central

@@ -96,7 +96,7 @@ gui:
   host: 127.0.0.1
   port: 8765
   reload: false
-  default_view: flat
+  default_view: folders
   tile_fields:
   - score
   - rating

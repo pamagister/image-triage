@@ -11,12 +11,14 @@ from pathlib import Path
 
 import numpy as np
 from fastapi.testclient import TestClient
+from starlette.datastructures import QueryParams
 
 from image_triage.analysis.analyze import analyze_library
 from image_triage.core.models import Photo
 from image_triage.core.settings import load_settings
 from image_triage.db.repository import Repository
 from image_triage.gui.app import create_app
+from image_triage.gui.query import parse_photo_query
 
 
 def _settings(photo_dir: Path, tmp_path: Path):
@@ -245,6 +247,37 @@ def test_multi_select_rating_filter_returns_both_values(photo_dir: Path, tmp_pat
         assert none["total"] == 0
 
 
+def test_multi_value_filters_stay_lists_after_parsing() -> None:
+    query = parse_photo_query(
+        QueryParams([("event_id", "1"), ("event_id", "2"), ("group_id", "3")])
+    )
+    assert query.filters["event_id"] == [1, 2]
+    assert query.filters["group_id"] == [3]
+
+
+def test_event_and_group_filter_pages_do_not_500(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    with client:
+        client.post("/scan", follow_redirects=False)
+        assert _wait_for_terminal_job(client, settings)["status"] == "completed"
+
+        repository = Repository.open(settings.database_path)
+        try:
+            events = repository.events()
+            groups = repository.group_options()
+            photos = repository.all_photos()
+        finally:
+            repository.close()
+
+        if events:
+            response = client.get(f"/?event_id={events[0].id}")
+            assert response.status_code == 200
+        group_id = groups[0]["id"] if groups else photos[0].group_id
+        if group_id is not None:
+            response = client.get(f"/?group_id={group_id}")
+            assert response.status_code == 200
+
+
 def test_empty_filter_fields_do_not_return_a_validation_error(
     photo_dir: Path, tmp_path: Path
 ) -> None:
@@ -256,7 +289,7 @@ def test_empty_filter_fields_do_not_return_a_validation_error(
             "&camera_make=&camera_model=&q=&sort=&order=&page="
         )
         assert response.status_code == 200
-        assert b"detail" not in response.content
+        assert b'"detail":' not in response.content
         assert b"No photos found." not in response.content
         assert b"4 photos" in response.content
 

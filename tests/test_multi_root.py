@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from fastapi.testclient import TestClient
 
 from image_triage.analysis.analyze import analyze_library, scan_plan
 from image_triage.core import appdata
@@ -15,6 +16,9 @@ from image_triage.core.models import Metrics, Photo
 from image_triage.core.settings import load_settings
 from image_triage.db.repository import Repository
 from image_triage.db.schema import INITIAL_SCHEMA, METRICS_V2
+from image_triage.grouping.build import build_groups_and_events
+from image_triage.gui.app import create_app
+from image_triage.scoring.score import score_library
 from tests.conftest import _scene, save_jpeg
 
 
@@ -320,3 +324,28 @@ def test_moved_changed_and_missing_files_are_reconciled_on_rescan(tmp_path: Path
         )
     finally:
         repository.close()
+
+
+def test_folder_tree_keeps_all_roots_when_a_root_scope_is_active(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha"
+    root_b = tmp_path / "beta"
+    save_jpeg(root_a / "2026" / "a.jpg", _scene(1), datetime(2026, 1, 1, tzinfo=UTC))
+    save_jpeg(root_b / "2025" / "b.jpg", _scene(2), datetime(2025, 1, 1, tzinfo=UTC))
+
+    settings = _settings([root_a, root_b], tmp_path / "tree.db")
+    repository = Repository.open(settings.database_path)
+    try:
+        analyze_library(settings, repository)
+        build_groups_and_events(repository, settings)
+        score_library(repository, settings)
+    finally:
+        repository.close()
+
+    with TestClient(create_app(settings)) as client:
+        response = client.get(
+            "/",
+            params={"view": "folders", "root": str(root_a.resolve()), "folder": "2026"},
+        )
+        assert response.status_code == 200
+        assert b"alpha" in response.content
+        assert b"beta" in response.content

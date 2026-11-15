@@ -200,9 +200,29 @@ def test_repository_filters_groups_events_and_selections(tmp_path: Path) -> None
         override = repository.get_overrides()[0]
         assert override.rating == 3 and override.keep is True
 
+        repository.set_override(second.id, keep=False, source=OverrideSource.GUI)
+        override = repository.get_overrides()[0]
+        assert override.rating == 3 and override.keep is False
+
+        repository.set_override(second.id, rating=2, source=OverrideSource.GUI)
+        override = repository.get_overrides()[0]
+        assert override.rating == 2 and override.keep is False
+
         job_id = repository.create_job("select", {"top_n": 1})
         repository.update_job(job_id, status="running", progress=0.5)
         assert repository.get_job(job_id)["progress"] == 0.5
+    finally:
+        repository.close()
+
+
+def test_group_options_hide_single_member_groups(tmp_path: Path) -> None:
+    repository = Repository.open(tmp_path / "state.db")
+    try:
+        first = repository.upsert_photo(_photo("a.jpg"))
+        second = repository.upsert_photo(_photo("b.jpg"))
+        third = repository.upsert_photo(_photo("c.jpg"))
+        repository.set_groups([(first, 1), (second, 1), (third, 2)])
+        assert repository.group_options() == [{"id": 1, "count": 2}]
     finally:
         repository.close()
 

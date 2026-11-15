@@ -108,6 +108,29 @@
     }
   }
 
+  function unionSelected(ids) {
+    var selected = readSelected();
+    var seen = new Set(selected);
+    ids.forEach(function (id) {
+      var value = Number(id);
+      if (Number.isFinite(value) && !seen.has(value)) {
+        seen.add(value);
+        selected.push(value);
+      }
+    });
+    writeSelected(selected);
+    applySelection(selected);
+  }
+
+  function subtractSelected(ids) {
+    var remove = new Set(ids.map(Number).filter(Number.isFinite));
+    var selected = readSelected().filter(function (id) {
+      return !remove.has(id);
+    });
+    writeSelected(selected);
+    applySelection(selected);
+  }
+
   function toggle(id, on) {
     var selected = readSelected();
     var index = selected.indexOf(id);
@@ -194,26 +217,39 @@
       }
     });
 
+    function fetchFilteredIds(then) {
+      var query = currentQuery();
+      var url = "/api/photo-ids" + (query ? "?" + query : "");
+      window
+        .fetch(url)
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (data) {
+          then(data.ids || []);
+        });
+    }
+
     var selectAll = document.querySelector("[data-select-all]");
     if (selectAll) {
       selectAll.addEventListener("click", function () {
-        var query = currentQuery();
-        var url = "/api/photo-ids" + (query ? "?" + query : "");
-        window
-          .fetch(url)
-          .then(function (response) {
-            return response.json();
-          })
-          .then(function (data) {
-            writeSelected(data.ids || []);
-            applySelection(data.ids || []);
-          });
+        fetchFilteredIds(unionSelected);
+      });
+    }
+
+    var deselectAll = document.querySelector("[data-deselect-all]");
+    if (deselectAll) {
+      deselectAll.addEventListener("click", function () {
+        fetchFilteredIds(subtractSelected);
       });
     }
 
     var clear = document.querySelector("[data-clear]");
     if (clear) {
       clear.addEventListener("click", function () {
+        if (!window.confirm("Clear all selected photos?")) {
+          return;
+        }
         writeSelected([]);
         applySelection([]);
       });

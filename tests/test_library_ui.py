@@ -34,24 +34,30 @@ def test_filters_are_top_aligned_in_one_block(photo_dir: Path, tmp_path: Path) -
         page = client.get("/")
         assert page.status_code == 200
         assert b'class="filters"' in page.content
-        assert b'name="view" value="flat"' in page.content
+        assert b'name="view" value="folders"' in page.content
         css = Path("src/image_triage/gui/static/style.css").read_text()
         assert "align-items: flex-start;" in css
 
 
-def test_default_view_is_flat_and_folder_view_is_available(photo_dir: Path, tmp_path: Path) -> None:
+def test_default_view_is_folders_and_flat_view_is_available(
+    photo_dir: Path, tmp_path: Path
+) -> None:
     with _client(photo_dir, tmp_path) as client:
-        flat = client.get("/")
-        assert b"folder-tree" not in flat.content
-        assert b"Flat tiles" in flat.content and b"Folder tree" in flat.content
-
-        folders = client.get("/?view=folders")
-        assert folders.status_code == 200
+        folders = client.get("/")
         assert b"folder-tree" in folders.content
-        assert b'data-folder="."' in folders.content
-        assert b'data-folder="sub"' in folders.content
-        assert f">{photo_dir.name}</a>".encode() in folders.content
-        assert f'title="{photo_dir.resolve()}"'.encode() in folders.content
+        assert b"Flat tiles" in folders.content and b"Folder tree" in folders.content
+
+        flat = client.get("/?view=flat")
+        assert flat.status_code == 200
+        assert b"folder-tree" not in flat.content
+
+        folders_explicit = client.get("/?view=folders")
+        assert folders_explicit.status_code == 200
+        assert b"folder-tree" in folders_explicit.content
+        assert b'data-folder="."' in folders_explicit.content
+        assert b'data-folder="sub"' in folders_explicit.content
+        assert f">{photo_dir.name}</a>".encode() in folders_explicit.content
+        assert f'title="{photo_dir.resolve()}"'.encode() in folders_explicit.content
 
 
 def test_folder_counts_respect_active_filters(photo_dir: Path, tmp_path: Path) -> None:
@@ -89,6 +95,21 @@ def test_folder_tree_exposes_filter_checkboxes_and_toggle(photo_dir: Path, tmp_p
         assert b"data-select-photo" in page.content
         assert b'data-root="' in page.content
         assert b"<details open>" in page.content
+
+
+def test_selection_controls_offer_add_deselect_and_confirm_clear(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    with _client(photo_dir, tmp_path) as client:
+        page = client.get("/")
+        assert page.status_code == 200
+        assert b"data-deselect-all" in page.content
+        assert b"Clear all" in page.content
+
+        script = Path("src/image_triage/gui/static/selection.js").read_text()
+        assert "unionSelected" in script
+        assert "subtractSelected" in script
+        assert "window.confirm" in script
 
 
 def test_root_folder_filter_aggregates_descendants(photo_dir: Path, tmp_path: Path) -> None:

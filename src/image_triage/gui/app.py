@@ -311,15 +311,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         status_code: int = 200,
     ) -> HTMLResponse:
         """Render the library page with the current filters and an optional message."""
-        query = parse_photo_query(request.query_params)
+        settings = _current_settings(request)
+        query = parse_photo_query(request.query_params, default_view=settings.gui.default_view)
         filters = dict(query.filters)
         if query.search:
             filters["search"] = query.search
         total = repo.count_photos(**filters)
         pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
         page = min(max(1, query.page), pages)
-        # The tree is navigation: ignore the folder selection so every node stays visible.
-        tree_filters = {key: value for key, value in filters.items() if key != "folder"}
+        # The tree is navigation: ignore folder and root selection so every node stays visible.
+        tree_filters = {
+            key: value for key, value in filters.items() if key not in {"folder", "root"}
+        }
         folders = repo.folder_counts(**tree_filters)
         for item in folders:
             folder = None if item["folder"] == "." else item["folder"]
@@ -409,7 +412,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Export either the checked photos or the current filtered view as a background job."""
         settings = _current_settings(request)
         roots = settings.watched_roots
-        query = parse_photo_query(request.query_params)
+        query = parse_photo_query(request.query_params, default_view=settings.gui.default_view)
         filters = dict(query.filters)
         if query.search:
             filters["search"] = query.search
@@ -455,7 +458,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/photo-ids")
     def photo_ids(request: Request, repo: Repository = Depends(repository)) -> dict[str, Any]:
         """All photo ids matching the current filters, across every page."""
-        query = parse_photo_query(request.query_params)
+        settings = _current_settings(request)
+        query = parse_photo_query(request.query_params, default_view=settings.gui.default_view)
         filters = dict(query.filters)
         if query.search:
             filters["search"] = query.search

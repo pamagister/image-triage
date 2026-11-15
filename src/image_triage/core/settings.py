@@ -188,7 +188,7 @@ class GuiSettings(BaseModel):
     host: str = "127.0.0.1"
     port: int = Field(8765, ge=1, le=65535)
     reload: bool = False
-    default_view: str = Field("flat", pattern="^(flat|folders)$")
+    default_view: str = Field("folders", pattern="^(flat|folders)$")
     tile_fields: list[str] = Field(default_factory=lambda: ["score", "rating", "taken"])
 
 

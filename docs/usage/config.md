@@ -130,5 +130,5 @@ The generated `config.yaml` contains the same defaults.
 | host | str | `"127.0.0.1"` |
 | port | int | `8765` |
 | reload | bool | `false` |
-| default_view | str | `"flat"` |
+| default_view | str | `"folders"` |
 | tile_fields | list[str] | `["score", "rating", "taken"]` |

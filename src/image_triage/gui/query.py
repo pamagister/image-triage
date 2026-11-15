@@ -28,10 +28,10 @@ MULTI_VALUE_KEYS = (
     "folder",
 )
 
-#: Numeric filters and whether they are integers or floats.
+#: Numeric filters and whether they are integers or floats. Multi-value keys such as
+#: ``event_id`` and ``group_id`` stay lists and must not be repeated here: a second
+#: parse pass would overwrite the list with a scalar and break ``value in filter`` checks.
 NUMBER_KEYS = {
-    "event_id": int,
-    "group_id": int,
     "min_score": float,
     "score_max": float,
     "sharpness_min": float,
@@ -52,7 +52,7 @@ class PhotoQuery:
     order: str = "asc"
     page: int = 1
     search: str = ""
-    view: str = "flat"
+    view: str = "folders"
 
     @property
     def base_query(self) -> str:
@@ -91,7 +91,7 @@ def _clean(value: str | None) -> str:
     return (value or "").strip()
 
 
-def parse_photo_query(params: Any) -> PhotoQuery:
+def parse_photo_query(params: Any, default_view: str = "folders") -> PhotoQuery:
     """Build a :class:`PhotoQuery` from request query parameters, tolerating empty values."""
     get = params.getlist if hasattr(params, "getlist") else (lambda key: [params.get(key, "")])
     query = PhotoQuery()
@@ -149,6 +149,6 @@ def parse_photo_query(params: Any) -> PhotoQuery:
         query.page = 1
 
     view = _clean(get("view")[0] if get("view") else "")
-    query.view = view if view in {"flat", "folders"} else "flat"
+    query.view = view if view in {"flat", "folders"} else default_view
 
     return query
