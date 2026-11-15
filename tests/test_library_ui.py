@@ -303,6 +303,13 @@ def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path:
                 "filter_groups_submitted": "true",
                 "filter_hide_rejected": "true",
                 "filter_hide_rejected_submitted": "true",
+                "selection_top_n": "12",
+                "selection_diversity": "0.7",
+                "selection_max_per_day": "4",
+                "selection_max_per_cluster": "2",
+                "selection_max_per_group": "1",
+                "selection_event_quota": "equal",
+                "selection_prefer_accepted": "true",
             },
             follow_redirects=False,
         )
@@ -312,6 +319,12 @@ def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path:
         assert client.app.state.settings.gui.tile_fields == ["score", "taken"]
         assert client.app.state.settings.gui.filters.visible == ["rating", "date"]
         assert client.app.state.settings.gui.filters.hide_rejected is True
+        assert client.app.state.settings.selection.top_n == 12
+        assert client.app.state.settings.selection.diversity == 0.7
+        assert client.app.state.settings.selection.max_per_day == 4
+        assert client.app.state.settings.selection.max_per_cluster == 2
+        assert client.app.state.settings.selection.event_quota == "equal"
+        assert client.app.state.settings.selection.prefer_accepted is True
         assert client.app.state.settings.input.exclude == [".hidden", "cache"]
 
         stored = client.app.state.settings.config_path.read_text()

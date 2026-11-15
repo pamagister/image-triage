@@ -108,6 +108,37 @@
   </section>
 
   <section class="settings-section">
+    <h2>Selection</h2>
+    <p class="section-help">Defaults for the library's best-N control. Per-run overrides in the quick control win.</p>
+    <div class="settings-grid">
+      <label>Default N
+        <input type="number" name="selection_top_n" min="0" max="5000" value="{{ settings.selection.top_n }}">
+      </label>
+      <label>Diversity
+        <input type="number" name="selection_diversity" step="0.05" min="0" max="1" value="{{ settings.selection.diversity }}">
+      </label>
+      <label>Max per day
+        <input type="number" name="selection_max_per_day" min="0" value="{{ settings.selection.max_per_day }}">
+      </label>
+      <label>Max per cluster
+        <input type="number" name="selection_max_per_cluster" min="0" value="{{ settings.selection.max_per_cluster }}">
+      </label>
+      <label>Max per group
+        <input type="number" name="selection_max_per_group" min="1" value="{{ settings.selection.max_per_group }}">
+      </label>
+      <label>Event quota
+        <select name="selection_event_quota">
+          {% for value in ['sainte_lague', 'proportional', 'equal'] %}
+          <option value="{{ value }}" {% if settings.selection.event_quota == value %}selected{% endif %}>{{ value }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="checkbox-line"><input type="checkbox" name="selection_include_rejected" {% if settings.selection.include_rejected %}checked{% endif %}> Include rejected</label>
+      <label class="checkbox-line"><input type="checkbox" name="selection_prefer_accepted" {% if settings.selection.prefer_accepted %}checked{% endif %}> Prefer accepted</label>
+    </div>
+  </section>
+
+  <section class="settings-section">
     <h2>Export defaults</h2>
     <div class="settings-grid">
       <label>Mode

@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 from starlette.datastructures import QueryParams
 
@@ -737,3 +738,119 @@ def test_status_filter_accepts_bulk_filtered_scope(photo_dir: Path, tmp_path: Pa
         filtered = client.get("/?status=accepted")
         assert filtered.status_code == 200
         assert b"status-badge status-accepted" in filtered.content
+
+
+def test_best_n_add_and_replace_modes(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    repository = Repository.open(settings.database_path)
+    try:
+        photos = sorted(repository.all_photos(), key=lambda photo: photo.path)
+        repository.update_scores(
+            [(photo.id, 0.9 - index * 0.1, 5, []) for index, photo in enumerate(photos)]
+        )
+        location_ids = [photo.location_id for photo in photos]
+    finally:
+        repository.close()
+
+    replaced = client.post(
+        "/api/select-best",
+        json={"filters": {"min_score": 0}, "n": 2, "mode": "replace"},
+    )
+    assert replaced.status_code == 200
+    assert len(replaced.json()["location_ids"]) == 2
+
+    added = client.post(
+        "/api/select-best",
+        json={
+            "filters": {"min_score": 0},
+            "n": 2,
+            "mode": "add",
+            "existing_ids": [location_ids[0]],
+        },
+    )
+    assert added.status_code == 200
+    result = added.json()
+    assert len(result["location_ids"]) == 3
+    assert location_ids[0] in result["location_ids"]
+    assert len(result["added_ids"]) == 2
+
+    rejected = client.post(
+        "/api/status",
+        json={"location_ids": [location_ids[0]], "status": "rejected"},
+    )
+    assert rejected.status_code == 200
+    excluded = client.post(
+        "/api/select-best",
+        json={
+            "filters": {"min_score": 0},
+            "n": 5,
+            "mode": "replace",
+            "include_rejected": False,
+        },
+    )
+    assert excluded.status_code == 200
+    assert location_ids[0] not in excluded.json()["location_ids"]
+
+
+def test_group_best_selects_one_photo_per_group(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    repository = Repository.open(settings.database_path)
+    try:
+        photos = sorted(repository.all_photos(), key=lambda photo: photo.path)
+        repository.update_scores(
+            [(photo.id, 0.9 - index * 0.05, 3, []) for index, photo in enumerate(photos)]
+        )
+        assignments = [(photo.id, 1 + index // 2) for index, photo in enumerate(photos)]
+        repository.set_groups(assignments)
+    finally:
+        repository.close()
+
+    response = client.post(
+        "/api/select-group-best",
+        json={"filters": {"min_score": 0}, "mode": "replace"},
+    )
+    assert response.status_code == 200
+    result = response.json()
+    assert len(result["location_ids"]) == len({1, 2})
+    assert result["summary"]["groups"] == 2
+
+    group_id = 1
+    compare = client.get(f"/compare/group/{group_id}")
+    assert compare.status_code == 200
+    assert b"data-compare-photo" in compare.content
+    assert b"data-compare-select-best" in compare.content
+    assert b"data-compare-accept-best" in compare.content
+    assert b"data-compare-reject-rest" in compare.content
+
+
+def test_library_has_best_n_controls(photo_dir: Path, tmp_path: Path) -> None:
+    _, client = _prepared_client(photo_dir, tmp_path)
+    with client:
+        page = client.get("/")
+        assert page.status_code == 200
+        assert b"data-best-n" in page.content
+        assert b"data-best-mode" in page.content
+        assert b"data-best-run" in page.content
+        assert b"data-group-best" in page.content
+
+
+def test_large_best_n_runs_as_background_job(
+    photo_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import image_triage.gui.app as gui_app
+
+    monkeypatch.setattr(gui_app, "BEST_N_JOB_THRESHOLD", 1)
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    with client:
+        response = client.post(
+            "/api/select-best",
+            json={"filters": {"min_score": 0}, "n": 1, "mode": "replace"},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["async"] is True
+        assert body["job_id"]
+
+        job = _wait_for_terminal_job(client, settings)
+        assert job["status"] == "completed"
+        assert job["result"]["location_ids"]

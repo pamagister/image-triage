@@ -1,23 +1,169 @@
 {% extends "base.html" %}
-{% block title %}Compare - Image Triage{% endblock %}
+{% block title %}{{ title or 'Compare' }} - Image Triage{% endblock %}
 {% block content %}
-<h1>Compare</h1>
+<h1>{{ title or 'Compare' }}</h1>
+<div class="compare-actions" aria-label="Compare actions">
+  <button type="button" data-compare-select-all>Select all</button>
+  <button type="button" data-compare-select-best>Select best</button>
+  <button type="button" class="button-secondary" data-compare-accept-best>Accept best</button>
+  <button type="button" class="button-secondary" data-compare-reject-rest>Reject others</button>
+  <span class="best-status" data-compare-status></span>
+</div>
 <div class="compare">
   {% for photo in photos %}
-  <section class="compare-item">
-    <img src="/media/{{ photo.id }}" alt="{{ photo.path }}">
+  <section class="compare-item" data-compare-photo data-location-id="{{ photo.location_id or photo.id }}" data-photo-id="{{ photo.id }}" data-score="{{ photo.score }}" data-keep="{{ 'accepted' if photo.keep is true else ('rejected' if photo.keep is false else 'undecided') }}">
+    <img src="/media/location/{{ photo.location_id or photo.id }}" alt="{{ photo.path }}">
     <h2>{{ photo.path }}</h2>
+    {% if photo.keep is true %}<p><span class="status-badge status-accepted">accepted</span></p>
+    {% elif photo.keep is false %}<p><span class="status-badge status-rejected">rejected</span></p>{% endif %}
     <table>
       <tr><th>Score</th><td>{{ '%.3f'|format(photo.score) }}</td></tr>
       <tr><th>Rating</th><td>{{ photo.rating }}/5</td></tr>
       <tr><th>Sharpness</th><td>{{ '%.3f'|format(photo.metrics.sharpness) }}</td></tr>
       <tr><th>Blur</th><td>{{ photo.metrics.blur_kind.value }}</td></tr>
       <tr><th>Composition</th><td>{{ '%.3f'|format(photo.metrics.composition) }}</td></tr>
-      <tr><th>Aesthetic</th><td>{{ '%.3f'|format(photo.metrics.aesthetic) }}</td></tr>
+      <tr><th>Aesthetic</th><td>{{ '%.2f'|format(photo.metrics.aesthetic) }}</td></tr>
       <tr><th>Subject</th><td>{{ '%.3f'|format(photo.metrics.subject_score) }}</td></tr>
     </table>
     <p><a href="/photo/{{ photo.id }}">details</a></p>
   </section>
   {% endfor %}
 </div>
+
+<script>
+(function () {
+  "use strict";
+  var STORAGE_KEY = "image-triage:selected";
+
+  function readSelected() {
+    try {
+      var parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]");
+      return Array.isArray(parsed) ? parsed.map(Number).filter(Number.isFinite) : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function writeSelected(ids) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+  }
+
+  function comparePhotos() {
+    return Array.from(document.querySelectorAll("[data-compare-photo]")).map(function (node) {
+      return {
+        node: node,
+        locationId: Number(node.getAttribute("data-location-id")),
+        score: Number(node.getAttribute("data-score") || 0),
+        keep: node.getAttribute("data-keep"),
+      };
+    });
+  }
+
+  function setStatus(message) {
+    var field = document.querySelector("[data-compare-status]");
+    if (field) {
+      field.textContent = message;
+    }
+  }
+
+  function bestPhoto(photos) {
+    return photos.slice().sort(function (a, b) {
+      return b.score - a.score || a.locationId - b.locationId;
+    })[0];
+  }
+
+  function addLocations(ids) {
+    var selected = readSelected();
+    var seen = new Set(selected);
+    ids.forEach(function (id) {
+      if (!seen.has(id)) {
+        seen.add(id);
+        selected.push(id);
+      }
+    });
+    writeSelected(selected);
+  }
+
+  function postStatus(locationIds, status, then) {
+    window
+      .fetch("/api/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location_ids: locationIds, status: status }),
+      })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("status update failed");
+        }
+        return response.json();
+      })
+      .then(then)
+      .catch(function (error) {
+        setStatus(error.message);
+      });
+  }
+
+  var selectAll = document.querySelector("[data-compare-select-all]");
+  if (selectAll) {
+    selectAll.addEventListener("click", function () {
+      addLocations(comparePhotos().map(function (photo) { return photo.locationId; }));
+      setStatus("selected all shown photos");
+    });
+  }
+
+  var selectBest = document.querySelector("[data-compare-select-best]");
+  if (selectBest) {
+    selectBest.addEventListener("click", function () {
+      var best = bestPhoto(comparePhotos());
+      if (!best) {
+        return;
+      }
+      writeSelected([best.locationId]);
+      setStatus("selected best: " + best.node.querySelector("h2").textContent);
+    });
+  }
+
+  var acceptBest = document.querySelector("[data-compare-accept-best]");
+  if (acceptBest) {
+    acceptBest.addEventListener("click", function () {
+      var best = bestPhoto(comparePhotos());
+      if (!best) {
+        return;
+      }
+      if (!window.confirm("Accept the best photo and reject the others?")) {
+        return;
+      }
+      var ids = comparePhotos().map(function (photo) { return photo.locationId; });
+      postStatus([best.locationId], "accepted", function () {
+        postStatus(
+          ids.filter(function (id) { return id !== best.locationId; }),
+          "rejected",
+          function () { window.location.reload(); }
+        );
+      });
+    });
+  }
+
+  var rejectRest = document.querySelector("[data-compare-reject-rest]");
+  if (rejectRest) {
+    rejectRest.addEventListener("click", function () {
+      var best = bestPhoto(comparePhotos());
+      if (!best) {
+        return;
+      }
+      var others = comparePhotos()
+        .map(function (photo) { return photo.locationId; })
+        .filter(function (id) { return id !== best.locationId; });
+      if (others.length === 0) {
+        setStatus("no other photos to reject");
+        return;
+      }
+      if (!window.confirm("Reject " + others.length + " other photo(s)?")) {
+        return;
+      }
+      postStatus(others, "rejected", function () { window.location.reload(); });
+    });
+  }
+})();
+</script>
 {% endblock %}

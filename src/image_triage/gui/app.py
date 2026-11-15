@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import threading
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,8 @@ from image_triage.gui.library_status import library_status
 from image_triage.gui.query import PhotoQuery, parse_photo_query
 from image_triage.io.scan import find_images
 from image_triage.scoring.score import score_library
+from image_triage.selection.profiles import load_profile
+from image_triage.selection.select import best_per_group, select_photos
 
 BASE_DIR = Path(__file__).parent
 TEMPLATES = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -121,6 +124,24 @@ class StatusRequest(BaseModel):
     location_ids: list[int] = []
     filters: dict[str, Any] = {}
     status: str
+
+
+class SelectBestRequest(BaseModel):
+    """Best-N request over a filtered scope."""
+
+    filters: dict[str, Any] = {}
+    n: int = 20
+    mode: str = "add"
+    existing_ids: list[int] = []
+    include_rejected: bool | None = None
+
+
+class GroupBestRequest(BaseModel):
+    """Best-of-group request over a filtered scope."""
+
+    filters: dict[str, Any] = {}
+    mode: str = "add"
+    existing_ids: list[int] = []
 
 
 def _current_settings(request: Request) -> Settings:
@@ -295,6 +316,89 @@ def _photo_summary(photo: Photo) -> dict[str, Any]:
     }
 
 
+#: Above this many matching photos, best-N runs as a background job.
+BEST_N_JOB_THRESHOLD = 2000
+
+
+def _selection_pool(settings: Settings, photos: list[Photo], include_rejected: bool) -> list[Photo]:
+    """Apply rejected/accepted preferences and the soft score signal."""
+    pool = [photo for photo in photos if include_rejected or photo.keep is not False]
+    if not settings.selection.prefer_accepted:
+        return pool
+    adjusted: list[Photo] = []
+    for photo in pool:
+        if photo.keep is True:
+            bonus = 0.05
+        elif photo.keep is False:
+            bonus = -0.10
+        else:
+            bonus = 0.0
+        adjusted.append(replace(photo, score=max(0.0, min(1.0, float(photo.score) + bonus))))
+    return adjusted
+
+
+def _best_selection(
+    settings: Settings, photos: list[Photo], n: int, *, group_best: bool
+) -> list[Photo]:
+    """Choose the best photos or the best photo per similarity group."""
+    if group_best:
+        return best_per_group(photos)
+    profile = load_profile(settings, None, {"top_n": max(0, n)})
+    return [item.photo for item in select_photos(photos, profile)]
+
+
+def _selection_result(
+    settings: Settings,
+    repository: Repository,
+    filters: dict[str, Any],
+    *,
+    n: int,
+    mode: str,
+    existing_ids: list[int],
+    include_rejected: bool,
+    group_best: bool = False,
+) -> dict[str, Any]:
+    """Compute a best-N or best-of-group result without touching the client selection."""
+    if mode not in {"add", "replace"}:
+        raise ValueError("mode must be add or replace")
+    photos = repository.list_photos(**filters, sort="score", order="desc")
+    pool = _selection_pool(settings, photos, include_rejected)
+    existing = [int(value) for value in existing_ids]
+    existing_set = set(existing)
+    candidates = [
+        photo
+        for photo in pool
+        if photo.location_id is not None and photo.location_id not in existing_set
+    ]
+    selected = _best_selection(
+        settings, candidates if mode == "add" else pool, n, group_best=group_best
+    )
+    selected_ids: list[int] = []
+    for photo in selected:
+        location_id = photo.location_id
+        if location_id is not None and location_id not in selected_ids:
+            selected_ids.append(int(location_id))
+    if mode == "add":
+        final_ids = list(dict.fromkeys([*existing, *selected_ids]))
+    else:
+        final_ids = selected_ids
+    return {
+        "location_ids": final_ids,
+        "selected_ids": selected_ids,
+        "added_ids": [value for value in final_ids if value not in existing_set],
+        "summary": {
+            "candidates": len(photos),
+            "eligible": len(pool),
+            "groups": len({photo.group_id for photo in pool if photo.group_id is not None}),
+            "selected": len(selected_ids),
+            "total": len(final_ids),
+            "mode": mode,
+            "group_best": group_best,
+            "include_rejected": include_rejected,
+        },
+    }
+
+
 def _folder_tree(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Group flat folder rows into a nested navigation tree, one root per library root."""
     nodes: dict[tuple[str, str], dict[str, Any]] = {}
@@ -360,6 +464,23 @@ def _run_job(settings: Settings, job_id: int, kind: str, payload: dict[str, Any]
                 progress=report_progress,
             )
             summary = result.to_dict()
+        elif kind in {"select-best", "select-group-best"}:
+            filters = _filters_from_mapping(
+                dict(payload.get("filters", {})), settings.gui.default_view
+            )
+            result = _selection_result(
+                settings,
+                repository,
+                filters,
+                n=int(payload.get("n", settings.selection.top_n)),
+                mode=str(payload.get("mode", "add")),
+                existing_ids=[int(value) for value in payload.get("existing_ids", [])],
+                include_rejected=bool(
+                    payload.get("include_rejected", settings.selection.include_rejected)
+                ),
+                group_best=kind == "select-group-best",
+            )
+            summary = result
         elif kind == "export":
             mode = ExportMode(payload.get("mode", settings.report.export_mode))
             target = Path(payload["output"]).expanduser() if payload.get("output") else output
@@ -531,6 +652,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     for preset in FILTER_PRESETS
                 ],
                 "filter_settings": settings.gui.filters,
+                "best_n": settings.selection.top_n,
                 "view_flat": _url_with(query, view="flat", folder=None, page=1),
                 "view_folders": _url_with(query, view="folders", page=1),
                 "folders": tree,
@@ -683,6 +805,98 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "photo_ids": photo_ids,
         }
 
+    @app.post("/api/select-best")
+    def select_best(
+        payload: SelectBestRequest,
+        request: Request,
+        repo: Repository = Depends(repository),
+    ) -> dict[str, Any]:
+        """Select N photos from the current filtered scope for the browser-local selection."""
+        settings = _current_settings(request)
+        filters = _filters_from_mapping(payload.filters, settings.gui.default_view)
+        include_rejected = (
+            settings.selection.include_rejected
+            if payload.include_rejected is None
+            else payload.include_rejected
+        )
+        n = max(0, min(int(payload.n), 5000))
+        payload_data = {
+            "filters": payload.filters,
+            "n": n,
+            "mode": payload.mode,
+            "existing_ids": payload.existing_ids,
+            "include_rejected": include_rejected,
+        }
+        if repo.count_photos(**filters) > BEST_N_JOB_THRESHOLD:
+            job_id = repo.create_job("select-best", payload_data)
+            thread = threading.Thread(
+                target=_run_job,
+                args=(settings, job_id, "select-best", payload_data),
+                daemon=True,
+            )
+            thread.start()
+            return {"job_id": job_id, "async": True, "summary": {"threshold": BEST_N_JOB_THRESHOLD}}
+        result = _selection_result(
+            settings,
+            repo,
+            filters,
+            n=n,
+            mode=payload.mode,
+            existing_ids=payload.existing_ids,
+            include_rejected=include_rejected,
+        )
+        return {**result, "async": False, "job_id": None}
+
+    @app.post("/api/select-group-best")
+    def select_group_best(
+        payload: GroupBestRequest,
+        request: Request,
+        repo: Repository = Depends(repository),
+    ) -> dict[str, Any]:
+        """Select the best photo of each similarity group in the current filtered scope."""
+        settings = _current_settings(request)
+        filters = _filters_from_mapping(payload.filters, settings.gui.default_view)
+        payload_data = {
+            "filters": payload.filters,
+            "mode": payload.mode,
+            "existing_ids": payload.existing_ids,
+            "include_rejected": settings.selection.include_rejected,
+        }
+        if repo.count_photos(**filters) > BEST_N_JOB_THRESHOLD:
+            job_id = repo.create_job("select-group-best", payload_data)
+            thread = threading.Thread(
+                target=_run_job,
+                args=(settings, job_id, "select-group-best", payload_data),
+                daemon=True,
+            )
+            thread.start()
+            return {"job_id": job_id, "async": True, "summary": {"threshold": BEST_N_JOB_THRESHOLD}}
+        result = _selection_result(
+            settings,
+            repo,
+            filters,
+            n=0,
+            mode=payload.mode,
+            existing_ids=payload.existing_ids,
+            include_rejected=settings.selection.include_rejected,
+            group_best=True,
+        )
+        return {**result, "async": False, "job_id": None}
+
+    @app.get("/compare/group/{group_id}", response_class=HTMLResponse)
+    def compare_group(
+        request: Request, group_id: int, repo: Repository = Depends(repository)
+    ) -> HTMLResponse:
+        """Compare every available photo in one similarity group."""
+        photos = repo.list_photos(group_id=group_id, sort="score", order="desc")
+        if not photos:
+            raise HTTPException(404, "group not found")
+        return TEMPLATES.TemplateResponse(
+            request,
+            "compare.html",
+            {"photos": photos, "group_id": group_id, "title": f"Group {group_id}"},
+        )
+
     @app.get("/photo/{photo_id}", response_class=HTMLResponse)
     def photo_detail(
         request: Request, photo_id: int, repo: Repository = Depends(repository)
@@ -794,6 +1008,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         filter_groups_submitted: bool = Form(False),
         filter_hide_rejected: bool = Form(False),
         filter_hide_rejected_submitted: bool = Form(False),
+        selection_top_n: int = Form(200),
+        selection_diversity: float = Form(0.5),
+        selection_max_per_day: int = Form(5),
+        selection_max_per_cluster: int = Form(3),
+        selection_max_per_group: int = Form(1),
+        selection_event_quota: str = Form("sainte_lague"),
+        selection_include_rejected: bool = Form(False),
+        selection_prefer_accepted: bool = Form(True),
         export_mode: str = Form("copy"),
         export_layout: str = Form("flat"),
         rerender: bool = Form(False),
@@ -905,6 +1127,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "rerender": rerender,
                 "max_long_edge": int(max_long_edge) if max_long_edge.strip() else None,
                 "jpeg_quality": jpeg_quality,
+            }
+        )
+        data["selection"].update(
+            {
+                "top_n": selection_top_n,
+                "diversity": selection_diversity,
+                "max_per_day": selection_max_per_day,
+                "max_per_cluster": selection_max_per_cluster,
+                "max_per_group": selection_max_per_group,
+                "event_quota": selection_event_quota,
+                "include_rejected": selection_include_rejected,
+                "prefer_accepted": selection_prefer_accepted,
             }
         )
         data["blur"].update(

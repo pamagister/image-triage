@@ -131,6 +131,8 @@ class SelectionSettings(BaseModel):
     max_per_day: int = Field(5, ge=0)
     max_per_cluster: int = Field(3, ge=0)
     event_quota: str = Field("sainte_lague", pattern="^(sainte_lague|proportional|equal)$")
+    include_rejected: bool = False
+    prefer_accepted: bool = True
     profiles_dir: Path = Path("profiles")
     profile: str = Field("best200", min_length=1)
 

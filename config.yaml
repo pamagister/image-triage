@@ -65,6 +65,8 @@ selection:
   max_per_day: 5
   max_per_cluster: 3
   event_quota: sainte_lague
+  include_rejected: false
+  prefer_accepted: true
   profiles_dir: profiles
   profile: best200
 models:

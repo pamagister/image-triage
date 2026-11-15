@@ -79,6 +79,8 @@ The generated `config.yaml` contains the same defaults.
 | max_per_day | int | `5` |
 | max_per_cluster | int | `3` |
 | event_quota | str | `"sainte_lague"` |
+| include_rejected | bool | `false` |
+| prefer_accepted | bool | `true` |
 | profiles_dir | Path | `profiles` |
 | profile | str | `"best200"` |
 

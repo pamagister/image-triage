@@ -465,6 +465,76 @@
       });
   }
 
+  function applyLocationIds(ids) {
+    writeSelected(ids || []);
+    applySelection(ids || []);
+  }
+
+  function waitForJob(jobId) {
+    return new Promise(function (resolve, reject) {
+      function poll() {
+        window
+          .fetch("/jobs/" + jobId)
+          .then(function (response) { return response.json(); })
+          .then(function (job) {
+            if (job.status === "completed") {
+              resolve(job.result || {});
+            } else if (job.status === "failed") {
+              reject(new Error((job.result && job.result.error) || "job failed"));
+            } else {
+              window.setTimeout(poll, 750);
+            }
+          })
+          .catch(reject);
+      }
+      poll();
+    });
+  }
+
+  function runBest(groupBest) {
+    var status = document.querySelector("[data-best-status]");
+    var nField = document.querySelector("[data-best-n]");
+    var modeField = document.querySelector("[data-best-mode]");
+    var mode = modeField ? modeField.value : "add";
+    var body = {
+      filters: currentFilters(),
+      mode: mode,
+      existing_ids: mode === "add" ? readSelected() : [],
+    };
+    if (!groupBest) {
+      body.n = nField ? Math.max(0, Number(nField.value) || 0) : 20;
+    }
+    if (status) {
+      status.textContent = "selecting...";
+    }
+    postJson(groupBest ? "/api/select-group-best" : "/api/select-best", body)
+      .then(function (data) {
+        if (data.async && data.job_id) {
+          if (status) {
+            status.textContent = "running in background...";
+          }
+          return waitForJob(data.job_id);
+        }
+        return data;
+      })
+      .then(function (result) {
+        applyLocationIds(result.location_ids || []);
+        if (status) {
+          var summary = result.summary || {};
+          status.textContent =
+            (summary.selected || 0) +
+            " selected" +
+            (summary.total ? " / " + summary.total + " total" : "") +
+            (summary.candidates ? " from " + summary.candidates + " candidates" : "");
+        }
+      })
+      .catch(function (error) {
+        if (status) {
+          status.textContent = "error: " + error.message;
+        }
+      });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     var form = document.querySelector("[data-export-form]");
     if (!form) {
@@ -669,6 +739,20 @@
     if (rejectFiltered) {
       rejectFiltered.addEventListener("click", function () {
         changeFilteredStatus("rejected");
+      });
+    }
+
+    var bestRun = document.querySelector("[data-best-run]");
+    if (bestRun) {
+      bestRun.addEventListener("click", function () {
+        runBest(false);
+      });
+    }
+
+    var groupBest = document.querySelector("[data-group-best]");
+    if (groupBest) {
+      groupBest.addEventListener("click", function () {
+        runBest(true);
       });
     }
 

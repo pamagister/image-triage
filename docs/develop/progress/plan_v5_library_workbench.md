@@ -208,15 +208,15 @@ Desired outcome:
 
 ### Phase 3 - Best N and group review
 
-**Status:** `[ ]`
+**Status:** `[-]`
 
-- [ ] P3-W01: Add `POST /api/select-best` with query, n, add/replace, existing ids, include-rejected.
-- [ ] P3-W02: Add the quick best-N control with editable N and add/replace toggle.
-- [ ] P3-W03: Add Selection settings (default N, diversity, max/day, max/cluster, max/group, event quota, include rejected, prefer accepted).
-- [ ] P3-W04: Add "select best of each group" and `/compare/group/{group_id}`.
-- [ ] P3-W05: Enhance compare with select best, select all, accept best, reject others.
-- [ ] P3-W06: Run best-N as a background job for large filtered sets.
-- [ ] P3-W07: Update docs.
+- [x] P3-W01: Add `POST /api/select-best` with query, n, add/replace, existing ids, include-rejected.
+- [x] P3-W02: Add the quick best-N control with editable N and add/replace toggle.
+- [x] P3-W03: Add Selection settings (default N, diversity, max/day, max/cluster, max/group, event quota, include rejected, prefer accepted).
+- [x] P3-W04: Add "select best of each group" and `/compare/group/{group_id}`.
+- [x] P3-W05: Enhance compare with select best, select all, accept best, reject others.
+- [x] P3-W06: Run best-N as a background job for large filtered sets.
+- [x] P3-W07: Update docs.
 
 **Acceptance criteria**
 

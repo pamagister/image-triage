@@ -24,8 +24,8 @@ are not imported.
 ## Pages
 
 - **Settings** - manage watched roots, excluded directory names, default view, tile metadata,
-  visible filter groups and the hide-rejected default, export defaults, blur calibration, rating
-  thresholds and analysis toggles. The watched-roots table shows an active checkbox, on-disk and analyzed image counts,
+  visible filter groups and the hide-rejected default, best-N selection defaults, export
+  defaults, blur calibration, rating thresholds and analysis toggles. The watched-roots table shows an active checkbox, on-disk and analyzed image counts,
   and a remove action per root. Roots can be added by path or through a server-side directory
   browser. Removing a root keeps its analysis history and never touches originals. The central
   state database path is shown read-only. Settings are written atomically to the central YAML
@@ -67,6 +67,17 @@ are not imported.
 - **De-select all filtered** removes only the photos matching the current filters from the
   selection; selections from other roots/folders remain.
 - **Clear all** empties the selection and asks for confirmation.
+- **Best N** - the bar above the grid selects N photos from the current filtered scope. **Add N
+  new** keeps the existing selection and appends N new photos; **Replace with N** ends with
+  exactly N photos. The quick control uses the defaults from Settings > Selection and can be
+  overridden per run. Rejected photos are excluded unless **Include rejected** is enabled;
+  accepted photos get a soft preference. Large scopes run as background jobs and report when
+  the selection is ready. **One per group** keeps the highest-scoring photo of each similarity
+  group in the current scope.
+- **Compare** - `/compare?ids=...` shows any set of photos side by side;
+  `/compare/group/{group_id}` opens a whole similarity group. Compare can select all shown
+  photos, select the best, accept the best and reject the others, or reject only the other
+  photos, with confirmation for bulk decisions.
 - **Review selection** opens a drawer with thumbnails for every selected location across all
   roots/folders. It can be scoped by root and folder, stale location ids are pruned, and each
   photo can be removed, accepted or rejected without leaving the library.

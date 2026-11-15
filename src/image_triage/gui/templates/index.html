@@ -71,6 +71,21 @@
   <p class="selection-summary"><span data-selected-count>0</span> selected</p>
 </div>
 
+<div class="best-bar" aria-label="Best selection">
+  <label>Best
+    <input type="number" data-best-n min="0" max="5000" value="{{ best_n }}">
+  </label>
+  <label>Mode
+    <select data-best-mode>
+      <option value="add">add N new</option>
+      <option value="replace">replace with N</option>
+    </select>
+  </label>
+  <button type="button" data-best-run>Find best</button>
+  <button type="button" class="button-secondary" data-group-best>One per group</button>
+  <span class="best-status" data-best-status></span>
+</div>
+
 {% if chips %}
 <div class="chips" aria-label="Active filters">
   {% for chip in chips %}

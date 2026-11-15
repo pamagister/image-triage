@@ -1244,3 +1244,45 @@ td {
   .review-grid { grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); }
   .decision-actions { grid-template-columns: 1fr; }
 }
+
+.best-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: flex-end;
+  padding: 0.55rem 0.65rem;
+  margin: 0.5rem 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.best-bar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.best-bar input[type="number"] { width: 5.5rem; }
+.best-bar select { min-width: 9rem; }
+
+.best-status {
+  color: var(--muted);
+  font-size: 0.82rem;
+  align-self: center;
+  margin-left: auto;
+}
+
+.compare-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  margin: 0.5rem 0 1rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}

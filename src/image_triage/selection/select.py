@@ -32,14 +32,19 @@ def _day(photo: Photo) -> str:
 
 
 def _cluster_id(photo: Photo) -> int:
-    return photo.group_id if photo.group_id is not None else 0
+    return photo.group_id if photo.group_id is not None else (photo.id or 0)
 
 
 def best_per_group(photos: list[Photo]) -> list[Photo]:
-    """Return the best photo of each similarity group."""
-    grouped: dict[int, list[Photo]] = defaultdict(list)
+    """Return the best photo of each similarity group.
+
+    Photos without a group are treated as independent candidates instead of collapsing into
+    one synthetic group, so best-N can select multiple ungrouped photos.
+    """
+    grouped: dict[object, list[Photo]] = defaultdict(list)
     for photo in photos:
-        grouped[photo.group_id or 0].append(photo)
+        key = photo.group_id if photo.group_id is not None else ("photo", photo.id)
+        grouped[key].append(photo)
     best = []
     for members in grouped.values():
         best.append(
