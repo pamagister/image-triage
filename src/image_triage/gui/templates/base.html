@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/htmx.min.js" defer></script>
   <script src="/static/selection.js" defer></script>
+  <script src="/static/jobs.js" defer></script>
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -14,9 +15,11 @@
     <nav aria-label="Main navigation">
       <a href="/">Library</a>
       <a href="/events">Events</a>
-      <a href="/jobs">Activity</a>
       <a href="/settings">Settings</a>
     </nav>
+    <a class="header-jobs" href="/jobs" data-header-jobs>
+      Jobs <span class="job-indicator" data-header-job-count hidden></span>
+    </a>
   </header>
   <main>
     {% block content %}{% endblock %}

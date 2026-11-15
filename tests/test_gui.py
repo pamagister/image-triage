@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from starlette.datastructures import QueryParams
 
 from image_triage.analysis.analyze import analyze_library
-from image_triage.core.models import Photo
+from image_triage.core.models import Event, Photo
 from image_triage.core.settings import load_settings
 from image_triage.db.repository import Repository
 from image_triage.gui.app import _url_with, create_app
@@ -660,20 +660,21 @@ def test_events_scatter_handles_single_point(photo_dir: Path, tmp_path: Path) ->
         assert b'cy="50.00"' in response.content
 
 
-def test_events_page_and_job_runner(photo_dir: Path, tmp_path: Path) -> None:
+def test_events_page_and_read_only_job_runner(photo_dir: Path, tmp_path: Path) -> None:
     settings, client = _prepared_client(photo_dir, tmp_path)
     with client:
         assert client.get("/events").status_code == 200
-        assert client.get("/jobs").status_code == 200
+        jobs_page = client.get("/jobs")
+        assert jobs_page.status_code == 200
+        assert b"<form" not in jobs_page.content
+        assert b"/jobs/start" not in jobs_page.content
 
-        response = client.post(
-            "/jobs/start", data={"kind": "select", "top_n": "1"}, follow_redirects=False
-        )
+        response = client.post("/scan", follow_redirects=False)
         assert response.status_code == 303
 
         job = _wait_for_terminal_job(client, settings)
         assert job["status"] == "completed", job
-        assert job["result"]["selected"] == 1
+        assert job["kind"] == "scan"
 
 
 def test_selection_review_and_status_api_round_trip(photo_dir: Path, tmp_path: Path) -> None:
@@ -890,3 +891,33 @@ def test_export_accepted_scope_copies_only_accepted_photos(photo_dir: Path, tmp_
     assert len(copied) == 1
     assert not copied[0].is_symlink()
     assert copied[0].stat().st_nlink == 1
+
+
+def test_events_page_renders_timeline_card_with_cover(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    repository = Repository.open(settings.database_path)
+    try:
+        photo = repository.all_photos()[0]
+        repository.set_events(
+            [
+                Event(
+                    id=1,
+                    start=datetime(2026, 5, 1, 12, 0, tzinfo=UTC),
+                    end=datetime(2026, 5, 1, 13, 0, tzinfo=UTC),
+                    label="Morning walk",
+                    photo_count=1,
+                )
+            ],
+            [(photo.id, 1)],
+        )
+    finally:
+        repository.close()
+
+    with client:
+        page = client.get("/events")
+        assert page.status_code == 200
+        assert b"event-timeline" in page.content
+        assert b"event-card" in page.content
+        assert b"Morning walk" in page.content
+        assert b"/?event_id=1&amp;view=folders" in page.content
+        assert b"Open in library" in page.content

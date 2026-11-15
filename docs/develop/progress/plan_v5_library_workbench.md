@@ -252,13 +252,13 @@ Desired outcome:
 
 ### Phase 5 - Events, Jobs and Settings
 
-**Status:** `[ ]`
+**Status:** `[-]`
 
-- [ ] P5-W01: Turn Events into a timeline with cards and representative thumbnails.
-- [ ] P5-W02: Remove the manual job-start form; make Jobs read-only; add a header job status indicator.
-- [ ] P5-W03: Reorganize Settings into Library, Filters, Selection, Export, Scoring, Analysis and Advanced.
-- [ ] P5-W04: Add "rescan required" hints for analysis/scoring changes.
-- [ ] P5-W05: Update docs and run `make syncdocs`.
+- [x] P5-W01: Turn Events into a timeline with cards and representative thumbnails.
+- [x] P5-W02: Remove the manual job-start form; make Jobs read-only; add a header job status indicator.
+- [x] P5-W03: Reorganize Settings into Library, Filters, Selection, Export, Scoring, Analysis and Advanced.
+- [x] P5-W04: Add "rescan required" hints for analysis/scoring changes.
+- [x] P5-W05: Update docs and run `make syncdocs`.
 
 **Acceptance criteria**
 

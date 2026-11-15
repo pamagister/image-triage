@@ -1447,6 +1447,20 @@ class Repository:
             for row in rows
         ]
 
+    def event_covers(self) -> dict[int, Photo]:
+        """Best-scoring available photo per event, for timeline cards."""
+        rows = self.connection.execute(
+            _LOCATION_SELECT
+            + " WHERE p.event_id IS NOT NULL AND l.available = 1 "
+            + "ORDER BY p.event_id, p.score DESC, p.taken, l.relative_path"
+        ).fetchall()
+        covers: dict[int, Photo] = {}
+        for row in rows:
+            event_id = row["event_id"]
+            if event_id is not None and int(event_id) not in covers:
+                covers[int(event_id)] = self._row_to_photo(row)
+        return covers
+
     # --------------------------------------------------------------- runs/selections
 
     def save_run(self, run: Run) -> None:

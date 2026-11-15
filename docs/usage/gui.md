@@ -23,13 +23,16 @@ are not imported.
 
 ## Pages
 
-- **Settings** - manage watched roots, excluded directory names, default view, tile metadata,
-  visible filter groups and the hide-rejected default, best-N selection defaults, export
-  defaults, blur calibration, rating thresholds and analysis toggles. The watched-roots table shows an active checkbox, on-disk and analyzed image counts,
-  and a remove action per root. Roots can be added by path or through a server-side directory
-  browser. Removing a root keeps its analysis history and never touches originals. The central
-  state database path is shown read-only. Settings are written atomically to the central YAML
-  configuration and shared with the CLI. Changes are rejected while a job is active.
+- **Settings** - organized into Library, Filters, Selection, Export, Scoring, Analysis and
+  Advanced sections. Manage watched roots, excluded directory names, default view, tile
+  metadata, visible filter groups and the hide-rejected default, best-N selection defaults,
+  export defaults, blur calibration, rating thresholds and analysis toggles. Analysis and
+  scoring changes are marked as requiring a new scan or scoring run. The watched-roots table
+  shows an active checkbox, on-disk and analyzed image counts, and a remove action per root.
+  Roots can be added by path or through a server-side directory browser. Removing a root keeps
+  its analysis history and never touches originals. The central state database path is shown
+  read-only. Settings are written atomically to the central YAML configuration and shared
+  with the CLI. Changes are rejected while a job is active.
 - **Library** - a folder tree with photo counts by default, or a flat tile grid. An empty
   library is scanned automatically; when files were added, changed or removed the page shows a
   stale-library banner with a **Scan library** button. The left sidebar has **Folders** and
@@ -50,11 +53,14 @@ are not imported.
   indeterminate.
 - **Photo detail** - image, global and subject sharpness, bokeh, blur, composition breakdown,
   detections, similar shots, the current soft rating/keep/reject override and a form to change it.
-- **Compare** - side-by-side view of similar shots with their metric tables.
-- **Events** - timeline and a lightweight GPS scatter plot (no external map tiles).
-- **Activity** - start scan/analyze/select/export jobs, poll their status and inspect results.
-  A **scan** runs analysis, grouping, event detection and scoring in one step, so scores and
-  ratings are available without a separate select job.
+- **Compare** - side-by-side view of similar shots with their metric tables and actions to
+  select all, select the best, accept the best or reject the others.
+- **Events** - a timeline of event cards with representative thumbnails, dates, photo counts
+  and links that open the event in the library. A lightweight GPS scatter plot is shown when
+  coordinates are available (no external map tiles).
+- **Jobs** - read-only background job history, reachable from the header. Active jobs are
+  highlighted and the page refreshes automatically. Scans, exports and large best-N runs
+  report progress and results here; jobs cannot be started manually from the page.
 
 ## Selecting and exporting
 
@@ -100,7 +106,7 @@ are not imported.
   85), preserving EXIF and ICC. Re-rendering forces copy mode. RAW files are copied or linked
   unchanged.
 - The target must be outside every watched root so exported copies are never re-analyzed.
-- Exports run as background jobs and report progress on the Activity page.
+- Exports run as background jobs and report progress on the Jobs page.
 
 ## Notes
 

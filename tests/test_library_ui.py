@@ -283,6 +283,14 @@ def test_settings_page_shows_root_counts_and_read_only_database(
         assert b'data-analyzed-count="0"' in page.content
         assert b'name="filter_groups"' in page.content
         assert b"Visible filter groups" in page.content
+        assert b">Selection</h2>" in page.content
+        assert b">Export</h2>" in page.content
+        assert b">Analysis</h2>" in page.content
+        assert b">Scoring</h2>" in page.content
+        assert b">Advanced</h2>" in page.content
+        assert b'name="selection_profile"' in page.content
+        assert b'name="export_destination"' in page.content
+        assert b"data-header-jobs" in page.content
 
 
 def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path: Path) -> None:

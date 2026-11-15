@@ -1017,10 +1017,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         selection_event_quota: str = Form("sainte_lague"),
         selection_include_rejected: bool = Form(False),
         selection_prefer_accepted: bool = Form(True),
+        selection_profile: str = Form("best200"),
+        selection_profiles_dir: str = Form("profiles"),
         export_layout: str = Form("flat"),
         rerender: bool = Form(False),
         max_long_edge: str = Form(""),
         jpeg_quality: int = Form(85),
+        export_destination: str = Form(""),
         blur_sharp_reference: float = Form(120.0),
         blur_blur_reference: float = Form(5.0),
         min_score_5: float = Form(0.75),
@@ -1138,8 +1141,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "event_quota": selection_event_quota,
                 "include_rejected": selection_include_rejected,
                 "prefer_accepted": selection_prefer_accepted,
+                "profile": selection_profile or "best200",
+                "profiles_dir": selection_profiles_dir or "profiles",
             }
         )
+        data["export"]["destination"] = export_destination.strip() or None
         data["blur"].update(
             {
                 "sharp_reference": blur_sharp_reference,
@@ -1190,7 +1196,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/events", response_class=HTMLResponse)
     def events(request: Request, repo: Repository = Depends(repository)) -> HTMLResponse:
-        event_list = repo.events()
+        covers = repo.event_covers()
+        timeline = [
+            {
+                **event.to_dict(),
+                "cover": covers.get(event.id),
+                "url": f"/?event_id={event.id}&view=folders",
+            }
+            for event in repo.events()
+        ]
         points = repo.gps_points()
         if points:
             min_lat = min(point["lat"] for point in points)
@@ -1205,12 +1219,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return TEMPLATES.TemplateResponse(
             request,
             "events.html",
-            {"events": event_list, "points": points},
+            {"timeline": timeline, "points": points},
         )
 
     @app.get("/jobs", response_class=HTMLResponse)
     def jobs(request: Request, repo: Repository = Depends(repository)) -> HTMLResponse:
         return TEMPLATES.TemplateResponse(request, "jobs.html", {"jobs": repo.list_jobs()})
+
+    @app.get("/api/jobs/active")
+    def active_jobs(repo: Repository = Depends(repository)) -> dict[str, Any]:
+        """Active job count for the header status indicator."""
+        jobs = _active_jobs(repo)
+        return {"count": len(jobs), "kinds": sorted({job["kind"] for job in jobs})}
 
     @app.post("/scan", response_model=None)
     def start_scan(
@@ -1224,22 +1244,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         thread = threading.Thread(
             target=_run_job,
             args=(_current_settings(request), job_id, "scan", {}),
-            daemon=True,
-        )
-        thread.start()
-        return RedirectResponse("/jobs", status_code=303)
-
-    @app.post("/jobs/start")
-    def start_job(
-        request: Request,
-        repo: Repository = Depends(repository),
-        kind: str = Form(...),
-        top_n: int = Form(200),
-    ) -> RedirectResponse:
-        job_id = repo.create_job(kind, {"top_n": top_n})
-        thread = threading.Thread(
-            target=_run_job,
-            args=(_current_settings(request), job_id, kind, {"top_n": top_n}),
             daemon=True,
         )
         thread.start()

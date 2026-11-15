@@ -10,7 +10,7 @@
 
 <form method="post" action="/settings" class="settings-form" id="settings-form">
   <section class="settings-section">
-    <h2>Watched roots</h2>
+    <h2>Library</h2>
     <p class="section-help">Activate the roots to scan. Removing a root keeps its analysis history and never touches originals.</p>
     <div class="table-wrap">
       <table class="root-table">
@@ -60,7 +60,7 @@
   </section>
 
   <section class="settings-section">
-    <h2>Database</h2>
+    <h2>Library database</h2>
     <p>State database</p>
     <p><code>{{ settings.database_path }}</code></p>
     <p class="section-help">This central database is shared by every watched root.
@@ -89,7 +89,7 @@
   </section>
 
   <section class="settings-section">
-    <h2>Library filters</h2>
+    <h2>Filters</h2>
     <p class="section-help">Choose which filter groups appear in the library sidebar. Advanced filters remain available under Advanced.</p>
     <fieldset class="field-wide">
       <legend>Visible filter groups</legend>
@@ -139,7 +139,7 @@
   </section>
 
   <section class="settings-section">
-    <h2>Export defaults</h2>
+    <h2>Export</h2>
     <div class="settings-grid">
       <label>Layout
         <select name="export_layout">
@@ -158,7 +158,8 @@
   </section>
 
   <section class="settings-section">
-    <h2>Blur calibration</h2>
+    <h2>Analysis</h2>
+    <p class="section-help">Changing these inputs requires a new scan; existing metrics stay until then.</p>
     <div class="settings-grid">
       <label>Sharp reference
         <input type="number" name="blur_sharp_reference" step="0.1" min="1" value="{{ settings.blur.sharp_reference }}">
@@ -166,11 +167,18 @@
       <label>Blur reference
         <input type="number" name="blur_blur_reference" step="0.1" min="0.1" value="{{ settings.blur.blur_reference }}">
       </label>
+      <label class="checkbox-line"><input type="checkbox" name="yolo_enabled" {% if settings.analysis.yolo_enabled %}checked{% endif %}> Object detection</label>
+      <label class="checkbox-line"><input type="checkbox" name="aesthetic_enabled" {% if settings.analysis.aesthetic_enabled %}checked{% endif %}> Aesthetic model</label>
+      <label class="checkbox-line"><input type="checkbox" name="save_embeddings" {% if settings.analysis.save_embeddings %}checked{% endif %}> Save embeddings</label>
+      <label>Preview size
+        <input type="number" name="preview_size" min="64" max="4096" value="{{ settings.analysis.preview_size }}">
+      </label>
     </div>
   </section>
 
   <section class="settings-section">
-    <h2>Scoring and analysis</h2>
+    <h2>Scoring</h2>
+    <p class="section-help">Rating thresholds affect new scores; run scoring again after a change.</p>
     <div class="settings-grid">
       <label>Rating 5 threshold
         <input type="number" name="min_score_5" step="0.01" min="0" max="1" value="{{ settings.scoring.min_score_5 }}">
@@ -178,11 +186,21 @@
       <label>Rating 4 threshold
         <input type="number" name="min_score_4" step="0.01" min="0" max="1" value="{{ settings.scoring.min_score_4 }}">
       </label>
-      <label class="checkbox-line"><input type="checkbox" name="yolo_enabled" {% if settings.analysis.yolo_enabled %}checked{% endif %}> Object detection</label>
-      <label class="checkbox-line"><input type="checkbox" name="aesthetic_enabled" {% if settings.analysis.aesthetic_enabled %}checked{% endif %}> Aesthetic model</label>
-      <label class="checkbox-line"><input type="checkbox" name="save_embeddings" {% if settings.analysis.save_embeddings %}checked{% endif %}> Save embeddings</label>
-      <label>Preview size
-        <input type="number" name="preview_size" min="64" max="4096" value="{{ settings.analysis.preview_size }}">
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <h2>Advanced</h2>
+    <p class="section-help">Rarely changed defaults. The export destination override is blank unless you set one.</p>
+    <div class="settings-grid">
+      <label>Selection profile
+        <input type="text" name="selection_profile" value="{{ settings.selection.profile }}">
+      </label>
+      <label>Profiles directory
+        <input type="text" name="selection_profiles_dir" value="{{ settings.selection.profiles_dir }}">
+      </label>
+      <label>Export destination override
+        <input type="text" name="export_destination" value="{{ settings.export.destination or '' }}" placeholder="default image directory">
       </label>
     </div>
   </section>

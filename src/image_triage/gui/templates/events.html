@@ -2,31 +2,44 @@
 {% block title %}Events - Image Triage{% endblock %}
 {% block content %}
 <h1>Events</h1>
+<p class="page-intro">Photo clusters in time and place. Open an event to browse its photos in the library.</p>
+
 {% if points %}
-<h2>GPS scatter</h2>
-<svg viewBox="0 0 100 100" class="map" role="img" aria-label="GPS scatter plot of photos">
-  <rect x="0" y="0" width="100" height="100" fill="#f4f4f4" stroke="#ccc"></rect>
-  {% for point in points %}
-  <circle cx="{{ '%.2f'|format(point.x) }}" cy="{{ '%.2f'|format(point.y) }}" r="1.2" fill="#2b6cb0">
-    <title>{{ point.path }}</title>
-  </circle>
-  {% endfor %}
-</svg>
-{% else %}
-<p>No GPS coordinates available.</p>
+<section class="event-map-section">
+  <h2>GPS scatter</h2>
+  <svg viewBox="0 0 100 100" class="map" role="img" aria-label="GPS scatter plot of photos">
+    <rect x="0" y="0" width="100" height="100" fill="#f4f4f4" stroke="#ccc"></rect>
+    {% for point in points %}
+    <circle cx="{{ '%.2f'|format(point.x) }}" cy="{{ '%.2f'|format(point.y) }}" r="1.2" fill="#2b6cb0">
+      <title>{{ point.path }}</title>
+    </circle>
+    {% endfor %}
+  </svg>
+</section>
 {% endif %}
 
-<h2>Timeline</h2>
-<table>
-  <tr><th>Event</th><th>Start</th><th>End</th><th>Photos</th><th>Source</th></tr>
-  {% for event in events %}
-  <tr>
-    <td><a href="/?event_id={{ event.id }}">{{ event.label }}</a></td>
-    <td>{{ event.start }}</td>
-    <td>{{ event.end }}</td>
-    <td>{{ event.photo_count }}</td>
-    <td>{{ event.source }}</td>
-  </tr>
+<section class="event-timeline" aria-label="Event timeline">
+  {% for event in timeline %}
+  <article class="event-card" data-event-id="{{ event.id }}">
+    <div class="event-when">
+      <span>{{ event.start[:10] if event.start else 'unknown' }}</span>
+      <small>{{ event.start[11:16] if event.start else '' }}{% if event.end %} - {{ event.end[11:16] }}{% endif %}</small>
+    </div>
+    <a class="event-cover" href="{{ event.url }}" aria-label="Open {{ event.label }}">
+      {% if event.cover %}
+      <img src="/media/location/{{ event.cover.location_id or event.cover.id }}" alt="{{ event.label }}" loading="lazy">
+      {% else %}
+      <span class="event-cover-empty">no photo</span>
+      {% endif %}
+    </a>
+    <div class="event-body">
+      <h2><a href="{{ event.url }}">{{ event.label }}</a></h2>
+      <p>{{ event.photo_count }} photos - {{ event.source }}</p>
+      <a class="button-link" href="{{ event.url }}">Open in library</a>
+    </div>
+  </article>
+  {% else %}
+  <p>No events detected yet. Run a scan with grouping enabled.</p>
   {% endfor %}
-</table>
+</section>
 {% endblock %}
