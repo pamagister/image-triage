@@ -185,7 +185,7 @@ Desired outcome:
 
 ### Phase 2 - Selection review and accepted/rejected
 
-**Status:** `[-]`
+**Status:** `[x]`
 
 - [x] P2-W01: Add `Photo.keep` to the model and SELECTs; render accepted/rejected badges.
 - [x] P2-W02: Add `POST /api/photos` returning lightweight summaries for location ids; prune missing ids.
@@ -330,3 +330,4 @@ Desired outcome:
 
 - 2026-11-15: Phase 0 complete. Fixed event/group filter parsing, kept the folder tree complete under a root scope, hid single-photo groups, changed the default view to folders, made select-all add with de-select/clear confirmation, and preserved rating on partial keep updates. Tests: 107 passed; Ruff clean. Commit `9fc70b7`, CI run `43770223757` green. Issue #21 closed. Existing issue #17 referenced. Next: Phase 1 (filter sidebar and filter model).
 - 2026-11-15: Phase 1 complete. Added the Folders/Filters sidebar, metric min/max sliders with numeric readouts, group-size and status/hide-rejected filters, blur/group/event sorting, presets and removable filter chips. Added `gui.filters` settings (visible groups and hide-rejected default), Settings controls, docs and generated config updates. Tests: 113 passed; Ruff and mkdocs build clean. Commit `da322e9`, CI run `43772073435` green. Issue #22 closed. Next: Phase 2 (selection review and accepted/rejected) in issue #23.
+- 2026-11-16: Phase 2 complete. Added content-level accepted/rejected via overrides.keep, Photo.keep and status badges, status/hide-rejected filters, POST /api/photos and POST /api/status, a selection tray with accept/reject/review actions, a root/folder-scoped review drawer with stale-id pruning, and accept/reject-all-filtered with confirmation. Tests: 117 passed; Ruff clean. Commit `f534572`, CI run `43773966794` green. Issue #23 closed. Next: Phase 3 (best-N and group review) in issue #24.
