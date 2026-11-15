@@ -182,6 +182,15 @@ class ReportSettings(BaseModel):
     export_mode: str = Field("copy", pattern="^(copy|hardlink|symlink)$")
 
 
+class GuiFilterSettings(BaseModel):
+    """Which filter groups the library sidebar shows by default."""
+
+    visible: list[str] = Field(
+        default_factory=lambda: ["rating", "quality", "sharpness", "date", "similar"]
+    )
+    hide_rejected: bool = False
+
+
 class GuiSettings(BaseModel):
     """Local web GUI binding and library presentation."""
 
@@ -190,6 +199,7 @@ class GuiSettings(BaseModel):
     reload: bool = False
     default_view: str = Field("folders", pattern="^(flat|folders)$")
     tile_fields: list[str] = Field(default_factory=lambda: ["score", "rating", "taken"])
+    filters: GuiFilterSettings = Field(default_factory=GuiFilterSettings)
 
 
 class Settings(BaseSettings):

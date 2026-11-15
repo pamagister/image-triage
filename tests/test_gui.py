@@ -17,7 +17,7 @@ from image_triage.analysis.analyze import analyze_library
 from image_triage.core.models import Photo
 from image_triage.core.settings import load_settings
 from image_triage.db.repository import Repository
-from image_triage.gui.app import create_app
+from image_triage.gui.app import _url_with, create_app
 from image_triage.gui.query import parse_photo_query
 
 
@@ -253,6 +253,44 @@ def test_multi_value_filters_stay_lists_after_parsing() -> None:
     )
     assert query.filters["event_id"] == [1, 2]
     assert query.filters["group_id"] == [3]
+
+
+def test_query_parser_applies_hide_rejected_default_only_when_unspecified() -> None:
+    default = parse_photo_query(QueryParams([]), default_hide_rejected=True)
+    assert default.filters["hide_rejected"] is True
+
+    explicit = parse_photo_query(
+        QueryParams([("hide_rejected", "false")]), default_hide_rejected=True
+    )
+    assert explicit.filters["hide_rejected"] is False
+
+
+def test_preset_url_expands_list_and_boolean_overrides() -> None:
+    query = parse_photo_query(QueryParams([("root", "/photos")]))
+    url = _url_with(query, rating=[4, 5], status=["accepted"], hide_rejected=True)
+    assert "rating=4" in url and "rating=5" in url
+    assert "status=accepted" in url
+    assert "hide_rejected=true" in url
+    assert "root=%2Fphotos" in url
+
+
+def test_query_parser_reads_metric_ranges_and_group_size() -> None:
+    query = parse_photo_query(
+        QueryParams(
+            [
+                ("sharpness_min", "0.5"),
+                ("blur_max", "0.3"),
+                ("group_size_min", "2"),
+                ("hide_rejected", "true"),
+                ("status", "accepted"),
+            ]
+        )
+    )
+    assert query.filters["sharpness_min"] == 0.5
+    assert query.filters["blur_max"] == 0.3
+    assert query.filters["group_size_min"] == 2
+    assert query.filters["hide_rejected"] is True
+    assert query.filters["status"] == ["accepted"]
 
 
 def test_event_and_group_filter_pages_do_not_500(photo_dir: Path, tmp_path: Path) -> None:

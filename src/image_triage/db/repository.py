@@ -73,6 +73,7 @@ _CONTENT_SELECT = (
             ORDER BY l.relative_path LIMIT 1) AS available
     FROM photos p
     LEFT JOIN metrics m ON m.photo_id = p.id
+    LEFT JOIN groups g ON g.id = p.group_id
     """
 )
 
@@ -87,6 +88,7 @@ _LOCATION_SELECT = (
     JOIN photos p ON p.id = l.photo_id
     JOIN roots r ON r.id = l.root_id
     LEFT JOIN metrics m ON m.photo_id = p.id
+    LEFT JOIN groups g ON g.id = p.group_id
     """
 )
 
@@ -720,8 +722,23 @@ class Repository:
         camera_model: str | Sequence[str] | None = None,
         score_max: float | None = None,
         sharpness_min: float | None = None,
+        sharpness_max: float | None = None,
+        bokeh_min: float | None = None,
+        bokeh_max: float | None = None,
+        blur_min: float | None = None,
+        blur_max: float | None = None,
+        composition_min: float | None = None,
+        composition_max: float | None = None,
         aesthetic_min: float | None = None,
+        aesthetic_max: float | None = None,
         subject_min: float | None = None,
+        subject_max: float | None = None,
+        exposure_min: float | None = None,
+        exposure_max: float | None = None,
+        group_size_min: int | None = None,
+        group_size_max: int | None = None,
+        status: str | Sequence[str] | None = None,
+        hide_rejected: bool | None = None,
         root: str | Sequence[str] | None = None,
         folder: str | Sequence[str] | None = None,
     ) -> tuple[list[str], list[Any]]:
@@ -802,21 +819,51 @@ class Repository:
         if date_to:
             where.append("date(p.taken) <= ?")
             params.append(date_to)
-        if min_score is not None:
-            where.append("p.score >= ?")
-            params.append(min_score)
-        if score_max is not None:
-            where.append("p.score <= ?")
-            params.append(score_max)
-        if sharpness_min is not None:
-            where.append("COALESCE(m.sharpness_subject, m.sharpness) >= ?")
-            params.append(sharpness_min)
-        if aesthetic_min is not None:
-            where.append("m.aesthetic >= ?")
-            params.append(aesthetic_min)
-        if subject_min is not None:
-            where.append("m.subject_score >= ?")
-            params.append(subject_min)
+
+        def add_range(column: str, minimum: float | None, maximum: float | None) -> None:
+            if minimum is not None:
+                where.append(f"{column} >= ?")
+                params.append(minimum)
+            if maximum is not None:
+                where.append(f"{column} <= ?")
+                params.append(maximum)
+
+        add_range("p.score", min_score, score_max)
+        add_range("COALESCE(m.sharpness_subject, m.sharpness)", sharpness_min, sharpness_max)
+        add_range("m.bokeh", bokeh_min, bokeh_max)
+        add_range("m.blur_score", blur_min, blur_max)
+        add_range("m.composition", composition_min, composition_max)
+        add_range("m.aesthetic", aesthetic_min, aesthetic_max)
+        add_range("m.subject_score", subject_min, subject_max)
+        add_range("m.exposure", exposure_min, exposure_max)
+        if group_size_min is not None:
+            where.append("COALESCE(g.member_count, 1) >= ?")
+            params.append(group_size_min)
+        if group_size_max is not None:
+            where.append("COALESCE(g.member_count, 1) <= ?")
+            params.append(group_size_max)
+        statuses = values(status)
+        if statuses:
+            status_clauses = []
+            if "accepted" in statuses:
+                status_clauses.append(
+                    "EXISTS (SELECT 1 FROM overrides o WHERE o.photo_id = p.id AND o.keep = 1)"
+                )
+            if "rejected" in statuses:
+                status_clauses.append(
+                    "EXISTS (SELECT 1 FROM overrides o WHERE o.photo_id = p.id AND o.keep = 0)"
+                )
+            if "none" in statuses:
+                status_clauses.append(
+                    "NOT EXISTS (SELECT 1 FROM overrides o "
+                    "WHERE o.photo_id = p.id AND o.keep IS NOT NULL)"
+                )
+            if status_clauses:
+                where.append("(" + " OR ".join(status_clauses) + ")")
+        if hide_rejected:
+            where.append(
+                "NOT EXISTS (SELECT 1 FROM overrides o WHERE o.photo_id = p.id AND o.keep = 0)"
+            )
         if search:
             where.append("(l.relative_path LIKE ? OR r.path LIKE ?)")
             params.extend([f"%{search}%", f"%{search}%"])
@@ -847,6 +894,21 @@ class Repository:
         sharpness_min: float | None = None,
         aesthetic_min: float | None = None,
         subject_min: float | None = None,
+        sharpness_max: float | None = None,
+        bokeh_min: float | None = None,
+        bokeh_max: float | None = None,
+        blur_min: float | None = None,
+        blur_max: float | None = None,
+        composition_min: float | None = None,
+        composition_max: float | None = None,
+        aesthetic_max: float | None = None,
+        subject_max: float | None = None,
+        exposure_min: float | None = None,
+        exposure_max: float | None = None,
+        group_size_min: int | None = None,
+        group_size_max: int | None = None,
+        status: str | Sequence[str] | None = None,
+        hide_rejected: bool | None = None,
         root: str | Sequence[str] | None = None,
         folder: str | Sequence[str] | None = None,
     ) -> int:
@@ -869,6 +931,21 @@ class Repository:
             sharpness_min=sharpness_min,
             aesthetic_min=aesthetic_min,
             subject_min=subject_min,
+            sharpness_max=sharpness_max,
+            bokeh_min=bokeh_min,
+            bokeh_max=bokeh_max,
+            blur_min=blur_min,
+            blur_max=blur_max,
+            composition_min=composition_min,
+            composition_max=composition_max,
+            aesthetic_max=aesthetic_max,
+            subject_max=subject_max,
+            exposure_min=exposure_min,
+            exposure_max=exposure_max,
+            group_size_min=group_size_min,
+            group_size_max=group_size_max,
+            status=status,
+            hide_rejected=hide_rejected,
             root=root,
             folder=folder,
         )
@@ -881,7 +958,8 @@ class Repository:
             "FROM photo_locations l "
             "JOIN photos p ON p.id = l.photo_id "
             "JOIN roots r ON r.id = l.root_id "
-            "LEFT JOIN metrics m ON m.photo_id = p.id"
+            "LEFT JOIN metrics m ON m.photo_id = p.id "
+            "LEFT JOIN groups g ON g.id = p.group_id"
         )
 
     def list_photos(
@@ -904,6 +982,21 @@ class Repository:
         sharpness_min: float | None = None,
         aesthetic_min: float | None = None,
         subject_min: float | None = None,
+        sharpness_max: float | None = None,
+        bokeh_min: float | None = None,
+        bokeh_max: float | None = None,
+        blur_min: float | None = None,
+        blur_max: float | None = None,
+        composition_min: float | None = None,
+        composition_max: float | None = None,
+        aesthetic_max: float | None = None,
+        subject_max: float | None = None,
+        exposure_min: float | None = None,
+        exposure_max: float | None = None,
+        group_size_min: int | None = None,
+        group_size_max: int | None = None,
+        status: str | Sequence[str] | None = None,
+        hide_rejected: bool | None = None,
         root: str | Sequence[str] | None = None,
         folder: str | Sequence[str] | None = None,
         sort: str = "taken",
@@ -930,6 +1023,21 @@ class Repository:
             sharpness_min=sharpness_min,
             aesthetic_min=aesthetic_min,
             subject_min=subject_min,
+            sharpness_max=sharpness_max,
+            bokeh_min=bokeh_min,
+            bokeh_max=bokeh_max,
+            blur_min=blur_min,
+            blur_max=blur_max,
+            composition_min=composition_min,
+            composition_max=composition_max,
+            aesthetic_max=aesthetic_max,
+            subject_max=subject_max,
+            exposure_min=exposure_min,
+            exposure_max=exposure_max,
+            group_size_min=group_size_min,
+            group_size_max=group_size_max,
+            status=status,
+            hide_rejected=hide_rejected,
             root=root,
             folder=folder,
         )
@@ -946,6 +1054,9 @@ class Repository:
             "bokeh": ("m.bokeh", ["p.taken", "l.relative_path"]),
             "aesthetic": ("m.aesthetic", ["p.taken", "l.relative_path"]),
             "subject": ("m.subject_score", ["p.taken", "l.relative_path"]),
+            "blur": ("m.blur_score", ["p.taken", "l.relative_path"]),
+            "group": ("COALESCE(g.member_count, 1)", ["p.taken", "l.relative_path"]),
+            "event": ("p.event_id", ["p.taken", "l.relative_path"]),
         }
         key, tie_breakers = columns.get(sort, columns["taken"])
         order_by = ", ".join([f"{key} {direction}", *tie_breakers])
@@ -978,6 +1089,21 @@ class Repository:
         sharpness_min: float | None = None,
         aesthetic_min: float | None = None,
         subject_min: float | None = None,
+        sharpness_max: float | None = None,
+        bokeh_min: float | None = None,
+        bokeh_max: float | None = None,
+        blur_min: float | None = None,
+        blur_max: float | None = None,
+        composition_min: float | None = None,
+        composition_max: float | None = None,
+        aesthetic_max: float | None = None,
+        subject_max: float | None = None,
+        exposure_min: float | None = None,
+        exposure_max: float | None = None,
+        group_size_min: int | None = None,
+        group_size_max: int | None = None,
+        status: str | Sequence[str] | None = None,
+        hide_rejected: bool | None = None,
         root: str | Sequence[str] | None = None,
         folder: str | Sequence[str] | None = None,
     ) -> list[int]:
@@ -999,6 +1125,21 @@ class Repository:
             sharpness_min=sharpness_min,
             aesthetic_min=aesthetic_min,
             subject_min=subject_min,
+            sharpness_max=sharpness_max,
+            bokeh_min=bokeh_min,
+            bokeh_max=bokeh_max,
+            blur_min=blur_min,
+            blur_max=blur_max,
+            composition_min=composition_min,
+            composition_max=composition_max,
+            aesthetic_max=aesthetic_max,
+            subject_max=subject_max,
+            exposure_min=exposure_min,
+            exposure_max=exposure_max,
+            group_size_min=group_size_min,
+            group_size_max=group_size_max,
+            status=status,
+            hide_rejected=hide_rejected,
             root=root,
             folder=folder,
         )
@@ -1027,6 +1168,21 @@ class Repository:
         sharpness_min: float | None = None,
         aesthetic_min: float | None = None,
         subject_min: float | None = None,
+        sharpness_max: float | None = None,
+        bokeh_min: float | None = None,
+        bokeh_max: float | None = None,
+        blur_min: float | None = None,
+        blur_max: float | None = None,
+        composition_min: float | None = None,
+        composition_max: float | None = None,
+        aesthetic_max: float | None = None,
+        subject_max: float | None = None,
+        exposure_min: float | None = None,
+        exposure_max: float | None = None,
+        group_size_min: int | None = None,
+        group_size_max: int | None = None,
+        status: str | Sequence[str] | None = None,
+        hide_rejected: bool | None = None,
         root: str | Sequence[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Matching photo counts per folder, including ancestor folders.
@@ -1051,6 +1207,21 @@ class Repository:
             sharpness_min=sharpness_min,
             aesthetic_min=aesthetic_min,
             subject_min=subject_min,
+            sharpness_max=sharpness_max,
+            bokeh_min=bokeh_min,
+            bokeh_max=bokeh_max,
+            blur_min=blur_min,
+            blur_max=blur_max,
+            composition_min=composition_min,
+            composition_max=composition_max,
+            aesthetic_max=aesthetic_max,
+            subject_max=subject_max,
+            exposure_min=exposure_min,
+            exposure_max=exposure_max,
+            group_size_min=group_size_min,
+            group_size_max=group_size_max,
+            status=status,
+            hide_rejected=hide_rejected,
             root=root,
         )
         sql = (

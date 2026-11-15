@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -223,6 +224,74 @@ def test_group_options_hide_single_member_groups(tmp_path: Path) -> None:
         third = repository.upsert_photo(_photo("c.jpg"))
         repository.set_groups([(first, 1), (second, 1), (third, 2)])
         assert repository.group_options() == [{"id": 1, "count": 2}]
+    finally:
+        repository.close()
+
+
+def test_repository_metric_ranges_and_sorting(tmp_path: Path) -> None:
+    repository = Repository.open(tmp_path / "state.db")
+    try:
+        base = _photo("base.jpg")
+        sharp = replace(
+            base,
+            path="sharp.jpg",
+            digest="a" * 64,
+            metrics=Metrics(
+                sharpness=0.9,
+                sharpness_subject=0.9,
+                bokeh=0.8,
+                blur_score=0.1,
+                composition=0.9,
+                aesthetic=0.9,
+                subject_score=0.9,
+                exposure=0.2,
+            ),
+        )
+        soft = replace(
+            base,
+            path="soft.jpg",
+            digest="b" * 64,
+            metrics=Metrics(
+                sharpness=0.2,
+                sharpness_subject=0.2,
+                bokeh=0.1,
+                blur_score=0.8,
+                composition=0.2,
+                aesthetic=0.2,
+                subject_score=0.2,
+                exposure=0.8,
+            ),
+        )
+        repository.upsert_photo(sharp)
+        repository.upsert_photo(soft)
+
+        assert [photo.path for photo in repository.list_photos(sharpness_min=0.5)] == ["sharp.jpg"]
+        assert [photo.path for photo in repository.list_photos(sharpness_max=0.5)] == ["soft.jpg"]
+        assert [photo.path for photo in repository.list_photos(bokeh_min=0.5)] == ["sharp.jpg"]
+        assert [photo.path for photo in repository.list_photos(blur_min=0.5)] == ["soft.jpg"]
+        assert [photo.path for photo in repository.list_photos(composition_min=0.5)] == [
+            "sharp.jpg"
+        ]
+        assert [photo.path for photo in repository.list_photos(aesthetic_max=0.5)] == ["soft.jpg"]
+        assert [photo.path for photo in repository.list_photos(subject_min=0.5)] == ["sharp.jpg"]
+        assert [photo.path for photo in repository.list_photos(exposure_max=0.5)] == ["sharp.jpg"]
+        assert repository.list_photos(sort="blur", order="desc")[0].path == "soft.jpg"
+    finally:
+        repository.close()
+
+
+def test_repository_group_size_filter(tmp_path: Path) -> None:
+    repository = Repository.open(tmp_path / "state.db")
+    try:
+        first = repository.upsert_photo(_photo("a.jpg"))
+        second = repository.upsert_photo(_photo("b.jpg"))
+        third = repository.upsert_photo(_photo("c.jpg"))
+        repository.set_groups([(first, 1), (second, 1), (third, 2)])
+
+        grouped = repository.list_photos(group_size_min=2)
+        assert sorted(photo.path for photo in grouped) == ["a.jpg", "b.jpg"]
+        assert repository.count_photos(group_size_max=1) == 1
+        assert repository.count_photos(group_size_min=3) == 0
     finally:
         repository.close()
 

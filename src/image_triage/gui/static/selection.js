@@ -166,6 +166,17 @@
     applySelection(readSelected());
     restoreOpenFolders();
 
+    document.querySelectorAll("[data-range-output]").forEach(function (range) {
+      var output = document.querySelector('[data-output-for="' + range.name + '"]');
+      function update() {
+        if (output) {
+          output.textContent = Number(range.value).toFixed(2);
+        }
+      }
+      range.addEventListener("input", update);
+      update();
+    });
+
     document.addEventListener(
       "toggle",
       function (event) {
@@ -255,27 +266,31 @@
       });
     }
 
-    var exportAll = document.querySelector("[data-export-all]");
-    if (exportAll) {
-      exportAll.addEventListener("click", function () {
-        setScope("filtered");
-        setPhotoIdsField([]);
-        form.submit();
+    var exportOpen = document.querySelector("[data-export-open]");
+    var exportDialog = document.getElementById("export-dialog");
+    if (exportOpen && exportDialog) {
+      exportOpen.addEventListener("click", function () {
+        setScope("selected");
+        setPhotoIdsField(readSelected());
+        exportDialog.showModal();
       });
     }
 
-    var exportSelected = document.querySelector("[data-export-selected]");
-    if (exportSelected) {
-      exportSelected.addEventListener("click", function (event) {
-        var selected = readSelected();
-        if (selected.length === 0) {
-          event.preventDefault();
-          window.alert("Select at least one photo first.");
-          return;
+    document.querySelectorAll("[data-export-close]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var dialog = button.closest("dialog");
+        if (dialog) {
+          dialog.close();
         }
-        setScope("selected");
-        setPhotoIdsField(selected);
-        form.submit();
+      });
+    });
+
+    var scope = document.querySelector("[data-scope]");
+    if (scope) {
+      scope.addEventListener("change", function () {
+        if (scope.value !== "selected") {
+          setPhotoIdsField([]);
+        }
       });
     }
   });

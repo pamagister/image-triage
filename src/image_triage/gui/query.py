@@ -12,7 +12,19 @@ from datetime import date
 from typing import Any
 from urllib.parse import urlencode
 
-SORT_KEYS = ("taken", "path", "score", "rating", "sharpness", "bokeh", "aesthetic", "subject")
+SORT_KEYS = (
+    "taken",
+    "path",
+    "score",
+    "rating",
+    "sharpness",
+    "bokeh",
+    "aesthetic",
+    "subject",
+    "blur",
+    "group",
+    "event",
+)
 
 #: Query parameters that are lists of values rather than single numbers or dates.
 MULTI_VALUE_KEYS = (
@@ -24,6 +36,7 @@ MULTI_VALUE_KEYS = (
     "flags",
     "camera_make",
     "camera_model",
+    "status",
     "root",
     "folder",
 )
@@ -35,9 +48,29 @@ NUMBER_KEYS = {
     "min_score": float,
     "score_max": float,
     "sharpness_min": float,
+    "sharpness_max": float,
+    "bokeh_min": float,
+    "bokeh_max": float,
+    "blur_min": float,
+    "blur_max": float,
+    "composition_min": float,
+    "composition_max": float,
     "aesthetic_min": float,
+    "aesthetic_max": float,
     "subject_min": float,
+    "subject_max": float,
+    "exposure_min": float,
+    "exposure_max": float,
 }
+
+#: Integer-valued range filters.
+INT_KEYS = {
+    "group_size_min": int,
+    "group_size_max": int,
+}
+
+#: Boolean switches.
+BOOL_KEYS = {"hide_rejected"}
 
 #: Date filters, parsed with :meth:`datetime.date.fromisoformat`.
 DATE_KEYS = ("date_from", "date_to")
@@ -53,13 +86,14 @@ class PhotoQuery:
     page: int = 1
     search: str = ""
     view: str = "folders"
+    tab: str = "folders"
 
     @property
     def base_query(self) -> str:
         """Query string of every active filter, used by pagination and sort links."""
         params: list[tuple[str, Any]] = []
         for key, value in self.filters.items():
-            if value in (None, "", []):
+            if value in (None, "", []) or value is False:
                 continue
             if isinstance(value, (list, tuple)):
                 params.extend((key, str(item)) for item in value)
@@ -67,8 +101,10 @@ class PhotoQuery:
                 params.append((key, value))
         params.append(("sort", self.sort))
         params.append(("order", self.order))
-        if self.view != "flat":
+        if self.view != "folders":
             params.append(("view", self.view))
+        if self.tab != "folders":
+            params.append(("tab", self.tab))
         if self.search:
             params.insert(0, ("q", self.search))
         return urlencode(params)
@@ -78,7 +114,7 @@ class PhotoQuery:
         """Human-readable summary of the active filters for the result count."""
         parts = []
         for key, value in self.filters.items():
-            if value in (None, "", []):
+            if value in (None, "", []) or value is False:
                 continue
             if isinstance(value, (list, tuple)):
                 parts.append(f"{key}={','.join(str(item) for item in value)}")
@@ -91,7 +127,9 @@ def _clean(value: str | None) -> str:
     return (value or "").strip()
 
 
-def parse_photo_query(params: Any, default_view: str = "folders") -> PhotoQuery:
+def parse_photo_query(
+    params: Any, default_view: str = "folders", default_hide_rejected: bool = False
+) -> PhotoQuery:
     """Build a :class:`PhotoQuery` from request query parameters, tolerating empty values."""
     get = params.getlist if hasattr(params, "getlist") else (lambda key: [params.get(key, "")])
     query = PhotoQuery()
@@ -128,6 +166,25 @@ def parse_photo_query(params: Any, default_view: str = "folders") -> PhotoQuery:
         except ValueError:
             continue
 
+    for key, caster in INT_KEYS.items():
+        raw = _clean(get(key)[0] if get(key) else "")
+        if not raw:
+            continue
+        try:
+            query.filters[key] = caster(raw)
+        except ValueError:
+            continue
+
+    for key in BOOL_KEYS:
+        raw = _clean(get(key)[0] if get(key) else "").lower()
+        if raw in {"1", "true", "on", "yes"}:
+            query.filters[key] = True
+        elif raw in {"0", "false", "off", "no"}:
+            query.filters[key] = False
+
+    if default_hide_rejected and "hide_rejected" not in query.filters:
+        query.filters["hide_rejected"] = True
+
     for key in DATE_KEYS:
         raw = _clean(get(key)[0] if get(key) else "")
         if not raw:
@@ -150,5 +207,8 @@ def parse_photo_query(params: Any, default_view: str = "folders") -> PhotoQuery:
 
     view = _clean(get("view")[0] if get("view") else "")
     query.view = view if view in {"flat", "folders"} else default_view
+
+    tab = _clean(get("tab")[0] if get("tab") else "")
+    query.tab = tab if tab in {"folders", "filters"} else "folders"
 
     return query

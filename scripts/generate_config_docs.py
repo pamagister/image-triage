@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import get_args, get_origin
 
 import yaml
+from pydantic import BaseModel
 from typer.main import get_command
 
 from image_triage.cli.app import app
@@ -77,6 +78,8 @@ def generate_config_doc() -> None:
             value = getattr(section, field_name)
             if isinstance(value, Path):
                 rendered = f"`{value}`"
+            elif isinstance(value, BaseModel):
+                rendered = f"`{json.dumps(value.model_dump(mode='json'))}`"
             elif isinstance(value, list):
                 rendered = f"`{json.dumps(value)}`"
             else:

@@ -24,13 +24,83 @@ from image_triage.export.export import export_photos
 from image_triage.export.previews import preview_path
 from image_triage.grouping.build import build_groups_and_events
 from image_triage.gui.library_status import library_status
-from image_triage.gui.query import parse_photo_query
+from image_triage.gui.query import PhotoQuery, parse_photo_query
 from image_triage.io.scan import find_images
 from image_triage.scoring.score import score_library
 
 BASE_DIR = Path(__file__).parent
 TEMPLATES = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 PER_PAGE = 60
+
+#: Human labels for active filter chips.
+FILTER_LABELS = {
+    "q": "search",
+    "rating": "rating",
+    "event_id": "event",
+    "group_id": "group",
+    "group_size_min": "group size min",
+    "group_size_max": "group size max",
+    "label": "label",
+    "blur": "blur",
+    "flags": "flags",
+    "camera_make": "camera make",
+    "camera_model": "camera model",
+    "date_from": "from",
+    "date_to": "to",
+    "min_score": "score min",
+    "score_max": "score max",
+    "sharpness_min": "sharpness min",
+    "sharpness_max": "sharpness max",
+    "bokeh_min": "bokeh min",
+    "bokeh_max": "bokeh max",
+    "blur_min": "blur min",
+    "blur_max": "blur max",
+    "composition_min": "composition min",
+    "composition_max": "composition max",
+    "aesthetic_min": "aesthetic min",
+    "aesthetic_max": "aesthetic max",
+    "subject_min": "subject min",
+    "subject_max": "subject max",
+    "exposure_min": "exposure min",
+    "exposure_max": "exposure max",
+    "status": "status",
+    "hide_rejected": "hide rejected",
+    "root": "root",
+    "folder": "folder",
+}
+
+#: Default slider values are always submitted by the range controls but are not active filters.
+DEFAULT_FILTER_VALUES = {
+    "min_score": 0.0,
+    "score_max": 1.0,
+    "sharpness_min": 0.0,
+    "sharpness_max": 1.0,
+    "bokeh_min": 0.0,
+    "bokeh_max": 1.0,
+    "blur_min": 0.0,
+    "blur_max": 1.0,
+    "composition_min": 0.0,
+    "composition_max": 1.0,
+    "aesthetic_min": 0.0,
+    "aesthetic_max": 1.0,
+    "subject_min": 0.0,
+    "subject_max": 1.0,
+    "exposure_min": 0.0,
+    "exposure_max": 1.0,
+}
+
+#: Quick filter presets. They merge with the current scope and filters.
+FILTER_PRESETS = [
+    {
+        "label": "Good",
+        "overrides": {"rating": [4, 5], "aesthetic_min": 0.6, "blur_max": 0.35},
+    },
+    {"label": "Blurry", "overrides": {"blur_min": 0.6}},
+    {"label": "Low quality", "overrides": {"aesthetic_max": 0.4, "score_max": 0.4}},
+    {"label": "Similar", "overrides": {"group_size_min": 2}},
+    {"label": "Accepted", "overrides": {"status": ["accepted"]}},
+    {"label": "Rejected", "overrides": {"status": ["rejected"]}},
+]
 
 #: Jobs that write to the state database and therefore block a library-root change.
 ACTIVE_JOB_STATUSES = ("pending", "running")
@@ -121,7 +191,7 @@ def _url_with(query, **overrides: Any) -> str:
     """Build a library URL from the active filters plus explicit overrides."""
     params: list[tuple[str, Any]] = []
     for key, value in query.filters.items():
-        if key in overrides or value in (None, "", []):
+        if key in overrides or value in (None, "", []) or value is False:
             continue
         if isinstance(value, (list, tuple)):
             params.extend((key, str(item)) for item in value)
@@ -130,10 +200,46 @@ def _url_with(query, **overrides: Any) -> str:
     params.extend([("sort", query.sort), ("order", query.order)])
     if "view" not in overrides:
         params.append(("view", query.view))
-    params.extend((key, value) for key, value in overrides.items() if value is not None)
+    if "tab" not in overrides and query.tab != "folders":
+        params.append(("tab", query.tab))
+    for key, value in overrides.items():
+        if value is None or value is False:
+            continue
+        if isinstance(value, (list, tuple)):
+            params.extend((key, str(item)) for item in value)
+        elif value is True:
+            params.append((key, "true"))
+        else:
+            params.append((key, str(value)))
     if query.search:
         params.insert(0, ("q", query.search))
     return "/?" + urlencode(params)
+
+
+def _filter_chips(query: PhotoQuery) -> list[dict[str, str]]:
+    """Human-readable active filters with a URL that removes each one."""
+    chips: list[dict[str, str]] = []
+    for key, value in query.filters.items():
+        if value in (None, "", []) or value is False:
+            continue
+        if key in DEFAULT_FILTER_VALUES and value == DEFAULT_FILTER_VALUES[key]:
+            continue
+        label = FILTER_LABELS.get(key, key)
+        if value is True:
+            display = "yes"
+        elif isinstance(value, (list, tuple)):
+            display = ", ".join(str(item) for item in value)
+        else:
+            display = str(value)
+        chips.append(
+            {
+                "key": key,
+                "label": label,
+                "value": display,
+                "url": _url_with(query, **{key: None}),
+            }
+        )
+    return chips
 
 
 def _folder_tree(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -312,7 +418,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> HTMLResponse:
         """Render the library page with the current filters and an optional message."""
         settings = _current_settings(request)
-        query = parse_photo_query(request.query_params, default_view=settings.gui.default_view)
+        query = parse_photo_query(
+            request.query_params,
+            default_view=settings.gui.default_view,
+            default_hide_rejected=settings.gui.filters.hide_rejected,
+        )
         filters = dict(query.filters)
         if query.search:
             filters["search"] = query.search
@@ -332,6 +442,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 root=item["root"],
                 folder=folder,
                 page=1,
+                tab="folders",
             )
             item["depth"] = 0 if item["folder"] == "." else item["folder"].count("/") + 1
         tree = _folder_tree(folders)
@@ -360,6 +471,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "search": query.search,
                 "base_query": query.base_query,
                 "view": query.view,
+                "tab": query.tab,
+                "chips": _filter_chips(query),
+                "presets": [
+                    {"label": preset["label"], "url": _url_with(query, **preset["overrides"])}
+                    for preset in FILTER_PRESETS
+                ],
+                "filter_settings": settings.gui.filters,
                 "view_flat": _url_with(query, view="flat", folder=None, page=1),
                 "view_folders": _url_with(query, view="folders", page=1),
                 "folders": tree,
@@ -412,7 +530,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Export either the checked photos or the current filtered view as a background job."""
         settings = _current_settings(request)
         roots = settings.watched_roots
-        query = parse_photo_query(request.query_params, default_view=settings.gui.default_view)
+        query = parse_photo_query(
+            request.query_params,
+            default_view=settings.gui.default_view,
+            default_hide_rejected=settings.gui.filters.hide_rejected,
+        )
         filters = dict(query.filters)
         if query.search:
             filters["search"] = query.search
@@ -459,7 +581,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def photo_ids(request: Request, repo: Repository = Depends(repository)) -> dict[str, Any]:
         """All photo ids matching the current filters, across every page."""
         settings = _current_settings(request)
-        query = parse_photo_query(request.query_params, default_view=settings.gui.default_view)
+        query = parse_photo_query(
+            request.query_params,
+            default_view=settings.gui.default_view,
+            default_hide_rejected=settings.gui.filters.hide_rejected,
+        )
         filters = dict(query.filters)
         if query.search:
             filters["search"] = query.search
@@ -536,6 +662,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     ("group", "group"),
                     ("event", "event"),
                 ],
+                "filter_group_options": [
+                    ("rating", "Rating"),
+                    ("quality", "Quality"),
+                    ("sharpness", "Sharpness and blur"),
+                    ("date", "Captured date"),
+                    ("similar", "Similar shots"),
+                ],
                 "active_jobs": _active_jobs(repo) if active_jobs is None else active_jobs,
                 "database_override": settings.input.db_path is not None,
                 "error": error,
@@ -564,8 +697,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         add_root: str = Form(""),
         remove_root: str = Form(""),
         exclude: str = Form(""),
-        default_view: str = Form("flat"),
+        default_view: str = Form("folders"),
         tile_fields: list[str] = Form([]),  # noqa: B008
+        filter_groups: list[str] = Form([]),  # noqa: B008
+        filter_groups_submitted: bool = Form(False),
+        filter_hide_rejected: bool = Form(False),
+        filter_hide_rejected_submitted: bool = Form(False),
         export_mode: str = Form("copy"),
         export_layout: str = Form("flat"),
         rerender: bool = Form(False),
@@ -666,6 +803,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         data["input"]["exclude"] = [item.strip() for item in exclude.split(",") if item.strip()]
         data["gui"]["default_view"] = default_view
         data["gui"]["tile_fields"] = tile_fields or []
+        if filter_groups_submitted:
+            data["gui"]["filters"]["visible"] = filter_groups
+        if filter_hide_rejected_submitted:
+            data["gui"]["filters"]["hide_rejected"] = filter_hide_rejected
         data["export"].update(
             {
                 "mode": export_mode,

@@ -132,3 +132,4 @@ The generated `config.yaml` contains the same defaults.
 | reload | bool | `false` |
 | default_view | str | `"folders"` |
 | tile_fields | list[str] | `["score", "rating", "taken"]` |
+| filters | GuiFilterSettings | `{"visible": ["rating", "quality", "sharpness", "date", "similar"], "hide_rejected": false}` |

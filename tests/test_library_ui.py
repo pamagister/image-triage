@@ -39,6 +39,27 @@ def test_filters_are_top_aligned_in_one_block(photo_dir: Path, tmp_path: Path) -
         assert "align-items: flex-start;" in css
 
 
+def test_library_sidebar_has_tabs_ranges_presets_and_filter_chips(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    with _client(photo_dir, tmp_path) as client:
+        page = client.get("/?view=folders&tab=filters&rating=4&blur_min=0.6&group_size_min=2")
+        assert page.status_code == 200
+        assert b'id="sidebar-folders"' in page.content
+        assert b'id="sidebar-filters"' in page.content
+        assert b'name="sharpness_min"' in page.content
+        assert b'name="blur_max"' in page.content
+        assert b'name="group_size_min"' in page.content
+        assert b"Good" in page.content and b"Blurry" in page.content
+        assert b'class="chip"' in page.content
+        assert b"rating: 4" in page.content
+        assert b"blur min: 0.6" in page.content
+
+        css = Path("src/image_triage/gui/static/style.css").read_text()
+        assert "grid-template-columns: minmax(260px, 320px) 1fr;" in css
+        assert "position: sticky;" in css
+
+
 def test_default_view_is_folders_and_flat_view_is_available(
     photo_dir: Path, tmp_path: Path
 ) -> None:
@@ -49,7 +70,8 @@ def test_default_view_is_folders_and_flat_view_is_available(
 
         flat = client.get("/?view=flat")
         assert flat.status_code == 200
-        assert b"folder-tree" not in flat.content
+        assert b"view=flat" in flat.content
+        assert b"folder-tree" in flat.content  # the sidebar tree remains available
 
         folders_explicit = client.get("/?view=folders")
         assert folders_explicit.status_code == 200
@@ -247,6 +269,8 @@ def test_settings_page_shows_root_counts_and_read_only_database(
         assert str(settings.database_path).encode() in page.content
         assert b'data-disk-count="4"' in page.content
         assert b'data-analyzed-count="0"' in page.content
+        assert b'name="filter_groups"' in page.content
+        assert b"Visible filter groups" in page.content
 
 
 def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path: Path) -> None:
@@ -263,6 +287,10 @@ def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path:
                 "enabled_roots": [str(photo_dir.resolve())],
                 "exclude": ".hidden, cache",
                 "tile_fields": ["score", "taken"],
+                "filter_groups": ["rating", "date"],
+                "filter_groups_submitted": "true",
+                "filter_hide_rejected": "true",
+                "filter_hide_rejected_submitted": "true",
             },
             follow_redirects=False,
         )
@@ -270,10 +298,25 @@ def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path:
         assert client.app.state.settings.input.roots == [photo_dir.resolve()]
         assert client.app.state.settings.input.disabled_roots == []
         assert client.app.state.settings.gui.tile_fields == ["score", "taken"]
+        assert client.app.state.settings.gui.filters.visible == ["rating", "date"]
+        assert client.app.state.settings.gui.filters.hide_rejected is True
         assert client.app.state.settings.input.exclude == [".hidden", "cache"]
 
         stored = client.app.state.settings.config_path.read_text()
         assert str(photo_dir.resolve()) in stored
+
+        unrelated = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(photo_dir.resolve())],
+                "enabled_roots": [str(photo_dir.resolve())],
+                "exclude": ".hidden",
+            },
+            follow_redirects=False,
+        )
+        assert unrelated.status_code == 303
+        assert client.app.state.settings.gui.filters.visible == ["rating", "date"]
+        assert client.app.state.settings.gui.filters.hide_rejected is True
 
 
 def test_settings_adds_deactivates_and_removes_roots(photo_dir: Path, tmp_path: Path) -> None:

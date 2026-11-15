@@ -3,11 +3,6 @@
 {% block content %}
 <h1>Library</h1>
 
-<p class="view-toggle">
-  <a href="{{ view_flat }}" {% if view == 'flat' %}aria-current="page"{% endif %}>Flat tiles</a>
-  <a href="{{ view_folders }}" {% if view == 'folders' %}aria-current="page"{% endif %}>Folder tree</a>
-</p>
-
 {% if status.stale %}
 <div class="banner" role="status">
   <strong>Library is out of date.</strong>
@@ -34,77 +29,26 @@
 </p>
 {% endif %}
 
-<form method="get" action="/" class="filters" role="search">
+<form method="get" action="/" class="topbar" role="search">
   <input type="hidden" name="view" value="{{ view }}">
-  {% for folder in filters.get('folder', []) %}<input type="hidden" name="folder" value="{{ folder }}">{% endfor %}
-  <label>Search <input type="search" name="q" value="{{ search or '' }}"></label>
-  <label>Root
-    <select name="root">
-      <option value="">all roots</option>
-      {% for item in roots %}
-      <option value="{{ item.path }}" {% if item.path in filters.get('root', []) %}selected{% endif %}>{{ item.path }} ({{ item.photos }})</option>
-      {% endfor %}
-    </select>
+  <input type="hidden" name="tab" value="{{ tab }}">
+  {% for key, value in filters.items() %}
+    {% if key not in ['q', 'sort', 'order', 'page', 'view', 'tab'] and value is not none and value != '' %}
+      {% if value is string %}
+      <input type="hidden" name="{{ key }}" value="{{ value }}">
+      {% elif value is sequence %}
+      {% for item in value %}<input type="hidden" name="{{ key }}" value="{{ item }}">{% endfor %}
+      {% else %}
+      <input type="hidden" name="{{ key }}" value="{{ value }}">
+      {% endif %}
+    {% endif %}
+  {% endfor %}
+  <label class="search-field">Search
+    <input type="search" name="q" value="{{ search or '' }}">
   </label>
-  <label>Rating
-    <select name="rating" multiple size="5">
-      {% for value in [5, 4, 3, 2, 1] %}
-      <option value="{{ value }}" {% if value in filters.get('rating', []) %}selected{% endif %}>{{ value }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>Event
-    <select name="event_id" multiple size="4">
-      {% for event in events %}
-      <option value="{{ event.id }}" {% if event.id in filters.get('event_id', []) %}selected{% endif %}>{{ event.label }} ({{ event.photo_count }})</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>Group
-    <select name="group_id" multiple size="4">
-      {% for group in groups %}
-      <option value="{{ group.id }}" {% if group.id in filters.get('group_id', []) %}selected{% endif %}>#{{ group.id }} ({{ group.count }})</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>Label
-    <select name="label" multiple size="4">
-      {% for item in labels %}
-      <option value="{{ item.label }}" {% if item.label in filters.get('label', []) %}selected{% endif %}>{{ item.label }} ({{ item.count }})</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>Blur
-    <select name="blur" multiple size="4">
-      {% for kind in blur_kinds %}
-      <option value="{{ kind }}" {% if kind in filters.get('blur', []) %}selected{% endif %}>{{ kind }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>Camera make
-    <select name="camera_make" multiple size="3">
-      {% for make in filter_options.camera_make %}
-      <option value="{{ make }}" {% if make in filters.get('camera_make', []) %}selected{% endif %}>{{ make }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>Camera model
-    <select name="camera_model" multiple size="3">
-      {% for model in filter_options.camera_model %}
-      <option value="{{ model }}" {% if model in filters.get('camera_model', []) %}selected{% endif %}>{{ model }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>From <input type="date" name="date_from" value="{{ filters.get('date_from', '') }}"></label>
-  <label>To <input type="date" name="date_to" value="{{ filters.get('date_to', '') }}"></label>
-  <label>Min score <input type="number" name="min_score" step="0.01" min="0" max="1" value="{{ filters.get('min_score', '') }}"></label>
-  <label>Max score <input type="number" name="score_max" step="0.01" min="0" max="1" value="{{ filters.get('score_max', '') }}"></label>
-  <label>Min sharpness <input type="number" name="sharpness_min" step="0.01" min="0" max="1" value="{{ filters.get('sharpness_min', '') }}"></label>
-  <label>Min aesthetic <input type="number" name="aesthetic_min" step="0.01" min="0" max="1" value="{{ filters.get('aesthetic_min', '') }}"></label>
-  <label>Min subject <input type="number" name="subject_min" step="0.01" min="0" max="1" value="{{ filters.get('subject_min', '') }}"></label>
   <label>Sort
     <select name="sort">
-      {% for key, title in [('taken','capture time'),('score','score'),('rating','rating'),('sharpness','sharpness'),('bokeh','bokeh'),('aesthetic','aesthetic'),('subject','subject'),('path','path')] %}
+      {% for key, title in [('taken','capture time'),('score','score'),('rating','rating'),('sharpness','sharpness'),('bokeh','bokeh'),('aesthetic','aesthetic'),('subject','subject'),('blur','blur'),('group','group'),('event','event'),('path','path')] %}
       <option value="{{ key }}" {% if sort == key %}selected{% endif %}>{{ title }}</option>
       {% endfor %}
     </select>
@@ -116,45 +60,47 @@
     </select>
   </label>
   <button type="submit">Apply</button>
-  <a class="button-link" href="/">Reset</a>
 </form>
 
-<p>{{ total }} photos{% if filters %} matching {{ total }} of {{ status.stored }}{% endif %}{% if latest_run %} - latest run {{ latest_run.id }} ({{ latest_run.status.value }}){% endif %}</p>
+<div class="library-toolbar">
+  <p class="view-toggle">
+    <a href="{{ view_flat }}" {% if view == 'flat' %}aria-current="page"{% endif %}>Flat tiles</a>
+    <a href="{{ view_folders }}" {% if view == 'folders' %}aria-current="page"{% endif %}>Folder tree</a>
+  </p>
+  <p class="result-count">{{ total }} photos{% if chips %} matching {{ total }} of {{ status.stored }}{% endif %}{% if latest_run %} - latest run {{ latest_run.id }} ({{ latest_run.status.value }}){% endif %}</p>
+  <p class="selection-summary"><span data-selected-count>0</span> selected</p>
+</div>
 
-<p class="selection-bar" data-selection>
-  <span data-selected-count>0</span> selected
-  <button type="button" data-select-all>Select all filtered</button>
-  <button type="button" data-deselect-all>De-select all filtered</button>
-  <button type="button" data-clear>Clear all</button>
-</p>
+{% if chips %}
+<div class="chips" aria-label="Active filters">
+  {% for chip in chips %}
+  <a class="chip" href="{{ chip.url }}" title="Remove {{ chip.label }}">{{ chip.label }}: {{ chip.value }} <span aria-hidden="true">×</span></a>
+  {% endfor %}
+  <a class="chip chip-reset" href="/">Reset all</a>
+</div>
+{% endif %}
 
-{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-
-<form method="post" action="/export" class="filters" data-export-form>
-  <input type="hidden" name="scope" value="selected" data-scope>
-  <input type="hidden" name="photo_ids" value="" data-photo-ids>
-  <label>Export target
-    <input type="text" name="output" value="{{ default_output }}" size="40">
-  </label>
-  <label>Mode
-    <select name="mode">
-      <option value="copy">copy</option>
-      <option value="hardlink">hardlink</option>
-      <option value="symlink">symlink</option>
-    </select>
-  </label>
-  <label>Layout
-    <select name="layout">
-      <option value="flat">flat</option>
-      <option value="tree">folder tree</option>
-    </select>
-  </label>
-  <label><input type="checkbox" name="rerender" value="true"> Re-render JPEG</label>
-  <label>Max long edge <input type="number" name="max_long_edge" min="64" max="20000" placeholder="original"></label>
-  <label>JPEG quality <input type="number" name="jpeg_quality" min="1" max="100" placeholder="85"></label>
-  <button type="submit" data-export-selected>Export selected</button>
-  <button type="submit" data-export-all>Export all filtered</button>
-</form>
+{% macro range_filter(label, min_name, max_name, step=0.01) %}
+{% set min_value = filters.get(min_name) %}
+{% set max_value = filters.get(max_name) %}
+<div class="range-filter">
+  <div class="range-label">{{ label }}</div>
+  <div class="range-row">
+    <span>min</span>
+    <input type="range" min="0" max="1" step="{{ step }}" name="{{ min_name }}"
+           value="{{ min_value if min_value is not none else 0 }}"
+           data-range-output="{{ min_name }}" aria-label="Minimum {{ label }}">
+    <output data-output-for="{{ min_name }}">{{ '%.2f'|format(min_value if min_value is not none else 0) }}</output>
+  </div>
+  <div class="range-row">
+    <span>max</span>
+    <input type="range" min="0" max="1" step="{{ step }}" name="{{ max_name }}"
+           value="{{ max_value if max_value is not none else 1 }}"
+           data-range-output="{{ max_name }}" aria-label="Maximum {{ label }}">
+    <output data-output-for="{{ max_name }}">{{ '%.2f'|format(max_value if max_value is not none else 1) }}</output>
+  </div>
+</div>
+{% endmacro %}
 
 {% macro folder_node(item, selected) %}
 <li class="folder-node" data-folder-node data-root="{{ item.root }}" data-folder="{{ item.folder }}">
@@ -184,53 +130,207 @@
 {% endmacro %}
 
 <div class="library-layout">
-  {% if view == 'folders' %}
-  <aside class="folder-tree" aria-label="Folders">
-    <h2>Folders</h2>
-    <ul class="folder-list" data-folder-tree>
-      {% for item in folders %}
-      {{ folder_node(item, selected_folders) }}
+  <aside class="sidebar" aria-label="Library navigation and filters">
+    <input type="radio" name="sidebar-tab" id="sidebar-folders" {% if tab != 'filters' %}checked{% endif %}>
+    <input type="radio" name="sidebar-tab" id="sidebar-filters" {% if tab == 'filters' %}checked{% endif %}>
+    <div class="sidebar-tabs">
+      <label for="sidebar-folders">Folders</label>
+      <label for="sidebar-filters">Filters{% if chips %} <span class="tab-count">{{ chips | length }}</span>{% endif %}</label>
+    </div>
+    <div class="sidebar-panels">
+      <section class="sidebar-panel sidebar-folders">
+        <h2>Folders</h2>
+        <ul class="folder-tree folder-list" data-folder-tree>
+          {% for item in folders %}
+          {{ folder_node(item, selected_folders) }}
+          {% endfor %}
+        </ul>
+        <p class="sidebar-help">Counts respect the active filters. Selecting a folder scopes the grid.</p>
+      </section>
+
+      <section class="sidebar-panel sidebar-filters">
+        <div class="preset-row">
+          <span class="preset-label">Presets</span>
+          {% for preset in presets %}
+          <a class="preset" href="{{ preset.url }}">{{ preset.label }}</a>
+          {% endfor %}
+        </div>
+
+        <form method="get" action="/" class="filters" role="search">
+          <input type="hidden" name="view" value="{{ view }}">
+          <input type="hidden" name="tab" value="filters">
+          <input type="hidden" name="sort" value="{{ sort }}">
+          <input type="hidden" name="order" value="{{ order }}">
+          <input type="hidden" name="q" value="{{ search or '' }}">
+
+          <details class="filter-group" {% if 'rating' not in filter_settings.visible %}hidden{% endif %}>
+            <summary>Rating</summary>
+            <div class="checkbox-row">
+              {% for value in [5, 4, 3, 2, 1] %}
+              <label><input type="checkbox" name="rating" value="{{ value }}" {% if value in filters.get('rating', []) %}checked{% endif %}> {{ value }}</label>
+              {% endfor %}
+            </div>
+          </details>
+
+          <details class="filter-group" {% if 'quality' not in filter_settings.visible %}hidden{% endif %}>
+            <summary>Quality</summary>
+            {{ range_filter('Score', 'min_score', 'score_max') }}
+            {{ range_filter('Aesthetic', 'aesthetic_min', 'aesthetic_max') }}
+            {{ range_filter('Composition', 'composition_min', 'composition_max') }}
+            {{ range_filter('Subject', 'subject_min', 'subject_max') }}
+          </details>
+
+          <details class="filter-group" {% if 'sharpness' not in filter_settings.visible %}hidden{% endif %}>
+            <summary>Sharpness and blur</summary>
+            {{ range_filter('Sharpness', 'sharpness_min', 'sharpness_max') }}
+            {{ range_filter('Bokeh', 'bokeh_min', 'bokeh_max') }}
+            {{ range_filter('Blur score', 'blur_min', 'blur_max') }}
+            <div class="checkbox-row">
+              {% for kind in blur_kinds %}
+              <label><input type="checkbox" name="blur" value="{{ kind }}" {% if kind in filters.get('blur', []) %}checked{% endif %}> {{ kind }}</label>
+              {% endfor %}
+            </div>
+          </details>
+
+          <details class="filter-group" {% if 'date' not in filter_settings.visible %}hidden{% endif %}>
+            <summary>Captured</summary>
+            <label>From <input type="date" name="date_from" value="{{ filters.get('date_from', '') }}"></label>
+            <label>To <input type="date" name="date_to" value="{{ filters.get('date_to', '') }}"></label>
+          </details>
+
+          <details class="filter-group" {% if 'similar' not in filter_settings.visible %}hidden{% endif %}>
+            <summary>Similar shots</summary>
+            <label>Group size min <input type="number" name="group_size_min" min="1" placeholder="any" value="{{ filters.get('group_size_min', '') }}"></label>
+            <label>Group size max <input type="number" name="group_size_max" min="1" placeholder="any" value="{{ filters.get('group_size_max', '') }}"></label>
+            <label>Event
+              <select name="event_id" multiple size="4">
+                {% for event in events %}
+                <option value="{{ event.id }}" {% if event.id in filters.get('event_id', []) %}selected{% endif %}>{{ event.label }} ({{ event.photo_count }})</option>
+                {% endfor %}
+              </select>
+            </label>
+          </details>
+
+          <details class="filter-group">
+            <summary>Advanced</summary>
+            <label>Camera make
+              <select name="camera_make" multiple size="3">
+                {% for make in filter_options.camera_make %}
+                <option value="{{ make }}" {% if make in filters.get('camera_make', []) %}selected{% endif %}>{{ make }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>Camera model
+              <select name="camera_model" multiple size="3">
+                {% for model in filter_options.camera_model %}
+                <option value="{{ model }}" {% if model in filters.get('camera_model', []) %}selected{% endif %}>{{ model }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>Label
+              <select name="label" multiple size="4">
+                {% for item in labels %}
+                <option value="{{ item.label }}" {% if item.label in filters.get('label', []) %}selected{% endif %}>{{ item.label }} ({{ item.count }})</option>
+                {% endfor %}
+              </select>
+            </label>
+            <div class="checkbox-row">
+              <label><input type="checkbox" name="hide_rejected" value="true" {% if filters.get('hide_rejected') %}checked{% endif %}> Hide rejected</label>
+            </div>
+          </details>
+
+          <div class="filter-actions">
+            <button type="submit">Apply filters</button>
+            <a class="button-link" href="/">Reset</a>
+          </div>
+        </form>
+      </section>
+    </div>
+  </aside>
+
+  <div class="library-results">
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+    <ul class="grid">
+      {% for photo in photos %}
+      <li class="card" data-photo-id="{{ photo.id }}" data-location-id="{{ photo.location_id or photo.id }}"
+          data-root="{{ photo.root_path }}" data-folder="{{ photo.folder }}" data-group-id="{{ photo.group_id or '' }}">
+        <label class="select-box">
+          <input type="checkbox" data-select-photo value="{{ photo.location_id or photo.id }}">
+        </label>
+        <a href="/photo/{{ photo.id }}">
+          <img src="/media/location/{{ photo.location_id or photo.id }}" alt="{{ photo.name }}" loading="lazy">
+        </a>
+        <div class="meta">
+          <div class="name">{{ photo.name }}</div>
+          <div class="path" title="{{ photo.root_path }}/{{ photo.path }}">{{ photo.root_path }}/{{ photo.path }}</div>
+          {% if 'score' in tile_fields %}<div>score {{ '%.2f'|format(photo.score) }}</div>{% endif %}
+          {% if 'rating' in tile_fields %}<div>rating {{ photo.rating }}/5</div>{% endif %}
+          {% if 'taken' in tile_fields %}<div>taken {{ photo.taken.strftime('%Y-%m-%d %H:%M') if photo.taken else 'unknown' }}</div>{% endif %}
+          {% if 'sharpness' in tile_fields %}<div>sharpness {{ '%.2f'|format(photo.metrics.sharpness) }} / subject {{ '%.2f'|format(photo.metrics.sharpness_subject) }}</div>{% endif %}
+          {% if 'bokeh' in tile_fields %}<div>bokeh {{ '%.2f'|format(photo.metrics.bokeh) }}</div>{% endif %}
+          {% if 'blur' in tile_fields %}<div>blur {{ photo.metrics.blur_kind.value }} {{ '%.2f'|format(photo.metrics.blur_score) }}</div>{% endif %}
+          {% if 'aesthetic' in tile_fields %}<div>aesthetic {{ '%.2f'|format(photo.metrics.aesthetic) }}</div>{% endif %}
+          {% if 'subject' in tile_fields %}<div>subject {{ '%.2f'|format(photo.metrics.subject_score) }}</div>{% endif %}
+          {% if 'camera' in tile_fields and (photo.camera_make or photo.camera_model) %}<div>{{ photo.camera_make or '' }} {{ photo.camera_model or '' }}</div>{% endif %}
+          {% if 'dimensions' in tile_fields %}<div>{{ photo.width }}x{{ photo.height }}</div>{% endif %}
+          {% if 'group' in tile_fields and photo.group_id %}<div class="group-badge">group {{ photo.group_id }}</div>{% endif %}
+          {% if 'event' in tile_fields and photo.event_id %}<div>event {{ photo.event_id }}</div>{% endif %}
+        </div>
+      </li>
+      {% else %}
+      <li>No photos found.</li>
       {% endfor %}
     </ul>
-  </aside>
-  {% endif %}
 
-  <ul class="grid">
-    {% for photo in photos %}
-    <li class="card" data-photo-id="{{ photo.id }}" data-location-id="{{ photo.location_id or photo.id }}"
-        data-root="{{ photo.root_path }}" data-folder="{{ photo.folder }}">
-      <label class="select-box">
-        <input type="checkbox" data-select-photo value="{{ photo.location_id or photo.id }}">
-      </label>
-      <a href="/photo/{{ photo.id }}">
-        <img src="/media/location/{{ photo.location_id or photo.id }}" alt="{{ photo.name }}" loading="lazy">
-      </a>
-      <div class="meta">
-        <div class="name">{{ photo.name }}</div>
-        <div class="path" title="{{ photo.root_path }}/{{ photo.path }}">{{ photo.root_path }}/{{ photo.path }}</div>
-        {% if 'score' in tile_fields %}<div>score {{ '%.2f'|format(photo.score) }}</div>{% endif %}
-        {% if 'rating' in tile_fields %}<div>rating {{ photo.rating }}/5</div>{% endif %}
-        {% if 'taken' in tile_fields %}<div>taken {{ photo.taken.strftime('%Y-%m-%d %H:%M') if photo.taken else 'unknown' }}</div>{% endif %}
-        {% if 'sharpness' in tile_fields %}<div>sharpness {{ '%.2f'|format(photo.metrics.sharpness) }} / subject {{ '%.2f'|format(photo.metrics.sharpness_subject) }}</div>{% endif %}
-        {% if 'bokeh' in tile_fields %}<div>bokeh {{ '%.2f'|format(photo.metrics.bokeh) }}</div>{% endif %}
-        {% if 'blur' in tile_fields %}<div>blur {{ photo.metrics.blur_kind.value }} {{ '%.2f'|format(photo.metrics.blur_score) }}</div>{% endif %}
-        {% if 'aesthetic' in tile_fields %}<div>aesthetic {{ '%.2f'|format(photo.metrics.aesthetic) }}</div>{% endif %}
-        {% if 'subject' in tile_fields %}<div>subject {{ '%.2f'|format(photo.metrics.subject_score) }}</div>{% endif %}
-        {% if 'camera' in tile_fields and (photo.camera_make or photo.camera_model) %}<div>{{ photo.camera_make or '' }} {{ photo.camera_model or '' }}</div>{% endif %}
-        {% if 'dimensions' in tile_fields %}<div>{{ photo.width }}x{{ photo.height }}</div>{% endif %}
-        {% if 'group' in tile_fields %}<div>group {{ photo.group_id }}</div>{% endif %}
-        {% if 'event' in tile_fields %}<div>event {{ photo.event_id }}</div>{% endif %}
-      </div>
-    </li>
-    {% else %}
-    <li>No photos found.</li>
-    {% endfor %}
-  </ul>
+    <nav class="pagination" aria-label="Pagination">
+      {% if page > 1 %}<a href="/?{{ base_query }}{% if base_query %}&amp;{% endif %}page={{ page - 1 }}">previous</a>{% endif %}
+      <span>page {{ page }} / {{ pages }}</span>
+      {% if page < pages %}<a href="/?{{ base_query }}{% if base_query %}&amp;{% endif %}page={{ page + 1 }}">next</a>{% endif %}
+    </nav>
+  </div>
 </div>
 
-<nav class="pagination" aria-label="Pagination">
-  {% if page > 1 %}<a href="/?{{ base_query }}{% if base_query %}&amp;{% endif %}page={{ page - 1 }}">previous</a>{% endif %}
-  <span>page {{ page }} / {{ pages }}</span>
-  {% if page < pages %}<a href="/?{{ base_query }}{% if base_query %}&amp;{% endif %}page={{ page + 1 }}">next</a>{% endif %}
-</nav>
+<div class="selection-tray" data-selection>
+  <div class="selection-count"><span data-selected-count>0</span> selected</div>
+  <div class="selection-actions">
+    <button type="button" data-select-all>Select all filtered</button>
+    <button type="button" data-deselect-all>De-select all filtered</button>
+    <button type="button" data-clear>Clear all</button>
+    <button type="button" data-export-open>Export</button>
+  </div>
+</div>
+
+<dialog id="export-dialog" class="export-dialog" aria-labelledby="export-title">
+  <div class="dialog-header">
+    <strong id="export-title">Export photos</strong>
+    <button type="button" class="button-secondary" data-export-close aria-label="Close">Close</button>
+  </div>
+  <form method="post" action="/export?{{ base_query }}" class="export-form" data-export-form>
+    <input type="hidden" name="photo_ids" value="" data-photo-ids>
+    <label>Scope
+      <select name="scope" data-scope>
+        <option value="selected">Selected photos</option>
+        <option value="filtered">All filtered photos</option>
+      </select>
+    </label>
+    <label>Export target
+      <input type="text" name="output" value="{{ default_output }}" size="40">
+    </label>
+    <label>Layout
+      <select name="layout">
+        <option value="flat">flat</option>
+        <option value="tree">folder tree</option>
+      </select>
+    </label>
+    <label><input type="checkbox" name="rerender" value="true"> Re-render JPEG</label>
+    <label>Max long edge <input type="number" name="max_long_edge" min="64" max="20000" placeholder="original"></label>
+    <label>JPEG quality <input type="number" name="jpeg_quality" min="1" max="100" placeholder="85"></label>
+    <p class="export-note">Originals are copied only; the GUI never creates links.</p>
+    <div class="dialog-actions">
+      <button type="button" class="button-secondary" data-export-close>Cancel</button>
+      <button type="submit">Start export</button>
+    </div>
+  </form>
+</dialog>
 {% endblock %}

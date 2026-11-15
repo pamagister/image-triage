@@ -101,3 +101,11 @@ gui:
   - score
   - rating
   - taken
+  filters:
+    visible:
+    - rating
+    - quality
+    - sharpness
+    - date
+    - similar
+    hide_rejected: false

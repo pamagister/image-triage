@@ -89,6 +89,25 @@
   </section>
 
   <section class="settings-section">
+    <h2>Library filters</h2>
+    <p class="section-help">Choose which filter groups appear in the library sidebar. Advanced filters remain available under Advanced.</p>
+    <fieldset class="field-wide">
+      <legend>Visible filter groups</legend>
+      <input type="hidden" name="filter_groups_submitted" value="true">
+      <span class="checkbox-grid">
+        {% for value, label in filter_group_options %}
+        <label><input type="checkbox" name="filter_groups" value="{{ value }}" {% if value in settings.gui.filters.visible %}checked{% endif %}> {{ label }}</label>
+        {% endfor %}
+      </span>
+    </fieldset>
+    <input type="hidden" name="filter_hide_rejected_submitted" value="true">
+    <label class="checkbox-line">
+      <input type="checkbox" name="filter_hide_rejected" value="true" {% if settings.gui.filters.hide_rejected %}checked{% endif %}>
+      Hide rejected photos by default
+    </label>
+  </section>
+
+  <section class="settings-section">
     <h2>Export defaults</h2>
     <div class="settings-grid">
       <label>Mode

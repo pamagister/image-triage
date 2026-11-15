@@ -138,7 +138,7 @@ Desired outcome:
 
 ### Phase 0 - Bug fixes and quick wins
 
-**Status:** `[-]`
+**Status:** `[x]`
 
 - [x] P0-W01: Fix `parse_photo_query` so `event_id`/`group_id` stay lists; remove them from `NUMBER_KEYS`; normalize multi-value keys.
 - [x] P0-W02: Keep the folder tree complete by excluding `root` from `tree_filters`.
@@ -161,15 +161,15 @@ Desired outcome:
 
 ### Phase 1 - Filter sidebar and filter model
 
-**Status:** `[ ]`
+**Status:** `[-]`
 
-- [ ] P1-W01: Add `gui.filters` settings (visible groups, hide-rejected default).
-- [ ] P1-W02: Extend the query parser and repository with metric min/max ranges.
-- [ ] P1-W03: Add `group_size_min/max` and blur/group sorting.
-- [ ] P1-W04: Build the left sidebar with Folders and Filters tabs.
-- [ ] P1-W05: Build filter groups with dual-thumb range sliders and numeric readouts.
-- [ ] P1-W06: Add presets and active filter chips.
-- [ ] P1-W07: Add Settings controls for filter visibility and update docs.
+- [x] P1-W01: Add `gui.filters` settings (visible groups, hide-rejected default).
+- [x] P1-W02: Extend the query parser and repository with metric min/max ranges.
+- [x] P1-W03: Add `group_size_min/max` and blur/group sorting.
+- [x] P1-W04: Build the left sidebar with Folders and Filters tabs.
+- [x] P1-W05: Build filter groups with dual-thumb range sliders and numeric readouts.
+- [x] P1-W06: Add presets and active filter chips.
+- [x] P1-W07: Add Settings controls for filter visibility and update docs.
 
 **Acceptance criteria**
 
@@ -327,4 +327,4 @@ Desired outcome:
 
 ## 7. Progress / Handoff
 
-_Leave room for dated handoff entries._
+- 2026-11-15: Phase 0 complete. Fixed event/group filter parsing, kept the folder tree complete under a root scope, hid single-photo groups, changed the default view to folders, made select-all add with de-select/clear confirmation, and preserved rating on partial keep updates. Tests: 107 passed; Ruff clean. Commit `9fc70b7`, CI run `43770223757` green. Issue #21 closed. Existing issue #17 referenced. Next: Phase 1 (filter sidebar and filter model).

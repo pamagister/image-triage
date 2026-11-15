@@ -23,26 +23,30 @@ are not imported.
 
 ## Pages
 
-- **Settings** - manage watched roots, excluded directory names, default view and tile metadata,
-  export defaults, blur calibration, rating thresholds and analysis toggles. The watched-roots
-  table shows an active checkbox, on-disk and analyzed image counts, and a remove action per root.
-  Roots can be added by path or through a server-side directory browser. Removing a root keeps its
-  analysis history and never touches originals. The central state database path is shown read-only.
-  Settings are written atomically to the central YAML configuration and shared with the CLI.
-  Changes are rejected while a job is active.
-- **Library** - folder tree with photo counts by default, or a flat tile grid. An empty library
-  is scanned automatically; when files were added, changed or removed the page shows a
-  stale-library banner with a **Scan library** button. Filter by search, root, folder,
-  rating, event, group (groups with at least two photos), label, blur, camera make and model
-  (all multi-select), capture-date range, score/sharpness/aesthetic/subject ranges; sort by
-  capture time, score, rating, sharpness, bokeh, aesthetic or subject in either direction,
-  and page through the result with the active filters preserved. The first tile line is the
-  file name; the full path is below it. Optional metadata fields are selected in Settings
-  (default: score, rating, date).
-- **Folder view** - the left tree lists only folders that contain matching photos, with counts
-  that respect the active filters. The tree is navigation and always shows every watched root,
-  even when the photo grid is scoped to one root or folder. Each folder row has a checkbox that
-  selects all descendant locations; a partially selected folder is shown as indeterminate.
+- **Settings** - manage watched roots, excluded directory names, default view, tile metadata,
+  visible filter groups and the hide-rejected default, export defaults, blur calibration, rating
+  thresholds and analysis toggles. The watched-roots table shows an active checkbox, on-disk and analyzed image counts,
+  and a remove action per root. Roots can be added by path or through a server-side directory
+  browser. Removing a root keeps its analysis history and never touches originals. The central
+  state database path is shown read-only. Settings are written atomically to the central YAML
+  configuration and shared with the CLI. Changes are rejected while a job is active.
+- **Library** - a folder tree with photo counts by default, or a flat tile grid. An empty
+  library is scanned automatically; when files were added, changed or removed the page shows a
+  stale-library banner with a **Scan library** button. The left sidebar has **Folders** and
+  **Filters** tabs. The Folders tab always shows every watched root; selecting folders scopes
+  the grid. The Filters tab contains rating, quality, sharpness/blur, capture date and
+  similar-shot controls. Metric filters use min/max sliders with numeric readouts, and quick
+  presets (Good, Blurry, Low quality, Similar, Accepted, Rejected) apply within the current
+  root/folder scope. Active filters appear as removable chips above the result count. Sort by
+  capture time, score, rating, sharpness, bokeh, blur, aesthetic, subject, group or event in
+  either direction, and page through the result with the active filters preserved. The first
+  tile line is the file name; the full path is below it. Optional metadata fields and the
+  visible filter groups are selected in Settings (default metadata: score, rating, date).
+- **Folder view** - the sidebar tree lists only folders that contain matching photos, with
+  counts that respect the active filters. The tree is navigation and always shows every
+  watched root, even when the photo grid is scoped to one root or folder. Each folder row has
+  a checkbox that selects all descendant locations; a partially selected folder is shown as
+  indeterminate.
 - **Photo detail** - image, global and subject sharpness, bokeh, blur, composition breakdown,
   detections, similar shots, the current soft rating/keep/reject override and a form to change it.
 - **Compare** - side-by-side view of similar shots with their metric tables.
@@ -62,11 +66,13 @@ are not imported.
 - **De-select all filtered** removes only the photos matching the current filters from the
   selection; selections from other roots/folders remain.
 - **Clear all** empties the selection and asks for confirmation.
-- **Export selected** exports exactly the ticked photos. **Export all filtered** exports every
-  photo matching the current filters, not just the visible page.
-- The export form takes a target directory, defaulting to a timestamped folder under the central
-  data directory, and a mode (`copy`, `hardlink` or `symlink`). The default layout is flat; a
-  folder-tree layout is optional. Flat collisions are resolved with `_1`, `_2` suffixes.
+- **Export** opens a dialog over the library instead of navigating away. The scope can be
+  selected photos or all filtered photos. The dialog exposes the target directory, layout and
+  re-render options; it does not expose link modes, so browsing and selection stay in place
+  while the export is configured.
+- The target directory defaults to a timestamped folder under the central data directory, and
+  the layout defaults to flat; a folder-tree layout is optional. Flat collisions are resolved
+  with `_1`, `_2` suffixes.
 - Optional **Re-render** writes JPEGs at the configured maximum long edge and quality (default
   85), preserving EXIF and ICC. Re-rendering forces copy mode. RAW files are copied or linked
   unchanged.
