@@ -109,32 +109,84 @@
 
   <section class="settings-section">
     <h2>Selection</h2>
-    <p class="section-help">Defaults for the library's best-N control. Per-run overrides in the quick control win.</p>
-    <div class="settings-grid">
-      <label>Default N
-        <input type="number" name="selection_top_n" min="0" max="5000" value="{{ settings.selection.top_n }}">
-      </label>
-      <label>Diversity
-        <input type="number" name="selection_diversity" step="0.05" min="0" max="1" value="{{ settings.selection.diversity }}">
-      </label>
-      <label>Max per day
-        <input type="number" name="selection_max_per_day" min="0" value="{{ settings.selection.max_per_day }}">
-      </label>
-      <label>Max per cluster
-        <input type="number" name="selection_max_per_cluster" min="0" value="{{ settings.selection.max_per_cluster }}">
-      </label>
-      <label>Max per group
-        <input type="number" name="selection_max_per_group" min="1" value="{{ settings.selection.max_per_group }}">
-      </label>
-      <label>Event quota
-        <select name="selection_event_quota">
-          {% for value in ['sainte_lague', 'proportional', 'equal'] %}
-          <option value="{{ value }}" {% if settings.selection.event_quota == value %}selected{% endif %}>{{ value }}</option>
+    <p class="section-help">One <code>selections.yaml</code> holds every Best-N variant. The active radio is the default profile; per-run overrides in the quick control win.</p>
+    <p class="store-path">Profile file: <code>{{ selection_store_path }}</code></p>
+    <div class="table-wrap">
+      <table class="profile-table compact-table">
+        <thead>
+          <tr>
+            <th scope="col">Active</th>
+            <th scope="col">Name</th>
+            <th scope="col">N</th>
+            <th scope="col">Diversity</th>
+            <th scope="col">Max group</th>
+            <th scope="col">Max day</th>
+            <th scope="col">Max cluster</th>
+            <th scope="col">Event quota</th>
+            <th scope="col">Remove</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for profile in selection_profile_rows %}
+          <tr>
+            <td><input type="radio" name="selection_profile" value="{{ profile.name }}" {% if profile.name == settings.selection.profile %}checked{% endif %} aria-label="Use {{ profile.name }}"></td>
+            <td><input type="text" name="profile_name" value="{{ profile.name }}" aria-label="Profile name"></td>
+            <td><input class="compact-number" type="number" name="profile_top_n" min="0" max="5000" value="{{ profile.top_n }}"></td>
+            <td><input class="compact-number" type="number" name="profile_diversity" min="0" max="1" step="0.05" value="{{ profile.diversity }}"></td>
+            <td><input class="compact-number" type="number" name="profile_max_per_group" min="1" value="{{ profile.max_per_group }}"></td>
+            <td><input class="compact-number" type="number" name="profile_max_per_day" min="0" value="{{ profile.max_per_day }}"></td>
+            <td><input class="compact-number" type="number" name="profile_max_per_cluster" min="0" value="{{ profile.max_per_cluster }}"></td>
+            <td>
+              <select name="profile_event_quota">
+                {% for value in ['sainte_lague', 'proportional', 'equal'] %}
+                <option value="{{ value }}" {% if profile.event_quota == value %}selected{% endif %}>{{ value }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td><button type="button" class="button-danger compact-button" data-remove-profile>Remove</button></td>
+          </tr>
           {% endfor %}
-        </select>
-      </label>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-actions">
+      <button type="button" class="button-secondary" id="add-profile">Add profile</button>
       <label class="checkbox-line"><input type="checkbox" name="selection_include_rejected" {% if settings.selection.include_rejected %}checked{% endif %}> Include rejected</label>
       <label class="checkbox-line"><input type="checkbox" name="selection_prefer_accepted" {% if settings.selection.prefer_accepted %}checked{% endif %}> Prefer accepted</label>
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <h2>Filter presets</h2>
+    <p class="section-help">One <code>filters.yaml</code> holds every quick preset. Active presets appear in the library sidebar. Overrides are JSON objects using library filter keys.</p>
+    <p class="store-path">Preset file: <code>{{ selection_store_path.parent / 'filters.yaml' }}</code></p>
+    <div class="table-wrap">
+      <table class="preset-table compact-table">
+        <thead>
+          <tr>
+            <th scope="col">Active</th>
+            <th scope="col">Name</th>
+            <th scope="col">Label</th>
+            <th scope="col">Overrides (JSON)</th>
+            <th scope="col">Remove</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for preset in filter_preset_rows %}
+          <tr>
+            <td><input type="checkbox" name="preset_enabled" value="{{ preset.name }}" {% if preset.name in settings.gui.filters.presets %}checked{% endif %} aria-label="Enable {{ preset.label }}"></td>
+            <td><input type="text" name="preset_name" value="{{ preset.name }}" aria-label="Preset name"></td>
+            <td><input type="text" name="preset_label" value="{{ preset.label }}" aria-label="Preset label"></td>
+            <td><input type="text" name="preset_overrides" value="{{ preset.overrides | tojson }}" aria-label="Preset overrides"></td>
+            <td><button type="button" class="button-danger compact-button" data-remove-preset>Remove</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <input type="hidden" name="preset_submitted" value="true">
+    <div class="table-actions">
+      <button type="button" class="button-secondary" id="add-preset">Add preset</button>
     </div>
   </section>
 
@@ -193,12 +245,6 @@
     <h2>Advanced</h2>
     <p class="section-help">Rarely changed defaults. The export destination override is blank unless you set one.</p>
     <div class="settings-grid">
-      <label>Selection profile
-        <input type="text" name="selection_profile" value="{{ settings.selection.profile }}">
-      </label>
-      <label>Profiles directory
-        <input type="text" name="selection_profiles_dir" value="{{ settings.selection.profiles_dir }}">
-      </label>
       <label>Export destination override
         <input type="text" name="export_destination" value="{{ settings.export.destination or '' }}" placeholder="default image directory">
       </label>

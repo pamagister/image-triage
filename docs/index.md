@@ -112,8 +112,9 @@ uv run image-triage config validate
 ```
 
 The generated defaults are in `config.yaml`; all fields are documented in
-[`docs/usage/config.md`](usage/config.md). Selection profiles live in `profiles/`; the default is
-`profiles/best200.yaml`.
+[`docs/usage/config.md`](usage/config.md). Selection profiles live in one central
+`selections.yaml` and filter presets in one central `filters.yaml`; the packaged defaults are
+seeded into the config directory on first use and can be edited in the GUI.
 
 Performance and scale measurements are in [`docs/usage/performance.md`](usage/performance.md);
 model installation and licensing are in [`docs/usage/models.md`](usage/models.md).

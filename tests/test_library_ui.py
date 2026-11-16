@@ -289,6 +289,8 @@ def test_settings_page_shows_root_counts_and_read_only_database(
         assert b">Scoring</h2>" in page.content
         assert b">Advanced</h2>" in page.content
         assert b'name="selection_profile"' in page.content
+        assert b'name="profile_top_n"' in page.content
+        assert b'name="preset_enabled"' in page.content
         assert b'name="export_destination"' in page.content
         assert b"data-header-jobs" in page.content
 
@@ -311,13 +313,20 @@ def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path:
                 "filter_groups_submitted": "true",
                 "filter_hide_rejected": "true",
                 "filter_hide_rejected_submitted": "true",
-                "selection_top_n": "12",
-                "selection_diversity": "0.7",
-                "selection_max_per_day": "4",
-                "selection_max_per_cluster": "2",
-                "selection_max_per_group": "1",
-                "selection_event_quota": "equal",
+                "selection_profile": "best50",
                 "selection_prefer_accepted": "true",
+                "profile_name": ["best50"],
+                "profile_top_n": ["12"],
+                "profile_diversity": ["0.7"],
+                "profile_max_per_group": ["1"],
+                "profile_max_per_day": ["4"],
+                "profile_max_per_cluster": ["2"],
+                "profile_event_quota": ["equal"],
+                "preset_name": ["good"],
+                "preset_label": ["Good"],
+                "preset_overrides": ['{"rating": [4, 5], "aesthetic_min": 0.6}'],
+                "preset_enabled": ["good"],
+                "preset_submitted": "true",
             },
             follow_redirects=False,
         )
@@ -327,13 +336,19 @@ def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path:
         assert client.app.state.settings.gui.tile_fields == ["score", "taken"]
         assert client.app.state.settings.gui.filters.visible == ["rating", "date"]
         assert client.app.state.settings.gui.filters.hide_rejected is True
-        assert client.app.state.settings.selection.top_n == 12
-        assert client.app.state.settings.selection.diversity == 0.7
-        assert client.app.state.settings.selection.max_per_day == 4
-        assert client.app.state.settings.selection.max_per_cluster == 2
-        assert client.app.state.settings.selection.event_quota == "equal"
+        assert client.app.state.settings.selection.profile == "best50"
         assert client.app.state.settings.selection.prefer_accepted is True
+        assert client.app.state.settings.gui.filters.presets == ["good"]
         assert client.app.state.settings.input.exclude == [".hidden", "cache"]
+
+        from image_triage.selection.presets import load_presets
+        from image_triage.selection.profiles import load_profiles
+
+        assert load_profiles(client.app.state.settings)[0].top_n == 12
+        assert load_presets(client.app.state.settings)[0].overrides == {
+            "rating": [4, 5],
+            "aesthetic_min": 0.6,
+        }
 
         stored = client.app.state.settings.config_path.read_text()
         assert str(photo_dir.resolve()) in stored

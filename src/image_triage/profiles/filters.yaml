@@ -1,0 +1,28 @@
+presets:
+  - name: good
+    label: Good
+    overrides:
+      rating: [4, 5]
+      aesthetic_min: 0.6
+      blur_max: 0.35
+  - name: blurry
+    label: Blurry
+    overrides:
+      blur_min: 0.6
+  - name: low-quality
+    label: Low quality
+    overrides:
+      aesthetic_max: 0.4
+      score_max: 0.4
+  - name: similar
+    label: Similar
+    overrides:
+      group_size_min: 2
+  - name: accepted
+    label: Accepted
+    overrides:
+      status: [accepted]
+  - name: rejected
+    label: Rejected
+    overrides:
+      status: [rejected]

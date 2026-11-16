@@ -82,7 +82,7 @@ The generated `config.yaml` contains the same defaults.
 | include_rejected | bool | `false` |
 | prefer_accepted | bool | `true` |
 | profiles_dir | Path | `profiles` |
-| profile | str | `"best200"` |
+| profile | str | `"best50"` |
 
 ## "models" {#models}
 
@@ -134,4 +134,4 @@ The generated `config.yaml` contains the same defaults.
 | reload | bool | `false` |
 | default_view | str | `"folders"` |
 | tile_fields | list[str] | `["score", "rating", "taken"]` |
-| filters | GuiFilterSettings | `{"visible": ["rating", "quality", "sharpness", "date", "similar"], "hide_rejected": false}` |
+| filters | GuiFilterSettings | `{"visible": ["rating", "quality", "sharpness", "date", "similar"], "hide_rejected": false, "presets": ["good", "blurry", "low-quality", "similar", "accepted", "rejected"]}` |

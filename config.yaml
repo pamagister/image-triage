@@ -68,7 +68,7 @@ selection:
   include_rejected: false
   prefer_accepted: true
   profiles_dir: profiles
-  profile: best200
+  profile: best50
 models:
   enabled: true
   yolo_path: res/yolo/yolo26n.onnx
@@ -111,3 +111,10 @@ gui:
     - date
     - similar
     hide_rejected: false
+    presets:
+    - good
+    - blurry
+    - low-quality
+    - similar
+    - accepted
+    - rejected

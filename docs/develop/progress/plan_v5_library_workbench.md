@@ -335,3 +335,13 @@ Desired outcome:
 - 2026-11-16: Phase 4 complete. Export now defaults to ~/Bilder/image-triage, ~/Images/image-triage or ~/image-triage, the GUI always copies (no link mode), and the export drawer supports selected/filtered/accepted scopes. Settings no longer exposes a GUI link-mode selector. Tests: 122 passed; Ruff clean. Commit `1e1ea61`, CI run `43775242757` green. Issue #25 closed. Next: Phase 5 (Events timeline, read-only Jobs and curated Settings) in issue #26.
 - 2026-11-16: Phase 5 complete. Events is now a card timeline with representative covers and library links; Jobs is read-only and reachable from a polling header indicator; Settings is organized into Library, Filters, Selection, Export, Scoring, Analysis and Advanced with rescan hints. Tests: 123 passed; Ruff and mkdocs build clean. Commit `401ddc5`, CI run `43775870126` green. Issue #26 closed. Next: Phase 6 (verification and release) in issue #27.
 - 2026-11-16: Phase 6 complete and the v5 plan is done. Final checks: make fmt, make lint, make test (124 passed), make syncdocs, mkdocs build, wheel build with entry_points and bundled GUI assets, CLI --help and GUI import. Added an automated two-root workflow smoke test covering library, events, read-only jobs, settings, group compare and best-N. Commit `1b20369`, CI run `43776436558` green, README sync run `43776436566` green. Issue #27 closed. No work remains from this plan.
+
+## Follow-up: central selection profiles and filter presets
+
+- [x] P7-W01: Add package defaults `src/image_triage/profiles/selections.yaml` and `filters.yaml`; include them as package data.
+- [x] P7-W02: Make `selections.yaml` the source of truth for selection profiles, seed it into the config directory, rename `best200` to `best50`, and add `best100`.
+- [x] P7-W03: Fix GUI best-N to use the selected profile; the quick N control overrides only `top_n`.
+- [x] P7-W04: Persist filter presets in `filters.yaml` and add `gui.filters.presets` activation settings.
+- [x] P8-W01: Add compact Settings editors for profiles and filter presets, including add/remove, active radio/checkboxes and JSON overrides.
+- [x] P8-W02: Add library profile buttons, profile-aware best-N requests, and active-preset rendering.
+- [x] P8-W03: Update docs and tests; verify `make fmt`, `make lint`, `make test`, `make syncdocs`, `mkdocs build`.

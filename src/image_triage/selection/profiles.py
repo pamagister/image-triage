@@ -11,9 +11,12 @@ import yaml
 from image_triage.core.errors import UsageError
 from image_triage.core.settings import Settings
 
+SELECTIONS_FILE_NAME = "selections.yaml"
+PACKAGE_PROFILE_DIR = Path(__file__).parent.parent / "profiles"
+
 DEFAULT_PROFILE: dict[str, Any] = {
-    "name": "best200",
-    "top_n": 200,
+    "name": "best50",
+    "top_n": 50,
     "diversity": 0.5,
     "max_per_group": 1,
     "max_per_day": 5,
@@ -21,13 +24,23 @@ DEFAULT_PROFILE: dict[str, Any] = {
     "event_quota": "sainte_lague",
 }
 
+_PROFILE_KEYS = {
+    "name",
+    "top_n",
+    "diversity",
+    "max_per_group",
+    "max_per_day",
+    "max_per_cluster",
+    "event_quota",
+}
+
 
 @dataclass(slots=True)
 class SelectionProfile:
     """Validated selection settings."""
 
-    name: str = "best200"
-    top_n: int = 200
+    name: str = "best50"
+    top_n: int = 50
     diversity: float = 0.5
     max_per_group: int = 1
     max_per_day: int = 5
@@ -38,6 +51,8 @@ class SelectionProfile:
         return asdict(self)
 
     def validate(self) -> None:
+        if not self.name.strip():
+            raise UsageError("profile name must not be empty")
         if self.top_n < 0:
             raise UsageError("top_n must be >= 0", top_n=self.top_n)
         if not 0.0 <= self.diversity <= 1.0:
@@ -50,16 +65,98 @@ class SelectionProfile:
             raise UsageError(f"unknown event quota: {self.event_quota}")
 
 
-def _candidate_paths(settings: Settings, profile: str) -> list[Path]:
-    names = [profile]
-    if not profile.endswith((".yaml", ".yml")):
-        names.append(profile + ".yaml")
-    paths = []
-    for name in names:
-        paths.append(settings.selection.profiles_dir / name)
-        paths.append(Path("profiles") / name)
-        paths.append(Path(name))
-    return paths
+def profiles_path(settings: Settings) -> Path:
+    """Path of the editable central ``selections.yaml``.
+
+    Relative ``selection.profiles_dir`` values are resolved against the central config
+    directory so a GUI started outside the source tree still uses the same profiles.
+    """
+    configured = settings.selection.profiles_dir.expanduser()
+    if configured.is_absolute():
+        return configured / SELECTIONS_FILE_NAME
+    return settings.config_path.parent / configured / SELECTIONS_FILE_NAME
+
+
+def package_profiles_path() -> Path:
+    """Path of the read-only profiles shipped inside the installed package."""
+    return PACKAGE_PROFILE_DIR / SELECTIONS_FILE_NAME
+
+
+def _read_yaml(path: Path) -> dict[str, Any]:
+    try:
+        loaded = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        raise UsageError(f"invalid profile YAML: {path}: {exc}") from exc
+    if not isinstance(loaded, dict):
+        raise UsageError(f"profile file must be a mapping: {path}")
+    return loaded
+
+
+def _default_profiles() -> list[dict[str, Any]]:
+    """Read the packaged selection profiles."""
+    path = package_profiles_path()
+    if not path.is_file():
+        raise UsageError(f"packaged selection profiles not found: {path}")
+    loaded = _read_yaml(path)
+    profiles = loaded.get("profiles")
+    if not isinstance(profiles, list) or not profiles:
+        raise UsageError(f"packaged selection profiles must contain a non-empty list: {path}")
+    return [dict(item) for item in profiles]
+
+
+def _profile_from_mapping(values: dict[str, Any], *, path: Path) -> SelectionProfile:
+    unknown = set(values) - _PROFILE_KEYS
+    if unknown:
+        raise UsageError(f"unknown profile keys: {sorted(unknown)}", path=str(path))
+    if "name" not in values or not str(values["name"]).strip():
+        raise UsageError("profile name must not be empty", path=str(path))
+    result = SelectionProfile(**values)
+    result.validate()
+    return result
+
+
+def ensure_profiles(settings: Settings) -> Path:
+    """Seed the editable ``selections.yaml`` from the package defaults when missing."""
+    target = profiles_path(settings)
+    if target.is_file():
+        return target
+    target.parent.mkdir(parents=True, exist_ok=True)
+    source = package_profiles_path()
+    temporary = target.with_suffix(target.suffix + ".tmp")
+    temporary.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    temporary.replace(target)
+    return target
+
+
+def load_profiles(settings: Settings, *, create: bool = True) -> list[SelectionProfile]:
+    """Load every selection profile from the central YAML file.
+
+    ``create=False`` is used by read-only pages: if the editable file does not exist yet,
+    the packaged defaults are returned without writing to the config directory.
+    """
+    path = ensure_profiles(settings) if create else profiles_path(settings)
+    if not path.is_file():
+        if create:
+            raise UsageError(f"selection profiles not found: {path}")
+        return [
+            _profile_from_mapping(values, path=package_profiles_path())
+            for values in _default_profiles()
+        ]
+    loaded = _read_yaml(path)
+    profiles = loaded.get("profiles")
+    if not isinstance(profiles, list) or not profiles:
+        raise UsageError(f"selection profiles must contain a non-empty list: {path}")
+    result: list[SelectionProfile] = []
+    names: set[str] = set()
+    for values in profiles:
+        if not isinstance(values, dict):
+            raise UsageError(f"selection profile must be a mapping: {path}")
+        profile = _profile_from_mapping(values, path=path)
+        if profile.name in names:
+            raise UsageError(f"duplicate selection profile name: {profile.name}", path=str(path))
+        names.add(profile.name)
+        result.append(profile)
+    return result
 
 
 def load_profile(
@@ -67,43 +164,60 @@ def load_profile(
     profile: str | None = None,
     overrides: dict[str, Any] | None = None,
 ) -> SelectionProfile:
-    """Load a profile by name or path and apply CLI overrides.
+    """Load one profile by name and apply explicit overrides.
 
-    Missing ``best200`` falls back to built-in defaults; any other missing profile is
-    a usage error. Explicit overrides always win.
+    Explicit overrides always win. The active profile in ``settings.selection.profile`` is
+    used when no profile name is supplied.
     """
     name = profile or settings.selection.profile
-    values = dict(DEFAULT_PROFILE)
-    values["name"] = name
-    values.update(
-        {
-            "top_n": settings.selection.top_n,
-            "diversity": settings.selection.diversity,
-            "max_per_group": settings.selection.max_per_group,
-            "max_per_day": settings.selection.max_per_day,
-            "max_per_cluster": settings.selection.max_per_cluster,
-            "event_quota": settings.selection.event_quota,
-        }
-    )
-    path = next(
-        (candidate for candidate in _candidate_paths(settings, name) if candidate.is_file()), None
-    )
-    if path is not None:
-        try:
-            loaded = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        except yaml.YAMLError as exc:
-            raise UsageError(f"invalid profile YAML: {path}: {exc}") from exc
-        if not isinstance(loaded, dict):
-            raise UsageError(f"profile must be a mapping: {path}")
-        unknown = set(loaded) - set(DEFAULT_PROFILE)
-        if unknown:
-            raise UsageError(f"unknown profile keys: {sorted(unknown)}", path=str(path))
-        values.update(loaded)
-        values["name"] = str(loaded.get("name", name))
-    elif name not in {"best200", "default"}:
+    profiles = load_profiles(settings, create=False)
+    by_name = {item.name: item for item in profiles}
+    if name not in by_name:
+        if profile is None:
+            legacy = {
+                "best200": ("best50", {"top_n": 200}),
+                "best100": ("best100", {}),
+            }
+            mapped = legacy.get(name)
+            if mapped is not None:
+                name = mapped[0]
+                profiles = load_profiles(settings)
+                by_name = {item.name: item for item in profiles}
+                if name not in by_name:
+                    raise UsageError(f"selection profile not found: {name}")
+                selected = by_name[name]
+                values = selected.to_dict()
+                values.update(mapped[1])
+                values.update(overrides or {})
+                result = _profile_from_mapping(values, path=package_profiles_path())
+                result.name = selected.name
+                return result
         raise UsageError(f"selection profile not found: {name}")
-
+    selected = by_name[name]
+    values = selected.to_dict()
     values.update(overrides or {})
-    result = SelectionProfile(**values)
-    result.validate()
+    result = _profile_from_mapping(values, path=package_profiles_path())
+    result.name = selected.name
     return result
+
+
+def write_profiles(settings: Settings, profiles: list[SelectionProfile]) -> Path:
+    """Validate and atomically write the central ``selections.yaml``."""
+    if not profiles:
+        raise UsageError("at least one selection profile is required")
+    names: set[str] = set()
+    for profile in profiles:
+        profile.validate()
+        if profile.name in names:
+            raise UsageError(f"duplicate selection profile name: {profile.name}")
+        names.add(profile.name)
+    path = profiles_path(settings)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"profiles": [profile.to_dict() for profile in profiles]}
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(
+        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    temporary.replace(path)
+    return path

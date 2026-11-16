@@ -134,7 +134,7 @@ class SelectionSettings(BaseModel):
     include_rejected: bool = False
     prefer_accepted: bool = True
     profiles_dir: Path = Path("profiles")
-    profile: str = Field("best200", min_length=1)
+    profile: str = Field("best50", min_length=1)
 
 
 class ModelsSettings(BaseModel):
@@ -191,6 +191,9 @@ class GuiFilterSettings(BaseModel):
         default_factory=lambda: ["rating", "quality", "sharpness", "date", "similar"]
     )
     hide_rejected: bool = False
+    presets: list[str] = Field(
+        default_factory=lambda: ["good", "blurry", "low-quality", "similar", "accepted", "rejected"]
+    )
 
 
 class GuiSettings(BaseModel):

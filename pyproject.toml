@@ -74,7 +74,12 @@ docs = [
 ]
 
 [tool.setuptools.package-data]
-image_triage = ["report/schema/*.json", "gui/templates/*.html", "gui/static/*"]
+image_triage = [
+    "report/schema/*.json",
+    "gui/templates/*.html",
+    "gui/static/*",
+    "profiles/*.yaml",
+]
 
 [tool.deptry.per_rule_ignores]
 # Optional gpu extra is installed explicitly and not imported by the core package.

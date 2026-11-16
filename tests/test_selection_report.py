@@ -48,7 +48,8 @@ def _photo(
 def test_profile_defaults_and_overrides() -> None:
     settings = load_settings(None)
     profile = load_profile(settings)
-    assert profile.top_n == 200
+    assert profile.name == "best50"
+    assert profile.top_n == 50
     assert profile.event_quota == "sainte_lague"
     profile = load_profile(settings, overrides={"top_n": 7, "diversity": 0.1})
     assert profile.top_n == 7 and profile.diversity == 0.1
@@ -59,6 +60,7 @@ def test_profile_rejects_unknown_name(tmp_path: Path) -> None:
         None,
         {"input": {"root": tmp_path}, "selection": {"profiles_dir": tmp_path}},
     )
+    settings.selection.profile = "best50"
     from image_triage.core.errors import UsageError
 
     with pytest.raises(UsageError):

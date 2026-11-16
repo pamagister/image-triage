@@ -491,15 +491,22 @@
     });
   }
 
-  function runBest(groupBest) {
+  function runBest(groupBest, profileButton) {
     var status = document.querySelector("[data-best-status]");
     var nField = document.querySelector("[data-best-n]");
     var modeField = document.querySelector("[data-best-mode]");
     var mode = modeField ? modeField.value : "add";
+    if (profileButton && nField) {
+      nField.value = profileButton.dataset.profileN || nField.value;
+    }
+    document.querySelectorAll("[data-profile]").forEach(function (button) {
+      button.classList.toggle("is-active", button === profileButton);
+    });
     var body = {
       filters: currentFilters(),
       mode: mode,
       existing_ids: mode === "add" ? readSelected() : [],
+      profile: profileButton ? profileButton.dataset.profile : undefined,
     };
     if (!groupBest) {
       body.n = nField ? Math.max(0, Number(nField.value) || 0) : 20;
@@ -745,14 +752,22 @@
     var bestRun = document.querySelector("[data-best-run]");
     if (bestRun) {
       bestRun.addEventListener("click", function () {
-        runBest(false);
+        var activeProfile = document.querySelector("[data-profile].is-active");
+        runBest(false, activeProfile || document.querySelector("[data-profile]"));
       });
     }
+
+    document.querySelectorAll("[data-profile]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        runBest(false, button);
+      });
+    });
 
     var groupBest = document.querySelector("[data-group-best]");
     if (groupBest) {
       groupBest.addEventListener("click", function () {
-        runBest(true);
+        var activeProfile = document.querySelector("[data-profile].is-active");
+        runBest(true, activeProfile || document.querySelector("[data-profile]"));
       });
     }
 

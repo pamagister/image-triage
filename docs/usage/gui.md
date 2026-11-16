@@ -23,10 +23,12 @@ are not imported.
 
 ## Pages
 
-- **Settings** - organized into Library, Filters, Selection, Export, Scoring, Analysis and
-  Advanced sections. Manage watched roots, excluded directory names, default view, tile
-  metadata, visible filter groups and the hide-rejected default, best-N selection defaults,
-  export defaults, blur calibration, rating thresholds and analysis toggles. Analysis and
+- **Settings** - organized into Library, Filters, Selection, Filter presets, Export, Scoring,
+  Analysis and Advanced sections. Manage watched roots, excluded directory names, default view,
+  tile metadata, visible filter groups, the hide-rejected default, central selection profiles and
+  filter presets, export defaults, blur calibration, rating thresholds and analysis toggles.
+  Selection profiles live in one central `selections.yaml`; filter presets live in one central
+  `filters.yaml`. The packaged defaults are copied into the config directory on first use. Analysis and
   scoring changes are marked as requiring a new scan or scoring run. The watched-roots table
   shows an active checkbox, on-disk and analyzed image counts, and a remove action per root.
   Roots can be added by path or through a server-side directory browser. Removing a root keeps
@@ -39,8 +41,8 @@ are not imported.
   **Filters** tabs. The Folders tab always shows every watched root; selecting folders scopes
   the grid. The Filters tab contains rating, quality, sharpness/blur, capture date, status and
   similar-shot controls. Metric filters use dual-handle min/max sliders with live numeric
-  readouts, and quick presets (Good, Blurry, Low quality, Similar, Accepted, Rejected) apply
-  within the current root/folder scope. Active filters appear as removable badges above the
+  readouts, and active presets from `filters.yaml` (Good, Blurry, Low quality, Similar,
+  Accepted, Rejected by default) apply within the current root/folder scope. Active filters appear as removable badges above the
   result count. Accepted and rejected photos carry status badges on their tiles. Sort by
   capture time, score, rating, sharpness, bokeh, blur, aesthetic, subject, group or event in
   either direction, and page through the result with the active filters preserved. The first
@@ -73,13 +75,12 @@ are not imported.
 - **De-select all filtered** removes only the photos matching the current filters from the
   selection; selections from other roots/folders remain.
 - **Clear all** empties the selection and asks for confirmation.
-- **Best N** - the bar above the grid selects N photos from the current filtered scope. **Add N
-  new** keeps the existing selection and appends N new photos; **Replace with N** ends with
-  exactly N photos. The quick control uses the defaults from Settings > Selection and can be
-  overridden per run. Rejected photos are excluded unless **Include rejected** is enabled;
-  accepted photos get a soft preference. Large scopes run as background jobs and report when
-  the selection is ready. **One per group** keeps the highest-scoring photo of each similarity
-  group in the current scope.
+- **Best N** - the profile buttons above the grid choose an editable selection profile from
+  `selections.yaml`; the profile's N is prefilled but can be overridden. **Add N new** keeps the
+  existing selection and appends N new photos; **Replace with N** ends with exactly N photos.
+  Rejected photos are excluded unless **Include rejected** is enabled; accepted photos get a soft
+  preference. Large scopes run as background jobs and report when the selection is ready.
+  **One per group** keeps the highest-scoring photo of each similarity group in the current scope.
 - **Compare** - `/compare?ids=...` shows any set of photos side by side;
   `/compare/group/{group_id}` opens a whole similarity group. Compare can select all shown
   photos, select the best, accept the best and reject the others, or reject only the other

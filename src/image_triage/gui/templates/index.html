@@ -72,6 +72,11 @@
 </div>
 
 <div class="best-bar" aria-label="Best selection">
+  <div class="profile-buttons" role="group" aria-label="Selection profiles">
+    {% for profile in selection_profiles %}
+    <button type="button" class="profile-button{% if profile.name == active_profile %} is-active{% endif %}" data-profile="{{ profile.name }}" data-profile-n="{{ profile.top_n }}" data-profile-diversity="{{ profile.diversity }}" data-profile-max-day="{{ profile.max_per_day }}" data-profile-max-cluster="{{ profile.max_per_cluster }}" data-profile-event-quota="{{ profile.event_quota }}" title="{{ profile.name }}: top {{ profile.top_n }}, diversity {{ profile.diversity }}, max {{ profile.max_per_day }}/day, quota {{ profile.event_quota }}">{{ profile.name }}</button>
+    {% endfor %}
+  </div>
   <label>Best
     <input type="number" data-best-n min="0" max="5000" value="{{ best_n }}">
   </label>
