@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -10,6 +11,8 @@ from image_triage.analysis.analyze import analyze_library
 from image_triage.core.settings import load_settings
 from image_triage.db.repository import Repository
 from image_triage.gui.app import create_app
+from image_triage.selection.presets import FILTER_FIELDS, load_presets
+from image_triage.selection.profiles import load_profiles
 
 
 def _client(photo_dir: Path, tmp_path: Path, **gui: object):
@@ -288,9 +291,13 @@ def test_settings_page_shows_root_counts_and_read_only_database(
         assert b">Analysis</h2>" in page.content
         assert b">Scoring</h2>" in page.content
         assert b">Advanced</h2>" in page.content
-        assert b'name="selection_profile"' in page.content
+        assert b'name="profile_name"' in page.content
         assert b'name="profile_top_n"' in page.content
+        assert b'name="profile_order"' in page.content
+        assert b"data-move-up" in page.content
         assert b'name="preset_enabled"' in page.content
+        assert b'name="preset_values"' in page.content
+        assert b"preset_overrides" not in page.content
         assert b'name="export_destination"' in page.content
         assert b"data-header-jobs" in page.content
 
@@ -313,8 +320,8 @@ def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path:
                 "filter_groups_submitted": "true",
                 "filter_hide_rejected": "true",
                 "filter_hide_rejected_submitted": "true",
-                "selection_profile": "best50",
                 "selection_prefer_accepted": "true",
+                "profile_order": ["best50"],
                 "profile_name": ["best50"],
                 "profile_top_n": ["12"],
                 "profile_diversity": ["0.7"],
@@ -322,9 +329,14 @@ def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path:
                 "profile_max_per_day": ["4"],
                 "profile_max_per_cluster": ["2"],
                 "profile_event_quota": ["equal"],
+                "preset_order": ["good"],
                 "preset_name": ["good"],
                 "preset_label": ["Good"],
-                "preset_overrides": ['{"rating": [4, 5], "aesthetic_min": 0.6}'],
+                "preset_values": [
+                    f"{key}="
+                    + ("4,5" if key == "rating" else "0.6" if key == "aesthetic_min" else "")
+                    for key in FILTER_FIELDS
+                ],
                 "preset_enabled": ["good"],
                 "preset_submitted": "true",
             },
@@ -340,9 +352,6 @@ def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path:
         assert client.app.state.settings.selection.prefer_accepted is True
         assert client.app.state.settings.gui.filters.presets == ["good"]
         assert client.app.state.settings.input.exclude == [".hidden", "cache"]
-
-        from image_triage.selection.presets import load_presets
-        from image_triage.selection.profiles import load_profiles
 
         assert load_profiles(client.app.state.settings)[0].top_n == 12
         assert load_presets(client.app.state.settings)[0].overrides == {
@@ -365,6 +374,103 @@ def test_settings_page_persists_roots_and_tile_fields(photo_dir: Path, tmp_path:
         assert unrelated.status_code == 303
         assert client.app.state.settings.gui.filters.visible == ["rating", "date"]
         assert client.app.state.settings.gui.filters.hide_rejected is True
+
+
+def test_settings_adds_profiles_and_presets(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    profiles = load_profiles(settings)
+    presets = load_presets(settings)
+
+    with client:
+        response = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(photo_dir.resolve())],
+                "enabled_roots": [str(photo_dir.resolve())],
+                **_profile_form(profiles),
+                **_preset_form(presets),
+                "add_profile": "1",
+                "add_preset": "1",
+            },
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 303
+    profile_names = [profile.name for profile in load_profiles(client.app.state.settings)]
+    preset_names = [preset.name for preset in load_presets(client.app.state.settings)]
+    assert profile_names[-1] == "new-profile"
+    assert preset_names[-1] == "new-preset"
+    assert load_presets(client.app.state.settings)[-1].overrides == {}
+
+
+def test_settings_removes_profiles_and_presets(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    profiles = load_profiles(settings)
+    presets = load_presets(settings)
+
+    with client:
+        response = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(photo_dir.resolve())],
+                "enabled_roots": [str(photo_dir.resolve())],
+                **_profile_form(profiles[1:]),
+                **_preset_form(presets[1:], enabled=[]),
+            },
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 303
+    active_settings = client.app.state.settings
+    assert [profile.name for profile in load_profiles(active_settings)] == [
+        profile.name for profile in profiles[1:]
+    ]
+    assert [preset.name for preset in load_presets(active_settings)] == [
+        preset.name for preset in presets[1:]
+    ]
+    assert active_settings.selection.profile == profiles[1].name
+    assert active_settings.gui.filters.presets == []
+
+
+def test_settings_ranks_and_renames_profiles_and_presets(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    profiles = load_profiles(settings)
+    presets = load_presets(settings)
+    ordered_profiles = list(reversed(profiles))
+    profile_order = [profile.name for profile in ordered_profiles]
+    ordered_profiles[0] = replace(ordered_profiles[0], name="top-profile")
+    ordered_presets = [presets[1], presets[0]]
+    preset_order = [preset.name for preset in ordered_presets]
+    ordered_presets[0] = replace(ordered_presets[0], name="renamed-preset")
+
+    with client:
+        response = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(photo_dir.resolve())],
+                "enabled_roots": [str(photo_dir.resolve())],
+                **_profile_form(ordered_profiles, order_names=profile_order),
+                **_preset_form(
+                    ordered_presets,
+                    order_names=preset_order,
+                    enabled=[preset_order[0]],
+                ),
+            },
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 303
+    active_settings = client.app.state.settings
+    assert active_settings.selection.profile == "top-profile"
+    assert [profile.name for profile in load_profiles(active_settings)] == [
+        "top-profile",
+        *profile_order[1:],
+    ]
+    assert [preset.name for preset in load_presets(active_settings)] == [
+        "renamed-preset",
+        preset_order[1],
+    ]
+    assert active_settings.gui.filters.presets == ["renamed-preset"]
 
 
 def test_settings_adds_deactivates_and_removes_roots(photo_dir: Path, tmp_path: Path) -> None:
@@ -470,6 +576,58 @@ def test_settings_rejects_changes_while_a_job_is_active(photo_dir: Path, tmp_pat
         )
         assert response.status_code == 409
         assert b"job is active" in response.content
+
+
+def _profile_form(profiles, order_names=None):
+    data = {
+        "profile_order": [],
+        "profile_name": [],
+        "profile_top_n": [],
+        "profile_diversity": [],
+        "profile_max_per_group": [],
+        "profile_max_per_day": [],
+        "profile_max_per_cluster": [],
+        "profile_event_quota": [],
+    }
+    for index, profile in enumerate(profiles):
+        data["profile_order"].append(
+            order_names[index] if order_names is not None else profile.name
+        )
+        data["profile_name"].append(profile.name)
+        data["profile_top_n"].append(str(profile.top_n))
+        data["profile_diversity"].append(str(profile.diversity))
+        data["profile_max_per_group"].append(str(profile.max_per_group))
+        data["profile_max_per_day"].append(str(profile.max_per_day))
+        data["profile_max_per_cluster"].append(str(profile.max_per_cluster))
+        data["profile_event_quota"].append(profile.event_quota)
+    return data
+
+
+def _preset_form(presets, order_names=None, enabled=None):
+    data = {
+        "preset_order": [],
+        "preset_name": [],
+        "preset_label": [],
+        "preset_values": [],
+        "preset_enabled": list(enabled or []),
+        "preset_submitted": "true",
+    }
+    for index, preset in enumerate(presets):
+        data["preset_order"].append(order_names[index] if order_names is not None else preset.name)
+        data["preset_name"].append(preset.name)
+        data["preset_label"].append(preset.label)
+        for key in FILTER_FIELDS:
+            value = preset.overrides.get(key)
+            if value is None:
+                rendered = ""
+            elif isinstance(value, bool):
+                rendered = "true" if value else "false"
+            elif isinstance(value, list):
+                rendered = ",".join(str(item) for item in value)
+            else:
+                rendered = str(value)
+            data["preset_values"].append(f"{key}={rendered}")
+    return data
 
 
 def _client_with_settings(photo_dir: Path, tmp_path: Path):

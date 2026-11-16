@@ -20,6 +20,7 @@ from starlette.datastructures import QueryParams
 
 from image_triage.analysis.analyze import analyze_library
 from image_triage.analysis.pipeline import run_pipeline
+from image_triage.core.errors import UsageError
 from image_triage.core.models import BlurKind, ExportMode, OverrideSource, Photo
 from image_triage.core.settings import Settings, load_settings
 from image_triage.db.repository import Repository
@@ -31,9 +32,13 @@ from image_triage.gui.query import PhotoQuery, parse_photo_query
 from image_triage.io.scan import find_images
 from image_triage.scoring.score import score_library
 from image_triage.selection.presets import (
-    FilterPreset,
+    FILTER_FIELD_KINDS,
+    FILTER_FIELDS,
     active_presets,
+    filters_path,
     load_presets,
+    overrides_from_field_values,
+    preset_from_mapping,
     write_presets,
 )
 from image_triage.selection.profiles import (
@@ -182,6 +187,15 @@ def _media_path(settings: Settings, photo: Photo) -> Path:
 
 def _active_jobs(repository: Repository) -> list[dict[str, Any]]:
     return [job for job in repository.list_jobs() if job["status"] in ACTIVE_JOB_STATUSES]
+
+
+def _active_profile_name(settings: Settings) -> str:
+    """Return the configured active profile, falling back to the first available profile."""
+    profiles = load_profiles(settings, create=False)
+    names = {profile.name for profile in profiles}
+    if settings.selection.profile in names:
+        return settings.selection.profile
+    return profiles[0].name if profiles else settings.selection.profile
 
 
 def _count_files(root: Path, exclude: tuple[str, ...]) -> int:
@@ -350,11 +364,7 @@ def _best_selection(
     """Choose the best photos or the best photo per similarity group."""
     if group_best:
         return best_per_group(photos)
-    profile = load_profile(
-        settings,
-        profile_name or settings.selection.profile,
-        {"top_n": max(0, n)},
-    )
+    profile = load_profile(settings, profile_name, {"top_n": max(0, n)})
     return [item.photo for item in select_photos(photos, profile)]
 
 
@@ -637,6 +647,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
             item["depth"] = 0 if item["folder"] == "." else item["folder"].count("/") + 1
         tree = _folder_tree(folders)
+        profiles = load_profiles(settings, create=False)
+        active_profile = _active_profile_name(settings)
+        best_n = next(
+            (profile.top_n for profile in profiles if profile.name == active_profile),
+            profiles[0].top_n if profiles else settings.selection.top_n,
+        )
         return TEMPLATES.TemplateResponse(
             request,
             "index.html",
@@ -673,16 +689,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     for preset in active_presets(settings)
                 ],
                 "filter_settings": settings.gui.filters,
-                "selection_profiles": load_profiles(settings, create=False),
-                "active_profile": settings.selection.profile,
-                "best_n": next(
-                    (
-                        profile.top_n
-                        for profile in load_profiles(settings, create=False)
-                        if profile.name == settings.selection.profile
-                    ),
-                    settings.selection.top_n,
-                ),
+                "selection_profiles": profiles,
+                "active_profile": active_profile,
+                "best_n": best_n,
                 "view_flat": _url_with(query, view="flat", folder=None, page=1),
                 "view_folders": _url_with(query, view="folders", page=1),
                 "folders": tree,
@@ -868,16 +877,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
             thread.start()
             return {"job_id": job_id, "async": True, "summary": {"threshold": BEST_N_JOB_THRESHOLD}}
-        result = _selection_result(
-            settings,
-            repo,
-            filters,
-            n=n,
-            mode=payload.mode,
-            existing_ids=payload.existing_ids,
-            include_rejected=include_rejected,
-            profile_name=payload.profile,
-        )
+        try:
+            result = _selection_result(
+                settings,
+                repo,
+                filters,
+                n=n,
+                mode=payload.mode,
+                existing_ids=payload.existing_ids,
+                include_rejected=include_rejected,
+                profile_name=payload.profile,
+            )
+        except (UsageError, ValueError) as exc:
+            raise HTTPException(400, str(exc)) from exc
         return {**result, "async": False, "job_id": None}
 
     @app.post("/api/select-group-best")
@@ -910,17 +922,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
             thread.start()
             return {"job_id": job_id, "async": True, "summary": {"threshold": BEST_N_JOB_THRESHOLD}}
-        result = _selection_result(
-            settings,
-            repo,
-            filters,
-            n=0,
-            mode=payload.mode,
-            existing_ids=payload.existing_ids,
-            include_rejected=include_rejected,
-            group_best=True,
-            profile_name=payload.profile,
-        )
+        try:
+            result = _selection_result(
+                settings,
+                repo,
+                filters,
+                n=0,
+                mode=payload.mode,
+                existing_ids=payload.existing_ids,
+                include_rejected=include_rejected,
+                group_best=True,
+                profile_name=payload.profile,
+            )
+        except (UsageError, ValueError) as exc:
+            raise HTTPException(400, str(exc)) from exc
         return {**result, "async": False, "job_id": None}
 
     @app.get("/compare/group/{group_id}", response_class=HTMLResponse)
@@ -1017,6 +1032,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "selection_profile_rows": load_profiles(settings, create=False),
                 "filter_preset_rows": load_presets(settings, create=False),
                 "selection_store_path": profiles_path(settings),
+                "filter_store_path": filters_path(settings),
+                "preset_fields": [
+                    {"key": key, "kind": FILTER_FIELD_KINDS[key]} for key in FILTER_FIELDS
+                ],
+                "active_profile": _active_profile_name(settings),
                 "active_jobs": _active_jobs(repo) if active_jobs is None else active_jobs,
                 "database_override": settings.input.db_path is not None,
                 "error": error,
@@ -1053,19 +1073,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         filter_hide_rejected_submitted: bool = Form(False),
         selection_include_rejected: bool = Form(False),
         selection_prefer_accepted: bool = Form(True),
-        selection_profile: str = Form(""),
         selection_profiles_dir: str = Form(""),
+        profile_order: list[str] = Form([]),  # noqa: B008
         profile_name: list[str] = Form([]),  # noqa: B008
+        add_profile: str = Form(""),
         profile_top_n: list[str] = Form([]),  # noqa: B008
         profile_diversity: list[str] = Form([]),  # noqa: B008
         profile_max_per_group: list[str] = Form([]),  # noqa: B008
         profile_max_per_day: list[str] = Form([]),  # noqa: B008
         profile_max_per_cluster: list[str] = Form([]),  # noqa: B008
         profile_event_quota: list[str] = Form([]),  # noqa: B008
+        preset_order: list[str] = Form([]),  # noqa: B008
         preset_name: list[str] = Form([]),  # noqa: B008
+        add_preset: str = Form(""),
         preset_label: list[str] = Form([]),  # noqa: B008
         preset_enabled: list[str] = Form([]),  # noqa: B008
-        preset_overrides: list[str] = Form([]),  # noqa: B008
+        preset_values: list[str] = Form([]),  # noqa: B008
         preset_submitted: bool = Form(False),
         export_layout: str = Form("flat"),
         rerender: bool = Form(False),
@@ -1161,6 +1184,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 status_code=400,
             )
 
+        if add_profile:
+            existing = set(profile_name)
+            suffix = 1
+            candidate = "new-profile"
+            while candidate in existing:
+                suffix += 1
+                candidate = f"new-profile-{suffix}"
+            profile_name = [*profile_name, candidate]
+            profile_top_n = [*profile_top_n, "50"]
+            profile_diversity = [*profile_diversity, "0.5"]
+            profile_max_per_group = [*profile_max_per_group, "1"]
+            profile_max_per_day = [*profile_max_per_day, "5"]
+            profile_max_per_cluster = [*profile_max_per_cluster, "3"]
+            profile_event_quota = [*profile_event_quota, "sainte_lague"]
+            profile_order = [*profile_order, candidate]
+        if add_preset:
+            existing = set(preset_name)
+            suffix = 1
+            candidate = "new-preset"
+            while candidate in existing:
+                suffix += 1
+                candidate = f"new-preset-{suffix}"
+            preset_name = [*preset_name, candidate]
+            preset_label = [*preset_label, "New preset"]
+            preset_values = [*preset_values, *([""] * len(FILTER_FIELDS))]
+            preset_order = [*preset_order, candidate]
+
         data = settings.model_dump(mode="json")
         data["input"]["roots"] = [str(path) for path in configured]
         data["input"]["disabled_roots"] = [str(path) for path in configured if path not in enabled]
@@ -1183,12 +1233,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             {
                 "include_rejected": selection_include_rejected,
                 "prefer_accepted": selection_prefer_accepted,
-                "profile": selection_profile or settings.selection.profile,
                 "profiles_dir": selection_profiles_dir or str(settings.selection.profiles_dir),
             }
         )
-        if preset_submitted:
-            data["gui"]["filters"]["presets"] = preset_enabled
         data["export"]["destination"] = export_destination.strip() or None
         data["blur"].update(
             {
@@ -1227,8 +1274,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 status_code=400,
             )
 
+        def _preset_overrides_from_form(index: int) -> dict[str, Any]:
+            """Build one preset override mapping from the GUI fields."""
+            width = len(FILTER_FIELDS)
+            start = index * width
+            values = preset_values[start : start + width]
+            if len(values) != width:
+                raise ValueError("filter preset fields are incomplete")
+            return overrides_from_field_values(values, path=filters_path(updated))
+
         try:
-            if len(profile_name) == len(profile_top_n) and profile_name:
+            if profile_name:
+                profile_fields = [
+                    profile_top_n,
+                    profile_diversity,
+                    profile_max_per_group,
+                    profile_max_per_day,
+                    profile_max_per_cluster,
+                    profile_event_quota,
+                ]
+                if any(len(field) != len(profile_name) for field in profile_fields):
+                    raise ValueError("selection profile fields are incomplete")
                 profiles = []
                 for index, name in enumerate(profile_name):
                     profiles.append(
@@ -1242,31 +1308,62 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                             event_quota=profile_event_quota[index],
                         )
                     )
-                if selection_profile not in {profile.name for profile in profiles}:
-                    raise ValueError(f"active selection profile not found: {selection_profile}")
+                if profile_order:
+                    order = {name: index for index, name in enumerate(profile_order)}
+                    profiles = [
+                        profile
+                        for _, profile in sorted(
+                            enumerate(profiles),
+                            key=lambda pair: (
+                                order.get(profile_order[pair[0]], pair[0])
+                                if pair[0] < len(profile_order)
+                                else pair[0]
+                            ),
+                        )
+                    ]
                 write_profiles(updated, profiles)
-            if len(preset_name) == len(preset_overrides) and preset_name:
+                updated.selection.profile = profiles[0].name
+            if preset_name:
+                if len(preset_name) != len(preset_label):
+                    raise ValueError("filter preset fields are incomplete")
+                if len(preset_values) != len(preset_name) * len(FILTER_FIELDS):
+                    raise ValueError("filter preset fields are incomplete")
+                old_to_new = {
+                    (
+                        preset_order[index]
+                        if index < len(preset_order)
+                        else preset_name[index].strip()
+                    ): preset_name[index].strip()
+                    for index in range(len(preset_name))
+                }
                 presets = []
                 for index, name in enumerate(preset_name):
-                    overrides = {}
-                    import json
-
-                    try:
-                        overrides = json.loads(preset_overrides[index] or "{}")
-                    except json.JSONDecodeError as exc:
-                        raise ValueError(f"preset overrides must be valid JSON: {exc}") from exc
-                    presets.append(
-                        FilterPreset(
-                            name=name.strip(),
-                            label=preset_label[index].strip() or name.strip(),
-                            overrides=overrides,
+                    raw_values = {
+                        "name": name.strip(),
+                        "label": preset_label[index].strip() or name.strip(),
+                        "overrides": _preset_overrides_from_form(index),
+                    }
+                    presets.append(preset_from_mapping(raw_values, path=filters_path(updated)))
+                if preset_order:
+                    order = {name: index for index, name in enumerate(preset_order)}
+                    presets = [
+                        preset
+                        for _, preset in sorted(
+                            enumerate(presets),
+                            key=lambda pair: (
+                                order.get(preset_order[pair[0]], pair[0])
+                                if pair[0] < len(preset_order)
+                                else pair[0]
+                            ),
                         )
-                    )
-                if preset_enabled and not set(preset_enabled).issubset(
-                    {preset.name for preset in presets}
-                ):
-                    raise ValueError("enabled filter preset is missing from filters.yaml")
+                    ]
                 write_presets(updated, presets)
+                if preset_submitted:
+                    updated.gui.filters.presets = [
+                        old_to_new.get(name, name)
+                        for name in preset_enabled
+                        if name in old_to_new or name in {preset.name for preset in presets}
+                    ]
         except Exception as exc:
             return _settings_context(
                 request,

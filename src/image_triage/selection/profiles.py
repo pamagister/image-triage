@@ -172,28 +172,13 @@ def load_profile(
     name = profile or settings.selection.profile
     profiles = load_profiles(settings, create=False)
     by_name = {item.name: item for item in profiles}
-    if name not in by_name:
-        if profile is None:
-            legacy = {
-                "best200": ("best50", {"top_n": 200}),
-                "best100": ("best100", {}),
-            }
-            mapped = legacy.get(name)
-            if mapped is not None:
-                name = mapped[0]
-                profiles = load_profiles(settings)
-                by_name = {item.name: item for item in profiles}
-                if name not in by_name:
-                    raise UsageError(f"selection profile not found: {name}")
-                selected = by_name[name]
-                values = selected.to_dict()
-                values.update(mapped[1])
-                values.update(overrides or {})
-                result = _profile_from_mapping(values, path=package_profiles_path())
-                result.name = selected.name
-                return result
+    if name in by_name:
+        selected = by_name[name]
+    elif profile is None and profiles:
+        # An old config may reference a removed profile; use the first configured profile.
+        selected = profiles[0]
+    else:
         raise UsageError(f"selection profile not found: {name}")
-    selected = by_name[name]
     values = selected.to_dict()
     values.update(overrides or {})
     result = _profile_from_mapping(values, path=package_profiles_path())

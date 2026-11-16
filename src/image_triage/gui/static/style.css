@@ -1537,8 +1537,60 @@ header {
   font-size: 0.82rem;
 }
 
-.compact-table .compact-number {
+.compact-table input.compact-number {
   min-width: 4.2rem;
+}
+
+.compact-table input.compact-number-narrow {
+  min-width: 3.8rem;
+}
+
+.compact-table input.compact-number-tiny {
+  min-width: 2.8rem;
+  width: 3.1rem;
+}
+
+.compact-table th.col-tiny {
+  width: 3.4rem;
+}
+
+.rank-controls {
+  display: inline-flex;
+  gap: 0.15rem;
+  align-items: center;
+}
+
+.preset-fields {
+  min-width: 12rem;
+}
+
+.preset-fields summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.82rem;
+}
+
+.preset-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.45rem 0.65rem;
+  padding-top: 0.45rem;
+}
+
+.preset-fields-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.compact-table .preset-fields-grid input,
+.compact-table .preset-fields-grid select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.25rem 0.35rem;
+  font-size: 0.82rem;
 }
 
 .compact-table input[type="radio"],

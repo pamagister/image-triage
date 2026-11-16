@@ -28,7 +28,9 @@ are not imported.
   tile metadata, visible filter groups, the hide-rejected default, central selection profiles and
   filter presets, export defaults, blur calibration, rating thresholds and analysis toggles.
   Selection profiles live in one central `selections.yaml`; filter presets live in one central
-  `filters.yaml`. The packaged defaults are copied into the config directory on first use. Analysis and
+  `filters.yaml`. Profiles and presets can be added, renamed, removed and ranked with up/down
+  controls; the top profile is the library default. Filter preset fields cover every supported
+  library filter. The packaged defaults are copied into the config directory on first use. Analysis and
   scoring changes are marked as requiring a new scan or scoring run. The watched-roots table
   shows an active checkbox, on-disk and analyzed image counts, and a remove action per root.
   Roots can be added by path or through a server-side directory browser. Removing a root keeps
@@ -75,12 +77,13 @@ are not imported.
 - **De-select all filtered** removes only the photos matching the current filters from the
   selection; selections from other roots/folders remain.
 - **Clear all** empties the selection and asks for confirmation.
-- **Best N** - the profile buttons above the grid choose an editable selection profile from
-  `selections.yaml`; the profile's N is prefilled but can be overridden. **Add N new** keeps the
-  existing selection and appends N new photos; **Replace with N** ends with exactly N photos.
-  Rejected photos are excluded unless **Include rejected** is enabled; accepted photos get a soft
-  preference. Large scopes run as background jobs and report when the selection is ready.
-  **One per group** keeps the highest-scoring photo of each similarity group in the current scope.
+- **Best N** - the profile dropdown above the grid lists every selection profile from
+  `selections.yaml` in its configured order; Settings controls that order and the active default.
+  The profile's N is prefilled but can be overridden per run. **Run selection** keeps the existing
+  selection and appends N new photos, replaces it with exactly N photos, or keeps the highest-scoring
+  photo of each similarity group when **one per group** is selected. Rejected photos are excluded
+  unless **Include rejected** is enabled; accepted photos get a soft preference. Large scopes run as
+  background jobs and report when the selection is ready.
 - **Compare** - `/compare?ids=...` shows any set of photos side by side;
   `/compare/group/{group_id}` opens a whole similarity group. Compare can select all shown
   photos, select the best, accept the best and reject the others, or reject only the other

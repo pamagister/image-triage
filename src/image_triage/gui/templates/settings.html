@@ -109,33 +109,39 @@
 
   <section class="settings-section">
     <h2>Selection</h2>
-    <p class="section-help">One <code>selections.yaml</code> holds every Best-N variant. The active radio is the default profile; per-run overrides in the quick control win.</p>
+    <p class="section-help">One <code>selections.yaml</code> holds every Best-N variant. The top profile is the default in the library dropdown; use the arrows to rank profiles.</p>
     <p class="store-path">Profile file: <code>{{ selection_store_path }}</code></p>
     <div class="table-wrap">
       <table class="profile-table compact-table">
         <thead>
           <tr>
-            <th scope="col">Active</th>
+            <th scope="col">Rank</th>
             <th scope="col">Name</th>
             <th scope="col">N</th>
             <th scope="col">Diversity</th>
-            <th scope="col">Max group</th>
-            <th scope="col">Max day</th>
-            <th scope="col">Max cluster</th>
+            <th scope="col" class="col-tiny">Max group</th>
+            <th scope="col" class="col-tiny">Max day</th>
+            <th scope="col" class="col-tiny">Max cluster</th>
             <th scope="col">Event quota</th>
             <th scope="col">Remove</th>
           </tr>
         </thead>
         <tbody>
           {% for profile in selection_profile_rows %}
-          <tr>
-            <td><input type="radio" name="selection_profile" value="{{ profile.name }}" {% if profile.name == settings.selection.profile %}checked{% endif %} aria-label="Use {{ profile.name }}"></td>
+          <tr data-profile-row data-profile-name="{{ profile.name }}">
+            <td>
+              <input type="hidden" name="profile_order" value="{{ profile.name }}">
+              <span class="rank-controls">
+                <button type="button" class="compact-button" data-move-up aria-label="Move {{ profile.name }} up">↑</button>
+                <button type="button" class="compact-button" data-move-down aria-label="Move {{ profile.name }} down">↓</button>
+              </span>
+            </td>
             <td><input type="text" name="profile_name" value="{{ profile.name }}" aria-label="Profile name"></td>
-            <td><input class="compact-number" type="number" name="profile_top_n" min="0" max="5000" value="{{ profile.top_n }}"></td>
-            <td><input class="compact-number" type="number" name="profile_diversity" min="0" max="1" step="0.05" value="{{ profile.diversity }}"></td>
-            <td><input class="compact-number" type="number" name="profile_max_per_group" min="1" value="{{ profile.max_per_group }}"></td>
-            <td><input class="compact-number" type="number" name="profile_max_per_day" min="0" value="{{ profile.max_per_day }}"></td>
-            <td><input class="compact-number" type="number" name="profile_max_per_cluster" min="0" value="{{ profile.max_per_cluster }}"></td>
+            <td><input class="compact-number compact-number-narrow" type="number" name="profile_top_n" min="0" max="5000" value="{{ profile.top_n }}"></td>
+            <td><input class="compact-number compact-number-narrow" type="number" name="profile_diversity" min="0" max="1" step="0.05" value="{{ profile.diversity }}"></td>
+            <td><input class="compact-number compact-number-tiny" type="number" name="profile_max_per_group" min="1" value="{{ profile.max_per_group }}"></td>
+            <td><input class="compact-number compact-number-tiny" type="number" name="profile_max_per_day" min="0" value="{{ profile.max_per_day }}"></td>
+            <td><input class="compact-number compact-number-tiny" type="number" name="profile_max_per_cluster" min="0" value="{{ profile.max_per_cluster }}"></td>
             <td>
               <select name="profile_event_quota">
                 {% for value in ['sainte_lague', 'proportional', 'equal'] %}
@@ -150,7 +156,7 @@
       </table>
     </div>
     <div class="table-actions">
-      <button type="button" class="button-secondary" id="add-profile">Add profile</button>
+      <button type="submit" class="button-secondary" name="add_profile" value="1">Add profile</button>
       <label class="checkbox-line"><input type="checkbox" name="selection_include_rejected" {% if settings.selection.include_rejected %}checked{% endif %}> Include rejected</label>
       <label class="checkbox-line"><input type="checkbox" name="selection_prefer_accepted" {% if settings.selection.prefer_accepted %}checked{% endif %}> Prefer accepted</label>
     </div>
@@ -158,26 +164,61 @@
 
   <section class="settings-section">
     <h2>Filter presets</h2>
-    <p class="section-help">One <code>filters.yaml</code> holds every quick preset. Active presets appear in the library sidebar. Overrides are JSON objects using library filter keys.</p>
-    <p class="store-path">Preset file: <code>{{ selection_store_path.parent / 'filters.yaml' }}</code></p>
+    <p class="section-help">One <code>filters.yaml</code> holds every quick preset. Active presets appear in the library sidebar. Expand a preset to edit every supported filter; use the arrows to rank presets.</p>
+    <p class="store-path">Preset file: <code>{{ filter_store_path }}</code></p>
     <div class="table-wrap">
       <table class="preset-table compact-table">
         <thead>
           <tr>
             <th scope="col">Active</th>
+            <th scope="col">Rank</th>
             <th scope="col">Name</th>
             <th scope="col">Label</th>
-            <th scope="col">Overrides (JSON)</th>
+            <th scope="col">Filters</th>
             <th scope="col">Remove</th>
           </tr>
         </thead>
         <tbody>
           {% for preset in filter_preset_rows %}
-          <tr>
+          <tr data-preset-row data-preset-name="{{ preset.name }}">
             <td><input type="checkbox" name="preset_enabled" value="{{ preset.name }}" {% if preset.name in settings.gui.filters.presets %}checked{% endif %} aria-label="Enable {{ preset.label }}"></td>
+            <td>
+              <input type="hidden" name="preset_order" value="{{ preset.name }}">
+              <span class="rank-controls">
+                <button type="button" class="compact-button" data-move-up aria-label="Move {{ preset.name }} up">↑</button>
+                <button type="button" class="compact-button" data-move-down aria-label="Move {{ preset.name }} down">↓</button>
+              </span>
+            </td>
             <td><input type="text" name="preset_name" value="{{ preset.name }}" aria-label="Preset name"></td>
             <td><input type="text" name="preset_label" value="{{ preset.label }}" aria-label="Preset label"></td>
-            <td><input type="text" name="preset_overrides" value="{{ preset.overrides | tojson }}" aria-label="Preset overrides"></td>
+            <td>
+              <details class="preset-fields">
+                <summary>Edit filters</summary>
+                <div class="preset-fields-grid">
+                  {% for field in preset_fields %}
+                  {% set key = field.key %}
+                  {% set value = preset.overrides.get(key) %}
+                  <label>{{ key }}
+                    {% if field.kind == 'list' %}
+                    <input type="text" name="preset_values" value="{{ key }}={{ value | join(',') if value else '' }}" placeholder="comma separated" aria-label="Preset {{ key }}">
+                    {% elif field.kind == 'bool' %}
+                    <select name="preset_values" aria-label="Preset {{ key }}">
+                      <option value="{{ key }}=" {% if value is none %}selected{% endif %}>default</option>
+                      <option value="{{ key }}=true" {% if value is true %}selected{% endif %}>true</option>
+                      <option value="{{ key }}=false" {% if value is false %}selected{% endif %}>false</option>
+                    </select>
+                    {% elif field.kind == 'float' %}
+                    <input type="number" step="0.01" name="preset_values" value="{{ key }}={{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
+                    {% elif field.kind == 'int' %}
+                    <input type="number" step="1" name="preset_values" value="{{ key }}={{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
+                    {% else %}
+                    <input type="text" name="preset_values" value="{{ key }}={{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
+                    {% endif %}
+                  </label>
+                  {% endfor %}
+                </div>
+              </details>
+            </td>
             <td><button type="button" class="button-danger compact-button" data-remove-preset>Remove</button></td>
           </tr>
           {% endfor %}
@@ -186,7 +227,7 @@
     </div>
     <input type="hidden" name="preset_submitted" value="true">
     <div class="table-actions">
-      <button type="button" class="button-secondary" id="add-preset">Add preset</button>
+      <button type="submit" class="button-secondary" name="add_preset" value="1">Add preset</button>
     </div>
   </section>
 

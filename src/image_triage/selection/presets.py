@@ -82,6 +82,24 @@ _FLOAT_KEYS = {
     "exposure_min",
     "exposure_max",
 }
+_BOOL_KEYS = {"hide_rejected"}
+
+
+def _field_kind(key: str) -> str:
+    if key in _LIST_KEYS:
+        return "list"
+    if key in _INT_KEYS:
+        return "int"
+    if key in _FLOAT_KEYS:
+        return "float"
+    if key in _BOOL_KEYS:
+        return "bool"
+    return "text"
+
+
+#: Stable field order shared by the settings form and its parser.
+FILTER_FIELDS = tuple(sorted(FILTER_KEYS))
+FILTER_FIELD_KINDS = {key: _field_kind(key) for key in FILTER_FIELDS}
 
 
 @dataclass(slots=True)
@@ -128,8 +146,10 @@ def _default_presets() -> list[dict[str, Any]]:
 
 
 def _validate_overrides(overrides: Any, *, path: Path) -> dict[str, Any]:
-    if not isinstance(overrides, dict) or not overrides:
-        raise UsageError("preset overrides must be a non-empty mapping", path=str(path))
+    if not isinstance(overrides, dict):
+        raise UsageError("preset overrides must be a mapping", path=str(path))
+    if not overrides:
+        return {}
     unknown = set(overrides) - FILTER_KEYS
     if unknown:
         raise UsageError(f"unknown filter keys: {sorted(unknown)}", path=str(path))
@@ -184,6 +204,53 @@ def preset_from_mapping(values: dict[str, Any], *, path: Path) -> FilterPreset:
         label = name
     overrides = _validate_overrides(values.get("overrides"), path=path)
     return FilterPreset(name=name, label=label, overrides=overrides)
+
+
+def overrides_from_field_values(values: list[str], *, path: Path) -> dict[str, Any]:
+    """Parse ``key=value`` form fields for one preset into validated overrides.
+
+    Empty values are omitted so a newly added preset can be saved before its filters are
+    filled in. List-valued fields use comma-separated values.
+    """
+    overrides: dict[str, Any] = {}
+    for raw in values:
+        key, separator, raw_value = raw.partition("=")
+        key = key.strip()
+        if not separator or not key:
+            continue
+        if key not in FILTER_KEYS:
+            raise UsageError(f"unknown filter key: {key}", path=str(path))
+        value = raw_value.strip()
+        if value == "":
+            continue
+        kind = FILTER_FIELD_KINDS[key]
+        if kind == "list":
+            items = [item.strip() for item in value.split(",") if item.strip()]
+            if key in _INT_KEYS or key == "rating":
+                try:
+                    overrides[key] = [int(item) for item in items]
+                except ValueError as exc:
+                    raise UsageError(f"{key} must contain integers", path=str(path)) from exc
+            else:
+                overrides[key] = items
+        elif kind == "int":
+            try:
+                overrides[key] = int(value)
+            except ValueError as exc:
+                raise UsageError(f"{key} must be an integer", path=str(path)) from exc
+        elif kind == "float":
+            try:
+                overrides[key] = float(value)
+            except ValueError as exc:
+                raise UsageError(f"{key} must be a number", path=str(path)) from exc
+        elif kind == "bool":
+            lowered = value.lower()
+            if lowered not in {"true", "false", "1", "0", "yes", "no", "on", "off"}:
+                raise UsageError(f"{key} must be true or false", path=str(path))
+            overrides[key] = lowered in {"true", "1", "yes", "on"}
+        else:
+            overrides[key] = value
+    return _validate_overrides(overrides, path=path)
 
 
 def load_presets(settings: Settings, *, create: bool = True) -> list[FilterPreset]:

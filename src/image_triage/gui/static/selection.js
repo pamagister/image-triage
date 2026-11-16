@@ -491,22 +491,19 @@
     });
   }
 
-  function runBest(groupBest, profileButton) {
+  function runBest() {
     var status = document.querySelector("[data-best-status]");
+    var profileSelect = document.querySelector("[data-profile-select]");
     var nField = document.querySelector("[data-best-n]");
     var modeField = document.querySelector("[data-best-mode]");
-    var mode = modeField ? modeField.value : "add";
-    if (profileButton && nField) {
-      nField.value = profileButton.dataset.profileN || nField.value;
-    }
-    document.querySelectorAll("[data-profile]").forEach(function (button) {
-      button.classList.toggle("is-active", button === profileButton);
-    });
+    var selectedMode = modeField ? modeField.value : "add";
+    var groupBest = selectedMode === "group";
+    var mode = groupBest ? "replace" : selectedMode;
     var body = {
       filters: currentFilters(),
       mode: mode,
       existing_ids: mode === "add" ? readSelected() : [],
-      profile: profileButton ? profileButton.dataset.profile : undefined,
+      profile: profileSelect ? profileSelect.value : undefined,
     };
     if (!groupBest) {
       body.n = nField ? Math.max(0, Number(nField.value) || 0) : 20;
@@ -543,11 +540,6 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
-    var form = document.querySelector("[data-export-form]");
-    if (!form) {
-      return;
-    }
-
     applySelection(readSelected());
     restoreOpenFolders();
 
@@ -749,26 +741,20 @@
       });
     }
 
-    var bestRun = document.querySelector("[data-best-run]");
-    if (bestRun) {
-      bestRun.addEventListener("click", function () {
-        var activeProfile = document.querySelector("[data-profile].is-active");
-        runBest(false, activeProfile || document.querySelector("[data-profile]"));
+    var profileSelect = document.querySelector("[data-profile-select]");
+    if (profileSelect) {
+      profileSelect.addEventListener("change", function () {
+        var option = profileSelect.options[profileSelect.selectedIndex];
+        var nField = document.querySelector("[data-best-n]");
+        if (option && nField && option.dataset.profileN) {
+          nField.value = option.dataset.profileN;
+        }
       });
     }
 
-    document.querySelectorAll("[data-profile]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        runBest(false, button);
-      });
-    });
-
-    var groupBest = document.querySelector("[data-group-best]");
-    if (groupBest) {
-      groupBest.addEventListener("click", function () {
-        var activeProfile = document.querySelector("[data-profile].is-active");
-        runBest(true, activeProfile || document.querySelector("[data-profile]"));
-      });
+    var bestRun = document.querySelector("[data-best-run]");
+    if (bestRun) {
+      bestRun.addEventListener("click", runBest);
     }
 
     var exportOpen = document.querySelector("[data-export-open]");

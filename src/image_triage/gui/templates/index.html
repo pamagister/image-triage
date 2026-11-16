@@ -72,22 +72,24 @@
 </div>
 
 <div class="best-bar" aria-label="Best selection">
-  <div class="profile-buttons" role="group" aria-label="Selection profiles">
-    {% for profile in selection_profiles %}
-    <button type="button" class="profile-button{% if profile.name == active_profile %} is-active{% endif %}" data-profile="{{ profile.name }}" data-profile-n="{{ profile.top_n }}" data-profile-diversity="{{ profile.diversity }}" data-profile-max-day="{{ profile.max_per_day }}" data-profile-max-cluster="{{ profile.max_per_cluster }}" data-profile-event-quota="{{ profile.event_quota }}" title="{{ profile.name }}: top {{ profile.top_n }}, diversity {{ profile.diversity }}, max {{ profile.max_per_day }}/day, quota {{ profile.event_quota }}">{{ profile.name }}</button>
-    {% endfor %}
-  </div>
-  <label>Best
+  <label>Selection profile
+    <select data-profile-select>
+      {% for profile in selection_profiles %}
+      <option value="{{ profile.name }}" data-profile-n="{{ profile.top_n }}" {% if profile.name == active_profile %}selected{% endif %}>{{ profile.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Photos
     <input type="number" data-best-n min="0" max="5000" value="{{ best_n }}">
   </label>
   <label>Mode
     <select data-best-mode>
       <option value="add">add N new</option>
       <option value="replace">replace with N</option>
+      <option value="group">one per group</option>
     </select>
   </label>
-  <button type="button" data-best-run>Find best</button>
-  <button type="button" class="button-secondary" data-group-best>One per group</button>
+  <button type="button" data-best-run>Run selection</button>
   <span class="best-status" data-best-status></span>
 </div>
 

@@ -832,8 +832,39 @@ def test_library_has_best_n_controls(photo_dir: Path, tmp_path: Path) -> None:
         assert b"data-best-n" in page.content
         assert b"data-best-mode" in page.content
         assert b"data-best-run" in page.content
-        assert b"data-group-best" in page.content
+        assert b"data-profile-select" in page.content
+        assert b"Run selection" in page.content
+        assert b'value="group">one per group' in page.content
+        assert b"Find best" not in page.content
+        assert b"data-group-best" not in page.content
         assert b'value="accepted">Accepted photos' in page.content
+
+
+def test_removed_active_profile_falls_back_without_500(photo_dir: Path, tmp_path: Path) -> None:
+    settings = load_settings(
+        None,
+        {
+            "input": {"root": photo_dir, "db_path": tmp_path / "legacy.db"},
+            "models": {"enabled": False},
+            "selection": {"profile": "best200"},
+        },
+    )
+    repository = Repository.open(settings.database_path)
+    try:
+        analyze_library(settings, repository)
+    finally:
+        repository.close()
+
+    with TestClient(create_app(settings)) as client:
+        page = client.get("/")
+        assert page.status_code == 200
+        assert b'data-profile-n="50" selected' in page.content
+        response = client.post(
+            "/api/select-best",
+            json={"filters": {"min_score": 0}, "n": 1, "mode": "replace"},
+        )
+        assert response.status_code == 200
+        assert len(response.json()["location_ids"]) == 1
 
 
 def test_large_best_n_runs_as_background_job(

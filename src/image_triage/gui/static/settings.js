@@ -98,53 +98,45 @@ browseSelect.addEventListener("click", () => {
 browseClose.addEventListener("click", () => dialog.close());
 browseCancel.addEventListener("click", () => dialog.close());
 
-function addProfileRow() {
-  const body = document.querySelector(".profile-table tbody");
-  if (!body) {
+function moveRow(button, offset) {
+  const row = button.closest("tr");
+  if (!row) {
     return;
   }
-  const row = document.createElement("tr");
-  row.innerHTML = `
-    <td><input type="radio" name="selection_profile" value="new-profile" aria-label="Use new profile"></td>
-    <td><input type="text" name="profile_name" value="new-profile" aria-label="Profile name"></td>
-    <td><input class="compact-number" type="number" name="profile_top_n" min="0" max="5000" value="50"></td>
-    <td><input class="compact-number" type="number" name="profile_diversity" min="0" max="1" step="0.05" value="0.5"></td>
-    <td><input class="compact-number" type="number" name="profile_max_per_group" min="1" value="1"></td>
-    <td><input class="compact-number" type="number" name="profile_max_per_day" min="0" value="5"></td>
-    <td><input class="compact-number" type="number" name="profile_max_per_cluster" min="0" value="3"></td>
-    <td><select name="profile_event_quota"><option value="sainte_lague">sainte_lague</option><option value="proportional">proportional</option><option value="equal">equal</option></select></td>
-    <td><button type="button" class="button-danger compact-button" data-remove-profile>Remove</button></td>`;
-  body.appendChild(row);
-  row.querySelector("[data-remove-profile]").addEventListener("click", () => row.remove());
+  const sibling =
+    offset < 0 ? row.previousElementSibling : row.nextElementSibling;
+  if (sibling) {
+    row.parentElement.insertBefore(offset < 0 ? row : sibling, offset < 0 ? sibling : row);
+  }
 }
 
-function addPresetRow() {
-  const body = document.querySelector(".preset-table tbody");
-  if (!body) {
-    return;
-  }
-  const row = document.createElement("tr");
-  row.innerHTML = `
-    <td><input type="checkbox" name="preset_enabled" value="new-preset" aria-label="Enable new preset"></td>
-    <td><input type="text" name="preset_name" value="new-preset" aria-label="Preset name"></td>
-    <td><input type="text" name="preset_label" value="New preset" aria-label="Preset label"></td>
-    <td><input type="text" name="preset_overrides" value="{}" aria-label="Preset overrides"></td>
-    <td><button type="button" class="button-danger compact-button" data-remove-preset>Remove</button></td>`;
-  body.appendChild(row);
-  row.querySelector("[data-remove-preset]").addEventListener("click", () => row.remove());
+for (const button of document.querySelectorAll("[data-move-up]")) {
+  button.addEventListener("click", () => moveRow(button, -1));
+}
+for (const button of document.querySelectorAll("[data-move-down]")) {
+  button.addEventListener("click", () => moveRow(button, 1));
 }
 
 for (const button of document.querySelectorAll("[data-remove-profile]")) {
-  button.addEventListener("click", () => button.closest("tr")?.remove());
+  button.addEventListener("click", () => {
+    const row = button.closest("tr");
+    const name = row?.dataset.profileName || "this profile";
+    if (!window.confirm(`Remove ${name}?`)) {
+      return;
+    }
+    row?.remove();
+    form.requestSubmit();
+  });
 }
+
 for (const button of document.querySelectorAll("[data-remove-preset]")) {
-  button.addEventListener("click", () => button.closest("tr")?.remove());
-}
-const addProfile = document.getElementById("add-profile");
-if (addProfile) {
-  addProfile.addEventListener("click", addProfileRow);
-}
-const addPreset = document.getElementById("add-preset");
-if (addPreset) {
-  addPreset.addEventListener("click", addPresetRow);
+  button.addEventListener("click", () => {
+    const row = button.closest("tr");
+    const name = row?.dataset.presetName || "this preset";
+    if (!window.confirm(`Remove ${name}?`)) {
+      return;
+    }
+    row?.remove();
+    form.requestSubmit();
+  });
 }
