@@ -175,97 +175,94 @@
     <h2>Filter presets</h2>
     <p class="section-help">One <code>filters.yaml</code> holds every quick preset. Active presets appear in the library sidebar. Expand a preset to edit every supported filter; use the arrows to rank presets.</p>
     <p class="store-path">Preset file: <code>{{ filter_store_path }}</code></p>
-    <div class="table-wrap">
-      <table class="preset-table compact-table">
-        <thead>
-          <tr>
-            <th scope="col">Active</th>
-            <th scope="col">Rank</th>
-            <th scope="col">Name</th>
-            <th scope="col">Label</th>
-            <th scope="col">Filters</th>
-            <th scope="col">Remove</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for preset in filter_preset_rows %}
-          <tr data-preset-row data-preset-name="{{ preset.name }}">
-            <td><input type="checkbox" name="preset_enabled" value="{{ preset.name }}" {% if preset.name in settings.gui.filters.presets %}checked{% endif %} aria-label="Enable {{ preset.label }}"></td>
-            <td>
-              <input type="hidden" name="preset_order" value="{{ preset.name }}">
-              <span class="rank-controls">
-                <button type="button" class="compact-button" data-move-up aria-label="Move {{ preset.name }} up">↑</button>
-                <button type="button" class="compact-button" data-move-down aria-label="Move {{ preset.name }} down">↓</button>
-              </span>
-            </td>
-            <td><input type="text" name="preset_name" value="{{ preset.name }}" aria-label="Preset name"></td>
-            <td><input type="text" name="preset_label" value="{{ preset.label }}" aria-label="Preset label"></td>
-            <td>
-              <details class="preset-fields">
-                <summary>Edit filters</summary>
-                <div class="preset-ranges">
-                  <div class="range-label">Rating</div>
-                  <div class="checkbox-row rating-row">
-                    {% for value in [5, 4, 3, 2, 1] %}
-                    <label><input type="checkbox" data-preset-list="rating" value="{{ value }}" {% if value in preset.overrides.get('rating', []) %}checked{% endif %}> <span>{{ value }}</span></label>
-                    {% endfor %}
-                  </div>
-                  {{ range_filter('Score', 'min_score', 'score_max', preset.overrides, true) }}
-                  {{ range_filter('Aesthetic', 'aesthetic_min', 'aesthetic_max', preset.overrides, true) }}
-                  {{ range_filter('Composition', 'composition_min', 'composition_max', preset.overrides, true) }}
-                  {{ range_filter('Subject', 'subject_min', 'subject_max', preset.overrides, true) }}
-                  {{ range_filter('Sharpness', 'sharpness_min', 'sharpness_max', preset.overrides, true) }}
-                  {{ range_filter('Bokeh', 'bokeh_min', 'bokeh_max', preset.overrides, true) }}
-                  {{ range_filter('Blur score', 'blur_min', 'blur_max', preset.overrides, true) }}
-                  <div class="checkbox-row blur-row">
-                    {% for kind in blur_kinds %}
-                    <label><input type="checkbox" data-preset-list="blur" value="{{ kind }}" {% if kind in preset.overrides.get('blur', []) %}checked{% endif %}> <span>{{ kind }}</span></label>
-                    {% endfor %}
-                  </div>
-                  <div class="checkbox-row status-row">
-                    {% for value in ['accepted', 'rejected', 'none'] %}
-                    <label><input type="checkbox" data-preset-list="status" value="{{ value }}" {% if value in preset.overrides.get('status', []) %}checked{% endif %}> <span>{{ value }}</span></label>
-                    {% endfor %}
-                  </div>
-                  <label>Captured from <input type="date" data-preset-date="date_from" value="{{ preset.overrides.get('date_from', '') }}"></label>
-                  <label>Captured to <input type="date" data-preset-date="date_to" value="{{ preset.overrides.get('date_to', '') }}"></label>
-                  <p class="section-help">Move a handle to set a limit. Clear a value under All fields to leave that limit unset.</p>
-                </div>
-                <details>
-                <summary>All fields</summary>
-                <div class="preset-fields-grid">
-                  {% for field in preset_fields %}
-                  {% set key = field.key %}
-                  {% set value = preset.overrides.get(key) %}
-                  <label>{{ key }}
-                    {% if field.kind == 'list' %}
-                    <input type="text" name="preset_values" value="{{ value | join(',') if value else '' }}" placeholder="comma separated" aria-label="Preset {{ key }}">
-                    {% elif field.kind == 'bool' %}
-                    <select name="preset_values" aria-label="Preset {{ key }}">
-                      <option value="" {% if value is none %}selected{% endif %}>default</option>
-                      <option value="true" {% if value is true %}selected{% endif %}>true</option>
-                      <option value="false" {% if value is false %}selected{% endif %}>false</option>
-                    </select>
-                    {% elif field.kind == 'float' %}
-                    <input type="number" step="any" name="preset_values" value="{{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
-                    {% elif field.kind == 'int' %}
-                    <input type="number" step="1" name="preset_values" value="{{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
-                    {% elif key in ['date_from', 'date_to'] %}
-                    <input type="date" name="preset_values" value="{{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
-                    {% else %}
-                    <input type="text" name="preset_values" value="{{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
-                    {% endif %}
-                  </label>
-                  {% endfor %}
-                </div>
-                </details>
-              </details>
-            </td>
-            <td><button type="button" class="button-danger compact-button" data-remove-preset>Remove</button></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="preset-cards">
+      {% for preset in filter_preset_rows %}
+      <article class="preset-card" data-preset-row data-preset-name="{{ preset.name }}">
+        <div class="preset-card-header">
+          <label class="preset-active"><input type="checkbox" name="preset_enabled" value="{{ preset.name }}" {% if preset.name in settings.gui.filters.presets %}checked{% endif %} aria-label="Enable {{ preset.label }}"> Active</label>
+          <input type="hidden" name="preset_order" value="{{ preset.name }}">
+          <span class="rank-controls">
+            <button type="button" class="button-secondary compact-button" data-move-up aria-label="Move {{ preset.name }} up">↑</button>
+            <button type="button" class="button-secondary compact-button" data-move-down aria-label="Move {{ preset.name }} down">↓</button>
+          </span>
+          <label>Name <input type="text" name="preset_name" value="{{ preset.name }}" aria-label="Preset name"></label>
+          <label>Label <input type="text" name="preset_label" value="{{ preset.label }}" aria-label="Preset label"></label>
+          <button type="button" class="button-danger compact-button" data-remove-preset>Remove</button>
+        </div>
+        <details class="preset-fields">
+          <summary>Edit filters <span class="preset-filter-count">{{ preset.overrides|length }} saved</span></summary>
+          <div class="preset-editor">
+            <p class="section-help">Move a slider to set a limit, or use Clear to leave its limits unset.</p>
+            <details class="filter-group" open>
+              <summary>Rating</summary>
+              <div class="checkbox-row rating-row">
+                {% for value in [5, 4, 3, 2, 1] %}
+                <label><input type="checkbox" data-preset-list="rating" value="{{ value }}" {% if value in preset.overrides.get('rating', []) %}checked{% endif %}> <span>{{ value }}</span></label>
+                {% endfor %}
+              </div>
+            </details>
+            <details class="filter-group">
+              <summary>Quality</summary>
+              {{ range_filter('Score', 'min_score', 'score_max', preset.overrides, true) }}
+              {{ range_filter('Aesthetic', 'aesthetic_min', 'aesthetic_max', preset.overrides, true) }}
+              {{ range_filter('Composition', 'composition_min', 'composition_max', preset.overrides, true) }}
+              {{ range_filter('Subject', 'subject_min', 'subject_max', preset.overrides, true) }}
+            </details>
+            <details class="filter-group">
+              <summary>Sharpness and blur</summary>
+              {{ range_filter('Sharpness', 'sharpness_min', 'sharpness_max', preset.overrides, true) }}
+              {{ range_filter('Bokeh', 'bokeh_min', 'bokeh_max', preset.overrides, true) }}
+              {{ range_filter('Blur score', 'blur_min', 'blur_max', preset.overrides, true) }}
+              <div class="checkbox-row blur-row">
+                {% for kind in blur_kinds %}
+                <label><input type="checkbox" data-preset-list="blur" value="{{ kind }}" {% if kind in preset.overrides.get('blur', []) %}checked{% endif %}> <span>{{ kind }}</span></label>
+                {% endfor %}
+              </div>
+            </details>
+            <details class="filter-group">
+              <summary>Captured and status</summary>
+              <div class="preset-date-fields">
+                <label>From <input type="date" data-preset-date="date_from" value="{{ preset.overrides.get('date_from', '') }}"></label>
+                <label>To <input type="date" data-preset-date="date_to" value="{{ preset.overrides.get('date_to', '') }}"></label>
+              </div>
+              <div class="checkbox-row status-row">
+                {% for value in ['accepted', 'rejected', 'none'] %}
+                <label><input type="checkbox" data-preset-list="status" value="{{ value }}" {% if value in preset.overrides.get('status', []) %}checked{% endif %}> <span>{{ value }}</span></label>
+                {% endfor %}
+              </div>
+            </details>
+            <details class="filter-group">
+              <summary>All fields</summary>
+              <div class="preset-fields-grid">
+                {% for field in preset_fields %}
+                {% set key = field.key %}
+                {% set value = preset.overrides.get(key) %}
+                <label>{{ key }}
+                  {% if field.kind == 'list' %}
+                  <input type="text" name="preset_values" value="{{ value | join(',') if value else '' }}" placeholder="comma separated" aria-label="Preset {{ key }}">
+                  {% elif field.kind == 'bool' %}
+                  <select name="preset_values" aria-label="Preset {{ key }}">
+                    <option value="" {% if value is none %}selected{% endif %}>default</option>
+                    <option value="true" {% if value is true %}selected{% endif %}>true</option>
+                    <option value="false" {% if value is false %}selected{% endif %}>false</option>
+                  </select>
+                  {% elif field.kind == 'float' %}
+                  <input type="number" step="any" name="preset_values" value="{{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
+                  {% elif field.kind == 'int' %}
+                  <input type="number" step="1" name="preset_values" value="{{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
+                  {% elif key in ['date_from', 'date_to'] %}
+                  <input type="date" name="preset_values" value="{{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
+                  {% else %}
+                  <input type="text" name="preset_values" value="{{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
+                  {% endif %}
+                </label>
+                {% endfor %}
+              </div>
+            </details>
+          </div>
+        </details>
+      </article>
+      {% endfor %}
     </div>
     <input type="hidden" name="preset_submitted" value="true">
     <div class="table-actions">

@@ -10,6 +10,7 @@
       <output data-output-for="{{ min_name }}">{{ '%.2f'|format(min_number) }}</output>
       <span aria-hidden="true">–</span>
       <output data-output-for="{{ max_name }}">{{ '%.2f'|format(max_number) }}</output>
+      {% if preset %}<button type="button" class="button-secondary range-clear" data-clear-range aria-label="Clear {{ label }} limits">Clear</button>{% endif %}
     </span>
   </div>
   <div class="dual-range">

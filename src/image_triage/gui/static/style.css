@@ -91,6 +91,22 @@ button {
   color: #fff;
   border-color: var(--accent);
   cursor: pointer;
+  transition: filter 120ms ease, box-shadow 120ms ease;
+}
+
+@media (hover: hover) {
+  button:not(:disabled):hover { filter: brightness(0.92); }
+}
+
+button:disabled { cursor: not-allowed; opacity: 0.65; }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none; }
 }
 
 .banner {
@@ -1723,6 +1739,61 @@ header {
   min-width: 12rem;
 }
 
+.preset-cards {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0.75rem 0;
+}
+
+.preset-card {
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fafcff;
+  box-shadow: 0 1px 3px rgba(31, 41, 51, 0.05);
+}
+
+.preset-card-header {
+  display: grid;
+  grid-template-columns: auto auto minmax(8rem, 1fr) minmax(8rem, 1fr) auto;
+  align-items: end;
+  gap: 0.65rem;
+}
+
+.preset-card-header > label:not(.preset-active) {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.preset-card-header input[type="text"] { min-width: 0; width: 100%; }
+.preset-active { display: flex; align-items: center; gap: 0.35rem; padding-bottom: 0.5rem; }
+.preset-card-header .rank-controls { padding-bottom: 0.25rem; }
+.preset-card-header .rank-controls button { min-width: 2rem; min-height: 2rem; }
+.preset-card-header > button { margin-bottom: 0.25rem; }
+.preset-card :focus-visible,
+.review-workspace :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.preset-editor {
+  max-width: 48rem;
+  margin-top: 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.preset-filter-count { color: var(--muted); font-weight: 400; margin-left: 0.3rem; }
+.preset-date-fields { display: flex; flex-wrap: wrap; gap: 0.7rem; }
+.preset-date-fields label { display: grid; gap: 0.2rem; color: var(--muted); font-size: 0.8rem; }
+.range-clear { padding: 0.12rem 0.35rem; font-size: 0.7rem; }
+
+@media (max-width: 700px) {
+  .preset-card-header { grid-template-columns: 1fr 1fr; }
+  .preset-card-header > button { justify-self: start; }
+}
+
 .preset-fields summary {
   cursor: pointer;
   color: var(--accent);
@@ -1769,8 +1840,8 @@ header {
   font-size: 0.76rem;
 }
 
-.compact-table .preset-fields-grid input,
-.compact-table .preset-fields-grid select {
+.preset-fields-grid input,
+.preset-fields-grid select {
   width: 100%;
   min-width: 0;
   padding: 0.25rem 0.35rem;

@@ -99,7 +99,7 @@ browseClose.addEventListener("click", () => dialog.close());
 browseCancel.addEventListener("click", () => dialog.close());
 
 function moveRow(button, offset) {
-  const row = button.closest("tr");
+  const row = button.closest("[data-profile-row], [data-preset-row]");
   if (!row) {
     return;
   }
@@ -135,7 +135,7 @@ for (const button of document.querySelectorAll("[data-remove-profile]")) {
 
 for (const button of document.querySelectorAll("[data-remove-preset]")) {
   button.addEventListener("click", () => {
-    const row = button.closest("tr");
+    const row = button.closest("[data-preset-row]");
     const name = row?.dataset.presetName || "this preset";
     if (document.querySelectorAll("[data-preset-row]").length <= 1) {
       window.alert("At least one filter preset is required.");
@@ -170,6 +170,14 @@ document.addEventListener("DOMContentLoaded", () => {
         field(handle).value = value;
       });
     }
+    range.querySelector("[data-clear-range]").addEventListener("click", () => {
+      minimum.value = "0";
+      maximum.value = "1";
+      minimum.dispatchEvent(new Event("input"));
+      maximum.dispatchEvent(new Event("input"));
+      field(minimum).value = "";
+      field(maximum).value = "";
+    });
   }
   for (const row of document.querySelectorAll("[data-preset-row]")) {
     for (const checkbox of row.querySelectorAll("[data-preset-list]")) {
