@@ -32,12 +32,13 @@
   function currentQuery() {
     var params = new URLSearchParams(window.location.search);
     params.delete("page");
+    params.delete("selection");
     return params.toString();
   }
 
   function currentFilters() {
     var params = new URLSearchParams(window.location.search);
-    ["page", "page_size", "view", "tab", "sort", "order"].forEach(function (key) {
+    ["page", "page_size", "selection", "view", "tab", "sort", "order"].forEach(function (key) {
       params.delete(key);
     });
     var filters = {};
@@ -194,6 +195,38 @@
     var counter = document.querySelector("[data-selected-count]");
     if (counter) {
       counter.textContent = String(chosen.size);
+    }
+    applySelectionFilter();
+  }
+
+  function selectionFilterValue() {
+    var checked = document.querySelector('input[name="selection"]:checked');
+    return checked ? checked.value : "any";
+  }
+
+  function applySelectionFilter() {
+    var mode = selectionFilterValue();
+    var cards = Array.from(document.querySelectorAll(".library-results .grid .card"));
+    var visible = 0;
+    cards.forEach(function (card) {
+      var box = card.querySelector("[data-select-photo]");
+      var isSelected = box ? box.checked : false;
+      var show =
+        mode === "any" ||
+        (mode === "selected" && isSelected) ||
+        (mode === "unselected" && !isSelected);
+      card.hidden = !show;
+      if (show) {
+        visible += 1;
+      }
+    });
+    var empty = document.querySelector("[data-selection-empty]");
+    if (empty) {
+      empty.hidden = !(cards.length > 0 && visible === 0);
+      empty.textContent =
+        mode === "unselected"
+          ? "Every photo on this page is selected. Review all selected to see every selection across pages."
+          : "No photos on this page are selected. Review all selected to see every selection across pages.";
     }
   }
 
@@ -772,10 +805,14 @@
       });
     }
 
-    var reviewOpen = document.querySelector("[data-open-review]");
-    if (reviewOpen) {
-      reviewOpen.addEventListener("click", openReview);
-    }
+    document.querySelectorAll('input[name="selection"]').forEach(function (radio) {
+      radio.addEventListener("change", applySelectionFilter);
+    });
+
+    var reviewOpen = document.querySelectorAll("[data-open-review]");
+    reviewOpen.forEach(function (button) {
+      button.addEventListener("click", openReview);
+    });
 
     var reviewClose = document.querySelector("[data-review-close]");
     if (reviewClose) {

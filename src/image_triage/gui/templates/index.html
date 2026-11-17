@@ -34,6 +34,7 @@
   <input type="hidden" name="view" value="{{ view }}">
   <input type="hidden" name="tab" value="{{ tab }}">
   <input type="hidden" name="page_size" value="{{ page_size }}">
+  <input type="hidden" name="selection" value="{{ selection }}">
   {% for key, value in filters.items() %}
     {% if key not in ['q', 'sort', 'order', 'page', 'view', 'tab'] and value is not none and value != '' %}
       {% if value is string %}
@@ -276,6 +277,17 @@
             </div>
           </details>
 
+          <details class="filter-group" open>
+            <summary>Selection</summary>
+            <div class="selection-filter">
+              <label><input type="radio" name="selection" value="any" {% if selection == 'any' %}checked{% endif %}> Any</label>
+              <label><input type="radio" name="selection" value="selected" {% if selection == 'selected' %}checked{% endif %}> Selected</label>
+              <label><input type="radio" name="selection" value="unselected" {% if selection == 'unselected' %}checked{% endif %}> Not selected</label>
+            </div>
+            <p class="sidebar-help">Filters the current page only. Review all selected shows every selected photo across pages.</p>
+            <button type="button" class="button-secondary" data-open-review>Review all selected</button>
+          </details>
+
           <details class="filter-group">
             <summary>Advanced</summary>
             <label>Camera make
@@ -303,7 +315,7 @@
 
           <div class="filter-actions">
             <button type="submit">Apply filters</button>
-            <a class="button-link" href="/?view={{ view }}&amp;tab=filters&amp;page_size={{ page_size }}">Reset</a>
+            <a class="button-link" href="/?view={{ view }}&amp;tab=filters&amp;page_size={{ page_size }}{% if selection != 'any' %}&amp;selection={{ selection }}{% endif %}">Reset</a>
           </div>
           <div class="decision-actions">
             <button type="button" class="button-secondary" data-accept-filtered>Accept filtered</button>
@@ -350,6 +362,7 @@
       <li>No photos found.</li>
       {% endfor %}
     </ul>
+    <p class="selection-filter-empty" data-selection-empty hidden>No photos on this page are selected.</p>
 
     <nav class="pagination" aria-label="Pagination">
       {% if page > 1 %}<a href="/?{{ base_query }}{% if base_query %}&amp;{% endif %}page={{ page - 1 }}">previous</a>{% endif %}

@@ -132,13 +132,13 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed.
 
 ---
 
-### Phase 2 - Selected / unselected filter `[ ]`
+### Phase 2 - Selected / unselected filter `[x]`
 
-- [ ] P2-W01: Add `PhotoQuery.selection` and parse `any`, `selected`, `unselected` in `query.py`; include it in `base_query`.
-- [ ] P2-W02: Preserve `selection` in `_url_with`, add a removable filter chip, pass it to the template, and include it in the filter reset URL.
-- [ ] P2-W03: Add the **Selection** filter group to `index.html` with radio controls, a short scope note and a **Review all selected** button.
-- [ ] P2-W04: Implement client-side filtering in `selection.js`, bind all `[data-open-review]` controls, add the empty-state note, and strip `selection` from API filter maps.
-- [ ] P2-W05: Add tests for query parsing, rendered controls, URL preservation and the client-side filter script.
+- [x] P2-W01: Add `PhotoQuery.selection` and parse `any`, `selected`, `unselected` in `query.py`; include it in `base_query`.
+- [x] P2-W02: Preserve `selection` in `_url_with`, add a removable filter chip, pass it to the template, and include it in the filter reset URL.
+- [x] P2-W03: Add the **Selection** filter group to `index.html` with radio controls, a short scope note and a **Review all selected** button.
+- [x] P2-W04: Implement client-side filtering in `selection.js`, bind all `[data-open-review]` controls, add the empty-state note, and strip `selection` from API filter maps.
+- [x] P2-W05: Add tests for query parsing, rendered controls, URL preservation and the client-side filter script.
 
 **Acceptance criteria**
 
@@ -252,11 +252,11 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed.
 
 - **Mode:** autopilot
 - **Plan:** `docs/develop/progress/plan_v7_detail_selection_ux.md`
-- **Completed:** Phase 1 (P1-W01 to P1-W04)
+- **Completed:** Phase 1 (P1-W01 to P1-W04); Phase 2 (P2-W01 to P2-W05)
 - **Active:** none
-- **Next:** P2-W01
+- **Next:** P3-W01
 - **Relevant files:** `src/image_triage/gui/templates/photo.html`, `src/image_triage/gui/static/similarity.js`, `src/image_triage/gui/static/selection.js`, `src/image_triage/gui/templates/index.html`, `src/image_triage/gui/query.py`, `src/image_triage/gui/app.py`, `src/image_triage/gui/static/ui.js` (new), `src/image_triage/gui/templates/settings.html`, `src/image_triage/gui/static/settings.js`, `src/image_triage/gui/static/style.css`, `docs/usage/gui.md`
 - **Decisions:** selection stays browser-local; selected filter is client-side and page-scoped with the review drawer as the cross-page view; undo is one step and selection-only; tooltips are key-button-only at 2200 ms; all dialogs share one subtle red close style.
 - **Blockers:** none
-- **Last verified:** 2026-11-17, `uv run pytest -q --tb=short tests/test_library_ui.py::test_detail_page_supports_main_and_suggestion_selection tests/test_live_similarity.py tests/test_browser_review.py` passed
+- **Last verified:** 2026-11-17, `uv run pytest -q --tb=short tests/test_browser_review.py tests/test_library_ui.py` passed
 - **Context status:** in progress

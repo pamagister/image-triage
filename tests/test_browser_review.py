@@ -293,6 +293,54 @@ uvicorn.run(create_app(settings), host='127.0.0.1',
             )
         )
         assert "tab=filters" in script("return document.querySelector('[data-back-library]').href")
+
+        navigate("/?view=flat&sort=path&page_size=10")
+        script("""
+            document.querySelector('input[name="selection"][value="selected"]').click();
+            document.querySelector('form.filters').requestSubmit();
+        """)
+        _wait_for(lambda: "selection=selected" in (script("return location.href") or ""))
+        assert (
+            script(
+                "return Array.from(document.querySelectorAll('.library-results .grid .card'))"
+                ".filter(card => !card.hidden).length"
+            )
+            == 2
+        )
+        script("""
+            let radio = document.querySelector('input[name="selection"][value="unselected"]');
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change', {bubbles: true}));
+        """)
+        assert (
+            script(
+                "return Array.from(document.querySelectorAll('.library-results .grid .card'))"
+                ".filter(card => !card.hidden).length"
+            )
+            == 1
+        )
+        script("document.querySelector('.sidebar [data-open-review]').click()")
+        _wait_for(
+            lambda: (
+                (
+                    script("return document.querySelectorAll('#review-dialog .review-card').length")
+                    or 0
+                )
+                == 2
+            )
+        )
+        assert script("return document.querySelector('[data-review-count]').textContent") == "2"
+        script("document.querySelector('#review-dialog').close()")
+
+        navigate("/?view=flat&sort=path&page_size=10&selection=unselected")
+        _wait_for(lambda: "selection=unselected" in (script("return location.href") or ""))
+        assert (
+            script(
+                "return Array.from(document.querySelectorAll('.library-results .grid .card'))"
+                ".filter(card => !card.hidden).length"
+            )
+            == 1
+        )
     finally:
         if session_id:
             try:

@@ -7,11 +7,13 @@ from dataclasses import replace
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from starlette.datastructures import QueryParams
 
 from image_triage.analysis.analyze import analyze_library
 from image_triage.core.settings import load_settings
 from image_triage.db.repository import Repository
 from image_triage.gui.app import create_app
+from image_triage.gui.query import parse_photo_query
 from image_triage.selection.presets import FILTER_FIELDS, filters_path, load_presets
 from image_triage.selection.profiles import load_profiles, profiles_path
 
@@ -197,6 +199,36 @@ def test_detail_page_supports_main_and_suggestion_selection(
         assert ".card.is-selected" in css
         assert ".similarity-card.is-selected" in css
         assert ".review-image-frame.is-selected" in css
+
+
+def test_selection_filter_is_parsed_and_kept_out_of_server_filters() -> None:
+    query = parse_photo_query(QueryParams({"selection": "selected", "rating": "4"}))
+    assert query.selection == "selected"
+    assert "selection" not in query.filters
+    assert query.filters.get("rating") == [4]
+    assert "selection=selected" in query.base_query
+    assert parse_photo_query(QueryParams({"selection": "invalid"})).selection == "any"
+    assert "selection=" not in parse_photo_query(QueryParams({})).base_query
+
+
+def test_selection_filter_controls_are_rendered_and_preserved(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    with _client(photo_dir, tmp_path) as client:
+        page = client.get("/?selection=selected&sort=rating")
+        assert page.status_code == 200
+        assert b'name="selection" value="any"' in page.content
+        assert b'name="selection" value="selected" checked' in page.content
+        assert b'name="selection" value="unselected"' in page.content
+        assert b"Review all selected" in page.content
+        assert b"data-selection-empty" in page.content
+        assert b"selection=selected" in page.content
+        assert b"4 photos" in page.content
+
+        script = Path("src/image_triage/gui/static/selection.js").read_text()
+        assert "applySelectionFilter" in script
+        assert 'input[name="selection"]' in script
+        assert 'params.delete("selection")' in script
 
 
 def test_root_folder_filter_aggregates_descendants(photo_dir: Path, tmp_path: Path) -> None:

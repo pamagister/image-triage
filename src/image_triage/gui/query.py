@@ -89,6 +89,7 @@ class PhotoQuery:
     search: str = ""
     view: str = "folders"
     tab: str = "folders"
+    selection: str = "any"
 
     @property
     def base_query(self) -> str:
@@ -101,6 +102,8 @@ class PhotoQuery:
                 params.extend((key, str(item)) for item in value)
             else:
                 params.append((key, "false" if value is False else value))
+        if self.selection in {"selected", "unselected"}:
+            params.append(("selection", self.selection))
         params.append(("sort", self.sort))
         params.append(("order", self.order))
         params.append(("page_size", self.page_size))
@@ -221,5 +224,8 @@ def parse_photo_query(
 
     tab = _clean(get("tab")[0] if get("tab") else "")
     query.tab = tab if tab in {"folders", "filters"} else "folders"
+
+    selection = _clean(get("selection")[0] if get("selection") else "")
+    query.selection = selection if selection in {"selected", "unselected"} else "any"
 
     return query
