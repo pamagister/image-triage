@@ -24,6 +24,8 @@ then activate it with `source .venv/bin/activate`.
 
 Run `make install` to install the project in develop mode.
 
+For browser-based GUI inspection and workflow debugging, see [Development tools](tools.md).
+
 ## Run the tests to ensure everything is working
 
 Run `make test` to run the tests.
