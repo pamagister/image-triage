@@ -581,6 +581,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             repo.close()
 
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon() -> FileResponse:
+        """Answer the browser's implicit favicon request instead of returning a 404."""
+        return FileResponse(BASE_DIR / "static" / "favicon.ico")
+
     @app.get("/health")
     def health(request: Request) -> dict[str, Any]:
         settings = _current_settings(request)

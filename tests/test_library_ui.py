@@ -32,6 +32,25 @@ def _client(photo_dir: Path, tmp_path: Path, **gui: object):
     return TestClient(create_app(settings))
 
 
+def test_favicon_is_linked_and_served(photo_dir: Path, tmp_path: Path) -> None:
+    with _client(photo_dir, tmp_path) as client:
+        page = client.get("/")
+        assert page.status_code == 200
+        assert b'rel="icon"' in page.content
+        assert b'href="/static/favicon.ico"' in page.content
+        assert b'href="/static/favicon.png"' in page.content
+
+        legacy = client.get("/favicon.ico")
+        assert legacy.status_code == 200
+        assert legacy.headers["content-type"] == "image/vnd.microsoft.icon"
+        assert legacy.content[:4] == b"\x00\x00\x01\x00"
+
+        png = client.get("/static/favicon.png")
+        assert png.status_code == 200
+        assert png.headers["content-type"] == "image/png"
+        assert png.content[:8] == b"\x89PNG\r\n\x1a\n"
+
+
 def test_filters_are_top_aligned_in_one_block(photo_dir: Path, tmp_path: Path) -> None:
     with _client(photo_dir, tmp_path) as client:
         page = client.get("/")
