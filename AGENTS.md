@@ -39,6 +39,11 @@ Do not claim that checks passed unless they were actually executed. If verificat
 - Use `pytest` for tests. Add or update tests for new behavior, bug fixes, and meaningful edge cases. Mock external dependencies where appropriate.
 - Never introduce tooling or dependencies solely for marginal benefits.
 
+## Browser UI Inspection
+
+- `playwright-cli` (Playwright CLI + Skills) is available for inspecting the local web UI. The skill is committed at `.agents/skills/playwright-cli`; install the CLI and Chromium with `npm install -g --prefix ~/.local @playwright/cli@latest` and `playwright-cli install-browser chromium`.
+- Use `playwright-cli open <url>`, `snapshot`, `click`, `fill` and `screenshot` to reproduce UI workflows. Sessions are headless by default; close them when done.
+
 ## Testing and Delivery
 
 Before completing a task, run the relevant checks available in the repository. Prefer existing commands, such as:

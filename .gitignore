@@ -210,3 +210,8 @@ cython_debug/
 
 # downloaded models
 res/
+
+# playwright-cli workspace state
+.playwright/*
+!.playwright/cli.config.json
+.playwright-cli/
