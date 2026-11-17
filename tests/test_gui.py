@@ -815,6 +815,60 @@ def test_detail_navigates_filtered_results_across_pages(photo_dir: Path, tmp_pat
         assert "data-detail-next" not in outside.text
 
 
+def test_detail_decisions_and_ratings_are_immediate_and_independent(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    repository = Repository.open(settings.database_path)
+    try:
+        photo = repository.all_photos()[0]
+    finally:
+        repository.close()
+    query = f"?q=burst&tab=filters&location_id={photo.location_id}"
+    with client:
+        accepted = client.post(
+            f"/photo/{photo.id}/decision{query}",
+            data={"status": "accepted"},
+            follow_redirects=False,
+        )
+        assert accepted.status_code == 303
+        assert "q=burst" in accepted.headers["location"]
+        rated = client.post(
+            f"/photo/{photo.id}/rating{query}", data={"rating": "5"}, follow_redirects=False
+        )
+        assert rated.status_code == 303
+        detail = client.get(rated.headers["location"])
+        assert "status-badge status-accepted" in detail.text
+        assert "rating 5/5" in detail.text
+        assert 'data-rate="5"' in detail.text
+        assert 'aria-pressed="true"' in detail.text
+        filtered = client.get("/?rating=5&q=burst")
+        assert f'data-photo-id="{photo.id}"' in filtered.text
+        assert client.post(f"/photo/{photo.id}/rating", data={"rating": "6"}).status_code == 422
+        assert client.post(f"/photo/{photo.id}/decision", data={"status": "bad"}).status_code == 400
+        rejected = client.post(
+            f"/photo/{photo.id}/decision{query}",
+            data={"status": "rejected"},
+            follow_redirects=False,
+        )
+        assert rejected.status_code == 303
+        assert "status-badge status-rejected" in client.get(rejected.headers["location"]).text
+        cleared = client.post(
+            f"/photo/{photo.id}/decision{query}", data={"status": "none"}, follow_redirects=False
+        )
+        assert cleared.status_code == 303
+        repository = Repository.open(settings.database_path)
+        try:
+            override = next(
+                item for item in repository.get_overrides() if item.photo_id == photo.id
+            )
+            assert override.keep is None
+            assert override.rating == 5
+            assert repository.photo_by_id(photo.id).rating == 5
+        finally:
+            repository.close()
+
+
 def test_events_scatter_handles_single_point(photo_dir: Path, tmp_path: Path) -> None:
     settings, client = _prepared_client(photo_dir, tmp_path)
     repository = Repository.open(settings.database_path)

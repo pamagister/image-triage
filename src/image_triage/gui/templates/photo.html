@@ -1,97 +1,102 @@
 {% extends "base.html" %}
 {% block title %}{{ photo.path }} - Image Triage{% endblock %}
 {% block content %}
-<p><a href="{{ library_url }}" data-back-library>Back to library</a></p>
-<nav aria-label="Photo navigation" class="detail-nav">
-  {% if previous_url %}<a href="{{ previous_url }}" data-detail-previous>Previous photo</a>{% else %}<span>Previous photo</span>{% endif %}
-  {% if position %}<span>{{ position }} / {{ result_total }}</span>{% else %}<span>This photo is outside the current filtered results.</span>{% endif %}
-  {% if next_url %}<a href="{{ next_url }}" data-detail-next>Next photo</a>{% else %}<span>Next photo</span>{% endif %}
-</nav>
-<h1>{{ photo.path }}</h1>
-{% if photo.keep is true %}<p><span class="status-badge status-accepted">accepted</span></p>
-{% elif photo.keep is false %}<p><span class="status-badge status-rejected">rejected</span></p>{% endif %}
-<div class="detail">
-  <img class="detail-image" src="/media/location/{{ photo.location_id }}" alt="{{ photo.path }}">
-  <div>
-    <h2>Score {{ '%.3f'|format(photo.score) }} - rating {{ photo.rating }}/5</h2>
-    <table>
-      <tr><th>Sharpness</th><td>{{ '%.3f'|format(photo.metrics.sharpness) }} (subject {{ '%.3f'|format(photo.metrics.sharpness_subject) }})</td></tr>
-      <tr><th>Bokeh</th><td>{{ '%.2f'|format(photo.metrics.bokeh) }}</td></tr>
-      <tr><th>Blur</th><td>{{ photo.metrics.blur_kind.value }} ({{ '%.2f'|format(photo.metrics.blur_confidence) }})</td></tr>
-      <tr><th>Composition</th><td>{{ '%.3f'|format(photo.metrics.composition) }}</td></tr>
-      <tr><th>Aesthetic</th><td>{{ '%.3f'|format(photo.metrics.aesthetic) }} ({{ photo.metrics.aesthetic_source }})</td></tr>
-      <tr><th>Subject</th><td>{{ '%.3f'|format(photo.metrics.subject_score) }} / rarity {{ '%.3f'|format(photo.metrics.subject_rarity) }}</td></tr>
-      <tr><th>Exposure</th><td>{{ '%.3f'|format(photo.metrics.exposure) }}</td></tr>
-      <tr><th>Captured</th><td>{{ photo.taken }}</td></tr>
-      <tr><th>Group / event</th><td>{{ photo.group_id }} / {{ photo.event_id }}</td></tr>
-    </table>
-    <h3>Components</h3>
-    <ul>
-      {% for name, value in photo.metrics.composition_components.items() %}
-      <li>{{ name }}: {{ '%.3f'|format(value) }}</li>
+<div class="review-workspace" data-review-workspace>
+  <div class="review-heading">
+    <a href="{{ library_url }}" data-back-library>Back to library</a>
+    <h1 title="{{ photo.root_path }}/{{ photo.path }}">{{ photo.name }}</h1>
+    <span class="review-summary">Score {{ '%.3f'|format(photo.score) }} · rating {{ override.rating if override and override.rating is not none else photo.rating }}/5</span>
+    {% if photo.keep is true %}<span class="status-badge status-accepted">accepted</span>
+    {% elif photo.keep is false %}<span class="status-badge status-rejected">rejected</span>{% endif %}
+  </div>
+
+  <div class="review-toolbar">
+    <nav aria-label="Photo navigation" class="detail-nav">
+      {% if previous_url %}<a href="{{ previous_url }}" data-detail-previous aria-keyshortcuts="ArrowLeft">Previous</a>{% else %}<span>Previous</span>{% endif %}
+      {% if position %}<span>{{ position }} / {{ result_total }}</span>{% else %}<span>This photo is outside the current filtered results.</span>{% endif %}
+      {% if next_url %}<a href="{{ next_url }}" data-detail-next aria-keyshortcuts="ArrowRight">Next</a>{% else %}<span>Next</span>{% endif %}
+    </nav>
+    <form method="post" action="/photo/{{ photo.id }}/decision?{{ detail_query }}" class="review-actions">
+      <button type="submit" name="status" value="accepted" data-decision="accepted" aria-keyshortcuts="A" aria-pressed="{{ 'true' if photo.keep is true else 'false' }}">Accept</button>
+      <button type="submit" name="status" value="rejected" data-decision="rejected" aria-keyshortcuts="R" aria-pressed="{{ 'true' if photo.keep is false else 'false' }}">Reject</button>
+      <button type="submit" name="status" value="none" class="button-secondary">Clear decision</button>
+    </form>
+    <form method="post" action="/photo/{{ photo.id }}/rating?{{ detail_query }}" class="review-ratings" aria-label="Set rating">
+      <span>Rating</span>
+      {% for value in [1, 2, 3, 4, 5] %}
+      <button type="submit" name="rating" value="{{ value }}" data-rate="{{ value }}" aria-label="Rate {{ value }} out of 5" aria-keyshortcuts="{{ value }}" aria-pressed="{{ 'true' if override and override.rating == value else 'false' }}">{{ value }}</button>
       {% endfor %}
-    </ul>
-    <h3>Detections</h3>
-    <ul>
-      {% for detection in photo.detections %}
-      <li>{{ detection.label }} {{ '%.2f'|format(detection.confidence) }}</li>
-      {% else %}
-      <li>none</li>
-      {% endfor %}
-    </ul>
-    <h3>Soft override</h3>
-    {% if override %}
-    <p>Current: rating {{ override.rating if override.rating is not none else 'unchanged' }},
-      decision {{ 'keep' if override.keep is true else ('reject' if override.keep is false else 'unchanged') }}
-      ({{ override.source.value }})</p>
-    {% endif %}
-    <form method="post" action="/photo/{{ photo.id }}/override?{{ detail_query }}">
-      <label>Rating
-        <select name="rating">
-          <option value="" {% if not override or override.rating is none %}selected{% endif %}>unchanged</option>
-          {% for value in [5, 4, 3, 2, 1] %}
-          <option value="{{ value }}" {% if override and override.rating == value %}selected{% endif %}>{{ value }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Decision
-        <select name="keep">
-          <option value="" {% if not override or override.keep is none %}selected{% endif %}>unchanged</option>
-          <option value="keep" {% if override and override.keep is true %}selected{% endif %}>keep</option>
-          <option value="reject" {% if override and override.keep is false %}selected{% endif %}>reject</option>
-        </select>
-      </label>
-      <button type="submit">Save override</button>
     </form>
   </div>
+
+  <div class="review-stage">
+    <div class="review-image-frame">
+      <img class="detail-image" src="/media/location/{{ photo.location_id }}" alt="{{ photo.path }}">
+    </div>
+    <aside class="review-sidebar" aria-label="Similar photos and details">
+      <section class="visual-similarity" data-similarity data-photo-id="{{ photo.id }}" data-location-id="{{ photo.location_id }}">
+        <h2>Visual suggestions</h2>
+        <p class="section-help">Available photos across active libraries. The visual hash compares appearance, not subject meaning; stored groups are unchanged.</p>
+        <label>More visual differences: <output data-similarity-value>{{ similarity_distance }}</output> / 32
+          <input type="range" min="0" max="32" step="1" value="{{ similarity_distance }}" data-similarity-distance>
+        </label>
+        <p class="section-help">0 is most exact; larger values are broader.</p>
+        <p data-similarity-status role="status">Loading suggestions…</p>
+        <ul class="similarity-grid" data-similarity-results></ul>
+        <button type="button" class="button-secondary" data-similarity-more hidden>Show more</button>
+        <noscript>Enable JavaScript to load visual suggestions.</noscript>
+      </section>
+
+      <details class="review-metrics">
+        <summary>Photo details and stored group</summary>
+        <p>Changes to rating and decisions are soft overrides for this photo content, including copies in other locations.</p>
+        <table>
+          <tr><th>Sharpness</th><td>{{ '%.3f'|format(photo.metrics.sharpness) }} (subject {{ '%.3f'|format(photo.metrics.sharpness_subject) }})</td></tr>
+          <tr><th>Bokeh</th><td>{{ '%.2f'|format(photo.metrics.bokeh) }}</td></tr>
+          <tr><th>Blur</th><td>{{ photo.metrics.blur_kind.value }} ({{ '%.2f'|format(photo.metrics.blur_confidence) }})</td></tr>
+          <tr><th>Composition</th><td>{{ '%.3f'|format(photo.metrics.composition) }}</td></tr>
+          <tr><th>Aesthetic</th><td>{{ '%.3f'|format(photo.metrics.aesthetic) }} ({{ photo.metrics.aesthetic_source }})</td></tr>
+          <tr><th>Subject</th><td>{{ '%.3f'|format(photo.metrics.subject_score) }} / rarity {{ '%.3f'|format(photo.metrics.subject_rarity) }}</td></tr>
+          <tr><th>Exposure</th><td>{{ '%.3f'|format(photo.metrics.exposure) }}</td></tr>
+          <tr><th>Captured</th><td>{{ photo.taken }}</td></tr>
+          <tr><th>Group / event</th><td>{{ photo.group_id }} / {{ photo.event_id }}</td></tr>
+        </table>
+        <h3>Components</h3>
+        <ul>{% for name, value in photo.metrics.composition_components.items() %}<li>{{ name }}: {{ '%.3f'|format(value) }}</li>{% endfor %}</ul>
+        <h3>Detections</h3>
+        <ul>{% for detection in photo.detections %}<li>{{ detection.label }} {{ '%.2f'|format(detection.confidence) }}</li>{% else %}<li>none</li>{% endfor %}</ul>
+        <h3>Soft override</h3>
+        {% if override %}<p>Current: rating {{ override.rating if override.rating is not none else 'unchanged' }}, decision {{ 'keep' if override.keep is true else ('reject' if override.keep is false else 'unchanged') }} ({{ override.source.value }})</p>{% endif %}
+        <form method="post" action="/photo/{{ photo.id }}/override?{{ detail_query }}">
+          <label>Rating
+            <select name="rating">
+              <option value="" {% if not override or override.rating is none %}selected{% endif %}>unchanged</option>
+              {% for value in [5, 4, 3, 2, 1] %}<option value="{{ value }}" {% if override and override.rating == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+            </select>
+          </label>
+          <label>Decision
+            <select name="keep">
+              <option value="" {% if not override or override.keep is none %}selected{% endif %}>unchanged</option>
+              <option value="keep" {% if override and override.keep is true %}selected{% endif %}>keep</option>
+              <option value="reject" {% if override and override.keep is false %}selected{% endif %}>reject</option>
+            </select>
+          </label>
+          <button type="submit">Save override</button>
+        </form>
+        <h3>Stored similarity group</h3>
+        <div class="stored-group-strip">
+          {% for item in similar %}
+          <a href="/photo/{{ item.id }}?{{ group_query }}&amp;location_id={{ item.location_id }}" {% if item.location_id == photo.location_id %}aria-current="true"{% endif %} title="{{ item.path }}">
+            <img src="/media/location/{{ item.location_id }}" alt="{{ item.path }}" loading="lazy">
+          </a>
+          {% else %}<p>No stored group.</p>{% endfor %}
+        </div>
+        {% if photo.group_id and similar|length > 1 %}<p><a href="/compare/group/{{ photo.group_id }}">Compare the full stored group</a></p>{% endif %}
+      </details>
+    </aside>
+  </div>
+  <p class="review-shortcuts">Shortcuts: ← / → navigate · A accept · R reject · 1–5 rate. Decisions apply to all copies of the same photo.</p>
 </div>
-
-<h2>Stored similarity group</h2>
-<ul class="grid">
-  {% for item in similar %}
-  <li class="card">
-    <a href="/photo/{{ item.id }}"><img src="/media/{{ item.id }}" alt="{{ item.path }}" loading="lazy"></a>
-    <div class="meta">{{ item.path }} - score {{ '%.2f'|format(item.score) }}</div>
-  </li>
-  {% else %}
-  <li>No similar shots.</li>
-  {% endfor %}
-</ul>
-{% if similar|length > 1 %}
-<p><a href="/compare?ids={% for item in similar %}{{ item.id }}{% if not loop.last %},{% endif %}{% endfor %}">compare similar shots</a></p>
-{% endif %}
-
-<section class="visual-similarity" data-similarity data-photo-id="{{ photo.id }}" data-location-id="{{ photo.location_id }}">
-  <h2>Visual suggestions</h2>
-  <p>Searches available photos in all active libraries, regardless of current filters. This compares perceptual hashes, not subject meaning, and does not change stored groups.</p>
-  <label>Allow more visual differences: <output data-similarity-value>{{ similarity_distance }}</output> / 32
-    <input type="range" min="0" max="32" step="1" value="{{ similarity_distance }}" data-similarity-distance>
-  </label>
-  <p class="section-help">0 is most exact; larger values are broader and may include unrelated photos.</p>
-  <p data-similarity-status role="status">Loading suggestions…</p>
-  <ul class="similarity-grid" data-similarity-results></ul>
-  <button type="button" class="button-secondary" data-similarity-more hidden>Show more</button>
-  <noscript>Enable JavaScript to load visual suggestions.</noscript>
-</section>
 <script src="/static/similarity.js" defer></script>
+<script src="/static/review.js" defer></script>
 {% endblock %}

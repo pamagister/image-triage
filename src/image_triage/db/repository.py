@@ -71,7 +71,7 @@ _CONTENT_SELECT = (
            (SELECT l.available FROM photo_locations l
             WHERE l.photo_id = p.id AND l.available = 1
             ORDER BY l.relative_path LIMIT 1) AS available,
-           o.keep AS keep
+           o.keep AS keep, COALESCE(o.rating, p.rating) AS effective_rating
     FROM photos p
     LEFT JOIN metrics m ON m.photo_id = p.id
     LEFT JOIN groups g ON g.id = p.group_id
@@ -83,6 +83,7 @@ _LOCATION_SELECT = (
     """
     SELECT p.*, l.id AS location_id, l.root_id, l.relative_path AS path,
            l.available, r.path AS root_path, o.keep AS keep,
+           COALESCE(o.rating, p.rating) AS effective_rating,
     """
     + _METRICS_COLUMNS
     + """
@@ -770,7 +771,9 @@ class Repository:
             detections=detections,
             embedding=embedding,
             score=float(row["score"] or 0.0),
-            rating=int(row["rating"] or 0),
+            rating=int(row["effective_rating"] or 0)
+            if "effective_rating" in keys
+            else int(row["rating"] or 0),
             keep=None if "keep" not in keys or row["keep"] is None else bool(row["keep"]),
             flags=flags,
             model_signature=row["model_signature"],
@@ -852,7 +855,7 @@ class Repository:
                 where.append("(" + " OR ".join(folder_clauses) + ")")
         ratings = values(rating)
         if ratings:
-            where.append(quoted("p.rating", ratings))
+            where.append(quoted("COALESCE(o.rating, p.rating)", ratings))
             params.extend(ratings)
         event_ids = values(event_id)
         if event_ids:
@@ -1041,7 +1044,8 @@ class Repository:
             "JOIN photos p ON p.id = l.photo_id "
             "JOIN roots r ON r.id = l.root_id "
             "LEFT JOIN metrics m ON m.photo_id = p.id "
-            "LEFT JOIN groups g ON g.id = p.group_id"
+            "LEFT JOIN groups g ON g.id = p.group_id "
+            "LEFT JOIN overrides o ON o.photo_id = p.id"
         )
 
     def list_photos(
@@ -1142,7 +1146,7 @@ class Repository:
             "taken": ("p.taken", ["r.path", "l.relative_path"]),
             "path": ("l.relative_path", ["r.path"]),
             "score": ("p.score", ["p.taken", "r.path", "l.relative_path"]),
-            "rating": ("p.rating", ["p.score", "p.taken"]),
+            "rating": ("COALESCE(o.rating, p.rating)", ["p.score", "p.taken"]),
             "sharpness": (
                 "COALESCE(m.sharpness_subject, m.sharpness)",
                 ["p.taken", "l.relative_path"],

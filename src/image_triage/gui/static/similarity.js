@@ -66,6 +66,14 @@
     var url = new URL(window.location.href);
     url.searchParams.set("distance", slider.value);
     window.history.replaceState(null, "", url);
+    document.querySelectorAll(
+      "[data-detail-previous], [data-detail-next], .review-actions, .review-ratings, .review-metrics form, .stored-group-strip a"
+    ).forEach(function (element) {
+      var attribute = element.tagName === "FORM" ? "action" : "href";
+      var target = new URL(element.getAttribute(attribute), window.location.href);
+      target.searchParams.set("distance", slider.value);
+      element.setAttribute(attribute, target.toString());
+    });
     clearTimeout(debounce);
     debounce = setTimeout(function () { load(false); }, 150);
   });

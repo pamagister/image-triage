@@ -1076,6 +1076,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         detail_params = urlencode(
             {"page": current_page, "location_id": photo.location_id, "distance": distance}
         )
+        group_params = urlencode({"page": current_page, "distance": distance})
 
         def detail_url(direction: str) -> str | None:
             if not neighbors or neighbors[f"{direction}_location"] is None:
@@ -1105,6 +1106,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "similarity_distance": distance,
                 "library_url": library_url,
                 "detail_query": f"{query.base_query}&{detail_params}",
+                "group_query": f"{query.base_query}&{group_params}",
                 "previous_url": detail_url("previous"),
                 "next_url": detail_url("next"),
                 "position": position,
@@ -1681,6 +1683,38 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> RedirectResponse:
         keep_value = None if keep in {None, ""} else keep == "keep"
         repo.set_override(photo_id, rating=rating, keep=keep_value, source=OverrideSource.GUI)
+        query_string = f"?{request.url.query}" if request.url.query else ""
+        return RedirectResponse(f"/photo/{photo_id}{query_string}", status_code=303)
+
+    @app.post("/photo/{photo_id}/decision")
+    def photo_decision(
+        request: Request,
+        photo_id: int,
+        repo: Repository = Depends(repository),
+        status: str = Form(...),
+    ) -> RedirectResponse:
+        """Set a content-level decision and return to the current review context."""
+        if status not in {"accepted", "rejected", "none"}:
+            raise HTTPException(400, "invalid decision")
+        roots = [str(root) for root in _current_settings(request).watched_roots]
+        if repo.active_location_for_photo(photo_id, roots) is None:
+            raise HTTPException(404, "photo not found")
+        repo.set_status([photo_id], status)
+        query_string = f"?{request.url.query}" if request.url.query else ""
+        return RedirectResponse(f"/photo/{photo_id}{query_string}", status_code=303)
+
+    @app.post("/photo/{photo_id}/rating")
+    def photo_rating(
+        request: Request,
+        photo_id: int,
+        repo: Repository = Depends(repository),
+        rating: int = Form(..., ge=1, le=5),
+    ) -> RedirectResponse:
+        """Set a soft rating without changing the existing acceptance decision."""
+        roots = [str(root) for root in _current_settings(request).watched_roots]
+        if repo.active_location_for_photo(photo_id, roots) is None:
+            raise HTTPException(404, "photo not found")
+        repo.set_override(photo_id, rating=rating, source=OverrideSource.GUI)
         query_string = f"?{request.url.query}" if request.url.query else ""
         return RedirectResponse(f"/photo/{photo_id}{query_string}", status_code=303)
 
