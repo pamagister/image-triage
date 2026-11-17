@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import html
 import os
+import re
 import runpy
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -761,6 +763,56 @@ def test_filter_form_preserves_scope_and_explicit_hide_rejected(
         assert 'name="folder" value="sub"' in page.text
         assert 'name="hide_rejected" value="false"' in page.text
         assert 'name="page_size" value="20"' in page.text
+
+
+def test_detail_navigates_filtered_results_across_pages(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    repository = Repository.open(settings.database_path)
+    try:
+        for index in range(12):
+            repository.upsert_photo(
+                Photo(
+                    path=f"review-{index:02}.jpg",
+                    root_path=str(photo_dir.resolve()),
+                    digest=f"{index + 2000:064x}",
+                )
+            )
+        photos = repository.list_photos(search="review-", sort="path", order="asc")
+        assert len(photos) == 12
+    finally:
+        repository.close()
+
+    tenth, eleventh = photos[9:11]
+    context = "q=review-&sort=path&order=asc&view=flat&tab=filters&page_size=10&page=1"
+    with client:
+        detail = client.get(f"/photo/{tenth.id}?{context}&location_id={tenth.location_id}")
+        assert detail.status_code == 200
+        assert "10 / 12" in detail.text
+        assert f"/media/location/{tenth.location_id}" in detail.text
+        match = re.search(r'href="([^"]+)" data-detail-next', detail.text)
+        assert match is not None
+        next_url = html.unescape(match.group(1))
+        assert f"/photo/{eleventh.id}?" in next_url
+        assert f"location_id={eleventh.location_id}" in next_url
+        assert "page=2" in next_url and "q=review-" in next_url
+        next_detail = client.get(next_url)
+        assert "11 / 12" in next_detail.text
+        back = re.search(r'href="([^"]+)" data-back-library', next_detail.text)
+        assert back is not None
+        assert "page=2" in html.unescape(back.group(1))
+
+        response = client.post(
+            f"/photo/{tenth.id}/override?{context}&location_id={tenth.location_id}",
+            data={"rating": "4"},
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        assert "q=review-" in response.headers["location"]
+        assert f"location_id={tenth.location_id}" in response.headers["location"]
+
+        outside = client.get(f"/photo/{tenth.id}?q=no-such-match&location_id={tenth.location_id}")
+        assert "outside the current filtered results" in outside.text
+        assert "data-detail-next" not in outside.text
 
 
 def test_events_scatter_handles_single_point(photo_dir: Path, tmp_path: Path) -> None:

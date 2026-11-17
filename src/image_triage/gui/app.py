@@ -1058,6 +1058,39 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 raise ValueError("invalid distance")
         except ValueError:
             distance = min(32, settings.similarity.max_hash_distance)
+        query = parse_photo_query(
+            request.query_params,
+            default_view=settings.gui.default_view,
+            default_hide_rejected=settings.gui.filters.hide_rejected,
+            default_page_size=PER_PAGE,
+        )
+        filters = dict(query.filters)
+        if query.search:
+            filters["search"] = query.search
+        neighbors = repo.photo_neighbors(
+            photo.location_id, filters, sort=query.sort, order=query.order
+        )
+        position = int(neighbors["position"]) if neighbors else None
+        current_page = (position - 1) // query.page_size + 1 if position else query.page
+        library_url = f"/?{query.base_query}&page={current_page}#photo-{photo.location_id}"
+        detail_params = urlencode(
+            {"page": current_page, "location_id": photo.location_id, "distance": distance}
+        )
+
+        def detail_url(direction: str) -> str | None:
+            if not neighbors or neighbors[f"{direction}_location"] is None:
+                return None
+            adjacent_position = position + (-1 if direction == "previous" else 1)
+            adjacent_page = (adjacent_position - 1) // query.page_size + 1
+            params = urlencode(
+                {
+                    "page": adjacent_page,
+                    "location_id": neighbors[f"{direction}_location"],
+                    "distance": distance,
+                }
+            )
+            return f"/photo/{neighbors[f'{direction}_photo']}?{query.base_query}&{params}"
+
         similar = (
             repo.list_photos(group_id=photo.group_id, limit=12)
             if photo.group_id is not None
@@ -1070,6 +1103,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "photo": photo,
                 "similar": similar,
                 "similarity_distance": distance,
+                "library_url": library_url,
+                "detail_query": f"{query.base_query}&{detail_params}",
+                "previous_url": detail_url("previous"),
+                "next_url": detail_url("next"),
+                "position": position,
+                "result_total": neighbors["total"] if neighbors else None,
                 "override": next(
                     (item for item in repo.get_overrides() if item.photo_id == photo_id),
                     None,
@@ -1634,6 +1673,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/photo/{photo_id}/override")
     def override(
+        request: Request,
         photo_id: int,
         repo: Repository = Depends(repository),
         rating: int | None = Form(None),
@@ -1641,7 +1681,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> RedirectResponse:
         keep_value = None if keep in {None, ""} else keep == "keep"
         repo.set_override(photo_id, rating=rating, keep=keep_value, source=OverrideSource.GUI)
-        return RedirectResponse(f"/photo/{photo_id}", status_code=303)
+        query_string = f"?{request.url.query}" if request.url.query else ""
+        return RedirectResponse(f"/photo/{photo_id}{query_string}", status_code=303)
 
     @app.get("/media/location/{location_id}")
     def location_media(

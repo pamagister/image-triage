@@ -1,7 +1,12 @@
 {% extends "base.html" %}
 {% block title %}{{ photo.path }} - Image Triage{% endblock %}
 {% block content %}
-<p><a href="/">back to library</a></p>
+<p><a href="{{ library_url }}" data-back-library>Back to library</a></p>
+<nav aria-label="Photo navigation" class="detail-nav">
+  {% if previous_url %}<a href="{{ previous_url }}" data-detail-previous>Previous photo</a>{% else %}<span>Previous photo</span>{% endif %}
+  {% if position %}<span>{{ position }} / {{ result_total }}</span>{% else %}<span>This photo is outside the current filtered results.</span>{% endif %}
+  {% if next_url %}<a href="{{ next_url }}" data-detail-next>Next photo</a>{% else %}<span>Next photo</span>{% endif %}
+</nav>
 <h1>{{ photo.path }}</h1>
 {% if photo.keep is true %}<p><span class="status-badge status-accepted">accepted</span></p>
 {% elif photo.keep is false %}<p><span class="status-badge status-rejected">rejected</span></p>{% endif %}
@@ -40,7 +45,7 @@
       decision {{ 'keep' if override.keep is true else ('reject' if override.keep is false else 'unchanged') }}
       ({{ override.source.value }})</p>
     {% endif %}
-    <form method="post" action="/photo/{{ photo.id }}/override">
+    <form method="post" action="/photo/{{ photo.id }}/override?{{ detail_query }}">
       <label>Rating
         <select name="rating">
           <option value="" {% if not override or override.rating is none %}selected{% endif %}>unchanged</option>

@@ -319,14 +319,14 @@
 
     <ul class="grid">
       {% for photo in photos %}
-      <li class="card" data-photo-id="{{ photo.id }}" data-location-id="{{ photo.location_id or photo.id }}"
+      <li class="card" id="photo-{{ photo.location_id or photo.id }}" data-photo-id="{{ photo.id }}" data-location-id="{{ photo.location_id or photo.id }}"
           data-root="{{ photo.root_path }}" data-folder="{{ photo.folder }}" data-group-id="{{ photo.group_id or '' }}">
         <label class="select-box">
           <input type="checkbox" data-select-photo value="{{ photo.location_id or photo.id }}">
         </label>
         {% if photo.keep is true %}<span class="status-badge status-accepted">accepted</span>
         {% elif photo.keep is false %}<span class="status-badge status-rejected">rejected</span>{% endif %}
-        <a href="/photo/{{ photo.id }}">
+        <a href="/photo/{{ photo.id }}?{{ base_query }}&amp;page={{ page }}&amp;location_id={{ photo.location_id }}">
           <img src="/media/location/{{ photo.location_id or photo.id }}" alt="{{ photo.name }}" loading="lazy">
         </a>
         <div class="meta">

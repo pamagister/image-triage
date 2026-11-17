@@ -1123,6 +1123,20 @@ class Repository:
             root=root,
             folder=folder,
         )
+        order_by = self._photo_order(sort, order)
+        sql = _LOCATION_SELECT
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        sql += f" ORDER BY {order_by}"
+        if limit is not None:
+            sql += " LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+        rows = self.connection.execute(sql, params).fetchall()
+        return [self._row_to_photo(row) for row in rows]
+
+    @staticmethod
+    def _photo_order(sort: str, order: str) -> str:
+        """Shared, deterministic order for library pages and detail navigation."""
         direction = "ASC" if order.lower().startswith("asc") else "DESC"
         columns = {
             "taken": ("p.taken", ["r.path", "l.relative_path"]),
@@ -1141,16 +1155,29 @@ class Repository:
             "event": ("p.event_id", ["p.taken", "l.relative_path"]),
         }
         key, tie_breakers = columns.get(sort, columns["taken"])
-        order_by = ", ".join([f"{key} {direction}", *tie_breakers])
-        sql = _LOCATION_SELECT
-        if where:
-            sql += " WHERE " + " AND ".join(where)
-        sql += f" ORDER BY {order_by}"
-        if limit is not None:
-            sql += " LIMIT ? OFFSET ?"
-            params.extend([limit, offset])
-        rows = self.connection.execute(sql, params).fetchall()
-        return [self._row_to_photo(row) for row in rows]
+        return ", ".join([f"{key} {direction}", *tie_breakers, "r.path", "l.relative_path", "l.id"])
+
+    def photo_neighbors(
+        self, location_id: int, filters: dict[str, Any], *, sort: str, order: str
+    ) -> dict[str, int | None] | None:
+        """Return the position and adjacent locations in the complete filtered result."""
+        where, params = self._photo_filters(**filters)
+        order_by = self._photo_order(sort, order)
+        sql = (
+            "WITH ordered AS (SELECT l.id AS location_id, "
+            f"ROW_NUMBER() OVER (ORDER BY {order_by}) AS position, "
+            "COUNT(*) OVER () AS total, "
+            f"LAG(l.id) OVER (ORDER BY {order_by}) AS previous_location, "
+            f"LAG(p.id) OVER (ORDER BY {order_by}) AS previous_photo, "
+            f"LEAD(l.id) OVER (ORDER BY {order_by}) AS next_location, "
+            f"LEAD(p.id) OVER (ORDER BY {order_by}) AS next_photo "
+            + self._location_from()
+            + " WHERE "
+            + " AND ".join(where)
+            + ") SELECT * FROM ordered WHERE location_id = ?"
+        )
+        row = self.connection.execute(sql, [*params, location_id]).fetchone()
+        return dict(row) if row is not None else None
 
     def photo_ids(
         self,

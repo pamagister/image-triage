@@ -298,6 +298,41 @@ def test_disabled_root_photos_are_not_browsed_or_counted_in_groups(tmp_path: Pat
         repository.close()
 
 
+def test_detail_navigation_distinguishes_duplicate_locations(tmp_path: Path) -> None:
+    first = tmp_path / "a-root"
+    second = tmp_path / "b-root"
+    image = _scene(17)
+    save_jpeg(first / "same.jpg", image, datetime(2024, 1, 1))
+    save_jpeg(second / "same.jpg", image, datetime(2024, 1, 1))
+    settings = _settings([first, second], tmp_path / "duplicate-navigation.db")
+    repository = Repository.open(settings.database_path)
+    try:
+        analyze_library(settings, repository)
+        photos = repository.list_photos(search="same.jpg", sort="path", order="asc")
+        assert len(photos) == 2
+        assert photos[0].id == photos[1].id
+        assert photos[0].location_id != photos[1].location_id
+        first_context = repository.photo_neighbors(
+            photos[0].location_id, {"search": "same.jpg"}, sort="path", order="asc"
+        )
+        assert first_context["position"] == 1
+        assert first_context["next_location"] == photos[1].location_id
+        assert first_context["next_photo"] == photos[0].id
+    finally:
+        repository.close()
+    with TestClient(create_app(settings)) as client:
+        page = client.get(
+            f"/photo/{photos[0].id}?q=same.jpg&sort=path&location_id={photos[0].location_id}"
+        )
+        assert "1 / 2" in page.text
+        assert f"location_id={photos[1].location_id}" in page.text
+        second_page = client.get(
+            f"/photo/{photos[1].id}?q=same.jpg&sort=path&location_id={photos[1].location_id}"
+        )
+        assert "2 / 2" in second_page.text
+        assert f"/media/location/{photos[1].location_id}" in second_page.text
+
+
 def test_nested_roots_are_de_overlapped(tmp_path: Path) -> None:
     parent = tmp_path / "photos"
     child = parent / "2024"
