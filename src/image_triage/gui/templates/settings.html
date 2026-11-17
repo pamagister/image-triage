@@ -111,6 +111,7 @@
     <h2>Selection</h2>
     <p class="section-help">One <code>selections.yaml</code> holds every Best-N variant. The top profile is the default in the library dropdown; use the arrows to rank profiles.</p>
     <p class="store-path">Profile file: <code>{{ selection_store_path }}</code></p>
+    <input type="hidden" name="profile_submitted" value="true">
     <div class="table-wrap">
       <table class="profile-table compact-table">
         <thead>
@@ -200,19 +201,21 @@
                   {% set value = preset.overrides.get(key) %}
                   <label>{{ key }}
                     {% if field.kind == 'list' %}
-                    <input type="text" name="preset_values" value="{{ key }}={{ value | join(',') if value else '' }}" placeholder="comma separated" aria-label="Preset {{ key }}">
+                    <input type="text" name="preset_values" value="{{ value | join(',') if value else '' }}" placeholder="comma separated" aria-label="Preset {{ key }}">
                     {% elif field.kind == 'bool' %}
                     <select name="preset_values" aria-label="Preset {{ key }}">
-                      <option value="{{ key }}=" {% if value is none %}selected{% endif %}>default</option>
-                      <option value="{{ key }}=true" {% if value is true %}selected{% endif %}>true</option>
-                      <option value="{{ key }}=false" {% if value is false %}selected{% endif %}>false</option>
+                      <option value="" {% if value is none %}selected{% endif %}>default</option>
+                      <option value="true" {% if value is true %}selected{% endif %}>true</option>
+                      <option value="false" {% if value is false %}selected{% endif %}>false</option>
                     </select>
                     {% elif field.kind == 'float' %}
-                    <input type="number" step="0.01" name="preset_values" value="{{ key }}={{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
+                    <input type="number" step="any" name="preset_values" value="{{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
                     {% elif field.kind == 'int' %}
-                    <input type="number" step="1" name="preset_values" value="{{ key }}={{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
+                    <input type="number" step="1" name="preset_values" value="{{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
+                    {% elif key in ['date_from', 'date_to'] %}
+                    <input type="date" name="preset_values" value="{{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
                     {% else %}
-                    <input type="text" name="preset_values" value="{{ key }}={{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
+                    <input type="text" name="preset_values" value="{{ value if value is not none else '' }}" aria-label="Preset {{ key }}">
                     {% endif %}
                   </label>
                   {% endfor %}

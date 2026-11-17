@@ -1076,6 +1076,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         selection_profiles_dir: str = Form(""),
         profile_order: list[str] = Form([]),  # noqa: B008
         profile_name: list[str] = Form([]),  # noqa: B008
+        profile_submitted: bool = Form(False),
         add_profile: str = Form(""),
         profile_top_n: list[str] = Form([]),  # noqa: B008
         profile_diversity: list[str] = Form([]),  # noqa: B008
@@ -1211,6 +1212,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             preset_values = [*preset_values, *([""] * len(FILTER_FIELDS))]
             preset_order = [*preset_order, candidate]
 
+        if profile_submitted and not profile_name:
+            return _settings_context(
+                request,
+                repo,
+                settings=settings,
+                error="at least one selection profile is required",
+                status_code=400,
+            )
+        if preset_submitted and not preset_name:
+            return _settings_context(
+                request,
+                repo,
+                settings=settings,
+                error="at least one filter preset is required",
+                status_code=400,
+            )
+
         data = settings.model_dump(mode="json")
         data["input"]["roots"] = [str(path) for path in configured]
         data["input"]["disabled_roots"] = [str(path) for path in configured if path not in enabled]
@@ -1281,7 +1299,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             values = preset_values[start : start + width]
             if len(values) != width:
                 raise ValueError("filter preset fields are incomplete")
-            return overrides_from_field_values(values, path=filters_path(updated))
+            # Native number/date inputs contain only their value. Keep accepting the
+            # previous key=value representation for existing non-browser clients.
+            encoded = [
+                value if value.startswith(f"{key}=") else f"{key}={value}"
+                for key, value in zip(FILTER_FIELDS, values)
+            ]
+            return overrides_from_field_values(encoded, path=filters_path(updated))
 
         try:
             if profile_name:

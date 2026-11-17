@@ -121,6 +121,10 @@ for (const button of document.querySelectorAll("[data-remove-profile]")) {
   button.addEventListener("click", () => {
     const row = button.closest("tr");
     const name = row?.dataset.profileName || "this profile";
+    if (document.querySelectorAll("[data-profile-row]").length <= 1) {
+      window.alert("At least one selection profile is required.");
+      return;
+    }
     if (!window.confirm(`Remove ${name}?`)) {
       return;
     }
@@ -133,6 +137,10 @@ for (const button of document.querySelectorAll("[data-remove-preset]")) {
   button.addEventListener("click", () => {
     const row = button.closest("tr");
     const name = row?.dataset.presetName || "this preset";
+    if (document.querySelectorAll("[data-preset-row]").length <= 1) {
+      window.alert("At least one filter preset is required.");
+      return;
+    }
     if (!window.confirm(`Remove ${name}?`)) {
       return;
     }

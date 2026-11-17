@@ -432,6 +432,65 @@ def test_settings_removes_profiles_and_presets(photo_dir: Path, tmp_path: Path) 
     assert active_settings.gui.filters.presets == []
 
 
+def test_settings_browser_preset_values_round_trip(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    preset = replace(
+        load_presets(settings)[0],
+        overrides={
+            "min_score": 0.0,
+            "score_max": 0.73,
+            "group_size_min": 2,
+            "date_from": "2024-01-01",
+            "rating": [4, 5],
+            "hide_rejected": False,
+        },
+    )
+    fields = _preset_form([preset], enabled=[preset.name])
+    fields["preset_values"] = [value.partition("=")[2] for value in fields["preset_values"]]
+    with client:
+        response = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(photo_dir.resolve())],
+                "enabled_roots": [str(photo_dir.resolve())],
+                **fields,
+            },
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        assert load_presets(client.app.state.settings)[0].overrides == preset.overrides
+        page = client.get("/settings")
+        assert 'value="0.73" aria-label="Preset score_max"' in page.text
+        assert 'value="2024-01-01" aria-label="Preset date_from"' in page.text
+        assert 'value="false" selected' in page.text
+
+
+def test_settings_cannot_remove_last_profile_or_preset(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    with client:
+        response = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(photo_dir.resolve())],
+                "enabled_roots": [str(photo_dir.resolve())],
+                "profile_submitted": "true",
+            },
+        )
+        assert response.status_code == 400
+        assert "at least one selection profile" in response.text
+        response = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(photo_dir.resolve())],
+                "enabled_roots": [str(photo_dir.resolve())],
+                "preset_submitted": "true",
+            },
+        )
+        assert response.status_code == 400
+        assert "at least one filter preset" in response.text
+        assert not settings.config_path.exists()
+
+
 def test_settings_ranks_and_renames_profiles_and_presets(photo_dir: Path, tmp_path: Path) -> None:
     settings, client = _client_with_settings(photo_dir, tmp_path)
     profiles = load_profiles(settings)
