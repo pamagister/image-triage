@@ -707,6 +707,62 @@ def test_filters_and_pagination_preserve_query(
         assert b"No photos found." in empty.content
 
 
+def test_page_size_controls_pagination_and_preserves_filters(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    repository = Repository.open(settings.database_path)
+    try:
+        for index in range(27):
+            repository.upsert_photo(
+                Photo(
+                    path=f"extra-{index:02}.jpg",
+                    root_path=str(photo_dir.resolve()),
+                    digest=f"{index + 1000:064x}",
+                )
+            )
+    finally:
+        repository.close()
+    with client:
+        first = client.get("/?q=extra&tab=filters&sort=path&page_size=10")
+        assert first.status_code == 200
+        assert first.text.count('data-photo-id="') == 10
+        assert "page 1 / 3" in first.text
+        assert "page_size=10" in first.text
+        assert 'value="10" selected' in first.text
+        last = client.get("/?q=extra&tab=filters&sort=path&page_size=10&page=3")
+        assert last.text.count('data-photo-id="') == 7
+        assert "page 3 / 3" in last.text
+        for size in (20, 50, 100, 200):
+            page = client.get(f"/?q=extra&page_size={size}")
+            assert page.text.count('data-photo-id="') == min(size, 27)
+        invalid = client.get("/?q=extra&page_size=0")
+        assert invalid.text.count('data-photo-id="') == 27
+        assert 'value="50" selected' in invalid.text
+
+
+def test_filter_form_preserves_scope_and_explicit_hide_rejected(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    _, client = _prepared_client(photo_dir, tmp_path)
+    with client:
+        page = client.get(
+            "/",
+            params={
+                "tab": "filters",
+                "root": str(photo_dir.resolve()),
+                "folder": "sub",
+                "hide_rejected": "false",
+                "page_size": "20",
+            },
+        )
+        assert 'id="sidebar-filters" checked' in page.text
+        assert f'name="root" value="{photo_dir.resolve()}"' in page.text
+        assert 'name="folder" value="sub"' in page.text
+        assert 'name="hide_rejected" value="false"' in page.text
+        assert 'name="page_size" value="20"' in page.text
+
+
 def test_events_scatter_handles_single_point(photo_dir: Path, tmp_path: Path) -> None:
     settings, client = _prepared_client(photo_dir, tmp_path)
     repository = Repository.open(settings.database_path)

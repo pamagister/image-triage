@@ -7,7 +7,7 @@ from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode
 
 import yaml
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
@@ -27,7 +27,7 @@ from image_triage.export.export import export_photos
 from image_triage.export.previews import preview_path
 from image_triage.grouping.build import build_groups_and_events
 from image_triage.gui.library_status import library_status
-from image_triage.gui.query import PhotoQuery, parse_photo_query
+from image_triage.gui.query import PAGE_SIZES, PhotoQuery, parse_photo_query
 from image_triage.gui.settings_files import replace_settings_files
 from image_triage.io.scan import find_images
 from image_triage.scoring.score import score_library
@@ -52,7 +52,7 @@ from image_triage.selection.select import best_per_group, select_photos
 
 BASE_DIR = Path(__file__).parent
 TEMPLATES = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-PER_PAGE = 60
+PER_PAGE = 50
 
 #: Human labels for active filter chips.
 FILTER_LABELS = {
@@ -251,6 +251,8 @@ def _url_with(query, **overrides: Any) -> str:
         else:
             params.append((key, "false" if value is False else value))
     params.extend([("sort", query.sort), ("order", query.order)])
+    if "page_size" not in overrides:
+        params.append(("page_size", query.page_size))
     if "view" not in overrides:
         params.append(("view", query.view))
     if "tab" not in overrides and query.tab != "folders":
@@ -625,12 +627,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             request.query_params,
             default_view=settings.gui.default_view,
             default_hide_rejected=settings.gui.filters.hide_rejected,
+            default_page_size=PER_PAGE,
         )
         filters = dict(query.filters)
         if query.search:
             filters["search"] = query.search
         total = repo.count_photos(**filters)
-        pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
+        pages = max(1, (total + query.page_size - 1) // query.page_size)
         page = min(max(1, query.page), pages)
         # The tree is navigation: ignore folder and root selection so every node stays visible.
         tree_filters = {
@@ -675,8 +678,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     **filters,
                     sort=query.sort,
                     order=query.order,
-                    limit=PER_PAGE,
-                    offset=(page - 1) * PER_PAGE,
+                    limit=query.page_size,
+                    offset=(page - 1) * query.page_size,
                 ),
                 "events": repo.available_events(),
                 "groups": repo.available_groups(),
@@ -685,6 +688,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "total": total,
                 "page": page,
                 "pages": pages,
+                "page_size": query.page_size,
+                "page_sizes": PAGE_SIZES,
+                "size_query_items": [
+                    (key, value)
+                    for key, value in parse_qsl(query.base_query)
+                    if key not in {"page_size", "tab"}
+                ],
                 "sort": query.sort,
                 "order": query.order,
                 "latest_run": repo.latest_run(),
@@ -698,7 +708,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     {
                         "name": preset.name,
                         "label": preset.label,
-                        "url": _url_with(query, **preset.overrides),
+                        "url": _url_with(query, tab="filters", **preset.overrides),
                     }
                     for preset in presets
                 ],

@@ -25,6 +25,7 @@ SORT_KEYS = (
     "group",
     "event",
 )
+PAGE_SIZES = (10, 20, 50, 100, 200)
 
 #: Query parameters that are lists of values rather than single numbers or dates.
 MULTI_VALUE_KEYS = (
@@ -84,6 +85,7 @@ class PhotoQuery:
     sort: str = "taken"
     order: str = "asc"
     page: int = 1
+    page_size: int = 50
     search: str = ""
     view: str = "folders"
     tab: str = "folders"
@@ -101,10 +103,9 @@ class PhotoQuery:
                 params.append((key, "false" if value is False else value))
         params.append(("sort", self.sort))
         params.append(("order", self.order))
-        if self.view != "folders":
-            params.append(("view", self.view))
-        if self.tab != "folders":
-            params.append(("tab", self.tab))
+        params.append(("page_size", self.page_size))
+        params.append(("view", self.view))
+        params.append(("tab", self.tab))
         if self.search:
             params.insert(0, ("q", self.search))
         return urlencode(params)
@@ -128,7 +129,10 @@ def _clean(value: str | None) -> str:
 
 
 def parse_photo_query(
-    params: Any, default_view: str = "folders", default_hide_rejected: bool = False
+    params: Any,
+    default_view: str = "folders",
+    default_hide_rejected: bool = False,
+    default_page_size: int = 50,
 ) -> PhotoQuery:
     """Build a :class:`PhotoQuery` from request query parameters, tolerating empty values."""
     get = params.getlist if hasattr(params, "getlist") else (lambda key: [params.get(key, "")])
@@ -204,6 +208,13 @@ def parse_photo_query(
         query.page = max(1, int(page_raw)) if page_raw else 1
     except ValueError:
         query.page = 1
+
+    size_raw = _clean(get("page_size")[0] if get("page_size") else "")
+    try:
+        page_size = int(size_raw)
+        query.page_size = page_size if page_size in PAGE_SIZES else default_page_size
+    except ValueError:
+        query.page_size = default_page_size
 
     view = _clean(get("view")[0] if get("view") else "")
     query.view = view if view in {"flat", "folders"} else default_view

@@ -37,7 +37,7 @@
 
   function currentFilters() {
     var params = new URLSearchParams(window.location.search);
-    ["page", "view", "tab", "sort", "order"].forEach(function (key) {
+    ["page", "page_size", "view", "tab", "sort", "order"].forEach(function (key) {
       params.delete(key);
     });
     var filters = {};
@@ -157,6 +157,7 @@
   function folderFilterUrl() {
     var params = new URLSearchParams(window.location.search);
     params.delete("page");
+    params.set("tab", "folders");
     params.delete("folder");
     var checked = Array.from(document.querySelectorAll("[data-folder-filter]")).filter(
       function (box) {
@@ -540,8 +541,41 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
+    var sizeSelect = document.querySelector("[data-page-size]");
+    var sizeForm = document.querySelector("[data-page-size-form]");
+    if (sizeSelect && sizeForm) {
+      var params = new URLSearchParams(window.location.search);
+      try {
+        var savedSize = window.localStorage.getItem("image-triage:page-size");
+        if (!params.has("page_size") && ["10", "20", "50", "100", "200"].includes(savedSize)) {
+          params.set("page_size", savedSize);
+          window.location.replace("/?" + params.toString());
+          return;
+        }
+      } catch (err) {
+        /* Browser storage is optional. */
+      }
+      sizeSelect.addEventListener("change", function () {
+        try { window.localStorage.setItem("image-triage:page-size", sizeSelect.value); } catch (err) { /* optional */ }
+        sizeForm.requestSubmit();
+      });
+    }
     applySelection(readSelected());
     restoreOpenFolders();
+
+    document.querySelectorAll('[name="sidebar-tab"]').forEach(function (radio) {
+      radio.addEventListener("change", function () {
+        var tab = radio.id === "sidebar-filters" ? "filters" : "folders";
+        document.querySelectorAll('.topbar [name="tab"], [data-page-size-form] [name="tab"]').forEach(function (input) {
+          input.value = tab;
+        });
+        document.querySelectorAll('.view-toggle a, .chips a.chip:not(.chip-reset), .pagination a').forEach(function (link) {
+          var url = new URL(link.href);
+          url.searchParams.set("tab", tab);
+          link.href = url.toString();
+        });
+      });
+    });
 
     var presetForm = document.querySelector("[data-save-preset]");
     var filterForm = document.querySelector("form.filters");

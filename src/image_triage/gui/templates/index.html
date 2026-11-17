@@ -33,6 +33,7 @@
 <form method="get" action="/" class="topbar" role="search">
   <input type="hidden" name="view" value="{{ view }}">
   <input type="hidden" name="tab" value="{{ tab }}">
+  <input type="hidden" name="page_size" value="{{ page_size }}">
   {% for key, value in filters.items() %}
     {% if key not in ['q', 'sort', 'order', 'page', 'view', 'tab'] and value is not none and value != '' %}
       {% if value is string %}
@@ -69,6 +70,16 @@
     <a href="{{ view_folders }}" {% if view == 'folders' %}aria-current="page"{% endif %}>Folder tree</a>
   </p>
   <p class="result-count">{{ total }} photos{% if chips %} matching {{ total }} of {{ status.stored }}{% endif %}{% if latest_run %} - latest run {{ latest_run.id }} ({{ latest_run.status.value }}){% endif %}</p>
+  <form method="get" action="/" class="page-size-form" data-page-size-form>
+    {% for key, value in size_query_items %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <label>Photos per page
+      <select name="page_size" data-page-size>
+        {% for size in page_sizes %}<option value="{{ size }}" {% if size == page_size %}selected{% endif %}>{{ size }}</option>{% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="button-secondary">Apply</button>
+  </form>
   <p class="selection-summary"><span data-selected-count>0</span> selected</p>
 </div>
 
@@ -179,9 +190,16 @@
         <form method="get" action="/" class="filters" role="search">
           <input type="hidden" name="view" value="{{ view }}">
           <input type="hidden" name="tab" value="filters">
+          <input type="hidden" name="page_size" value="{{ page_size }}">
           <input type="hidden" name="sort" value="{{ sort }}">
           <input type="hidden" name="order" value="{{ order }}">
           <input type="hidden" name="q" value="{{ search or '' }}">
+          {% for key in ['root', 'folder', 'flags', 'exposure_min', 'exposure_max'] %}
+          {% set value = filters.get(key) %}
+          {% if value is string %}<input type="hidden" name="{{ key }}" value="{{ value }}">
+          {% elif value is sequence %}{% for item in value %}<input type="hidden" name="{{ key }}" value="{{ item }}">{% endfor %}
+          {% elif value is not none %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}
+          {% endfor %}
 
           <details class="filter-group" {% if 'rating' not in filter_settings.visible %}hidden{% endif %}>
             <summary>Rating</summary>
@@ -254,6 +272,7 @@
             </div>
             <div class="checkbox-row">
               <label><input type="checkbox" name="hide_rejected" value="true" {% if filters.get('hide_rejected') %}checked{% endif %}> <span>Hide rejected</span></label>
+              <input type="hidden" name="hide_rejected" value="false">
             </div>
           </details>
 
@@ -284,7 +303,7 @@
 
           <div class="filter-actions">
             <button type="submit">Apply filters</button>
-            <a class="button-link" href="/">Reset</a>
+            <a class="button-link" href="/?view={{ view }}&amp;tab=filters&amp;page_size={{ page_size }}">Reset</a>
           </div>
           <div class="decision-actions">
             <button type="button" class="button-secondary" data-accept-filtered>Accept filtered</button>
