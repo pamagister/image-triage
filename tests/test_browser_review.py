@@ -208,6 +208,12 @@ uvicorn.run(create_app(settings), host='127.0.0.1',
             == profile_count - 1
         )
 
+        navigate("/settings")
+        script("document.querySelector('#browse-root').click()")
+        _wait_for(lambda: script("return document.querySelector('#browse-dialog').open"))
+        script("document.querySelector('#browse-close').click()")
+        _wait_for(lambda: not script("return document.querySelector('#browse-dialog').open"))
+
         navigate("/?view=flat&sort=path&page_size=10")
         script("""
             let slider = document.querySelector('form.filters [name="min_score"]');
@@ -295,6 +301,31 @@ uvicorn.run(create_app(settings), host='127.0.0.1',
         assert "tab=filters" in script("return document.querySelector('[data-back-library]').href")
 
         navigate("/?view=flat&sort=path&page_size=10")
+        script("document.querySelector('label[for=sidebar-filters]').click()")
+        script("document.querySelector('.sidebar [data-open-review]').focus()")
+        _wait_for(
+            lambda: (
+                script("return !!document.querySelector('#ui-tooltip')")
+                and script("return !document.querySelector('#ui-tooltip').hidden")
+            ),
+            timeout=5.0,
+        )
+        assert "Review every selected" in script(
+            "return document.querySelector('#ui-tooltip').textContent"
+        )
+        assert (
+            script("""
+                let rect = document.querySelector('#ui-tooltip').getBoundingClientRect();
+                return rect.left >= 0 && rect.top >= 0
+                    && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1;
+            """)
+            is True
+        )
+        script(
+            "document.body.dispatchEvent("
+            "new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}))"
+        )
+        assert script("return document.querySelector('#ui-tooltip').hidden") is True
         script("""
             document.querySelector('input[name="selection"][value="selected"]').click();
             document.querySelector('form.filters').requestSubmit();
@@ -330,7 +361,8 @@ uvicorn.run(create_app(settings), host='127.0.0.1',
             )
         )
         assert script("return document.querySelector('[data-review-count]').textContent") == "2"
-        script("document.querySelector('#review-dialog').close()")
+        script("document.querySelector('#review-dialog [data-dialog-close]').click()")
+        _wait_for(lambda: not script("return document.querySelector('#review-dialog').open"))
 
         navigate("/?view=flat&sort=path&page_size=10&selection=unselected")
         _wait_for(lambda: "selection=unselected" in (script("return location.href") or ""))

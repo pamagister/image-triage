@@ -339,14 +339,14 @@
 <dialog id="browse-dialog" class="browse-dialog" aria-labelledby="browse-title">
   <div class="browse-header">
     <strong id="browse-title">Choose a folder</strong>
-    <button type="button" class="button-secondary" id="browse-close" aria-label="Close">Close</button>
+    <button type="button" class="dialog-close" id="browse-close" data-dialog-close aria-label="Close" data-tooltip="Close folder browser">Close</button>
   </div>
   <p class="browse-path"><button type="button" class="button-secondary" id="browse-up">Up</button> <code id="browse-current"></code></p>
   <ul id="browse-list" class="browse-list"></ul>
   <p id="browse-error" class="error" role="alert" hidden></p>
   <div class="browse-actions">
     <button type="button" id="browse-select">Use current folder</button>
-    <button type="button" class="button-secondary" id="browse-cancel">Cancel</button>
+    <button type="button" class="button-secondary" id="browse-cancel" data-dialog-close>Cancel</button>
   </div>
 </dialog>
 

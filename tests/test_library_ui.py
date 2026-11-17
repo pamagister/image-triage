@@ -231,6 +231,50 @@ def test_selection_filter_controls_are_rendered_and_preserved(
         assert 'params.delete("selection")' in script
 
 
+def test_tooltips_and_shared_dialog_close_are_wired(photo_dir: Path, tmp_path: Path) -> None:
+    with _client(photo_dir, tmp_path) as client:
+        page = client.get("/")
+        assert page.status_code == 200
+        assert b'class="dialog-close"' in page.content
+        assert b"data-dialog-close" in page.content
+        assert b'data-tooltip="Review every selected' in page.content
+        assert b"/static/ui.js" in page.content
+
+        settings = client.get("/settings")
+        assert settings.status_code == 200
+        assert b'class="dialog-close"' in settings.content
+        assert b'id="browse-close"' in settings.content
+        assert b"data-dialog-close" in settings.content
+
+        match = re.search(rb'href="/photo/(\d+)\?', page.content)
+        assert match is not None
+        detail = client.get(f"/photo/{match.group(1).decode()}")
+        assert detail.status_code == 200
+        assert b'data-tooltip="Accept this photo content' in detail.content
+        assert b'data-tooltip="Rate this photo' in detail.content
+
+        selection_js = Path("src/image_triage/gui/static/selection.js").read_text()
+        assert "data-review-close" not in selection_js
+        assert "data-export-close" not in selection_js
+        assert "Remove from selection" in selection_js
+        assert "Accepted/rejected status is unchanged." in selection_js
+
+        settings_js = Path("src/image_triage/gui/static/settings.js").read_text()
+        assert "browseClose" not in settings_js
+        assert "browseCancel" not in settings_js
+
+        ui_js = Path("src/image_triage/gui/static/ui.js").read_text()
+        assert "2200" in ui_js
+        assert "data-dialog-close" in ui_js
+        assert "aria-describedby" in ui_js
+        assert "Escape" in ui_js
+
+        css = Path("src/image_triage/gui/static/style.css").read_text()
+        assert ".dialog-close" in css
+        assert ".ui-tooltip" in css
+        assert "prefers-reduced-motion" in css
+
+
 def test_root_folder_filter_aggregates_descendants(photo_dir: Path, tmp_path: Path) -> None:
     with _client(photo_dir, tmp_path) as client:
         response = client.get(

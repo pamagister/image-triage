@@ -152,12 +152,12 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed.
 
 ---
 
-### Phase 3 - Tooltips and uniform dialog close buttons `[ ]`
+### Phase 3 - Tooltips and uniform dialog close buttons `[x]`
 
-- [ ] P3-W01: Add `static/ui.js` with the delayed tooltip behavior and generic `[data-dialog-close]` handling; load it from `base.html`.
-- [ ] P3-W02: Add `data-tooltip` to key library, review and detail buttons, with special wording for review-card **Remove** and its `aria-label`.
-- [ ] P3-W03: Apply the shared `.dialog-close` style and `data-dialog-close` attribute to the export, review and Settings folder-browser dialogs; remove obsolete close handlers from `selection.js` and `settings.js`.
-- [ ] P3-W04: Add tests for tooltip attributes, dialog-close markup and the shared script; verify the Settings close button still works.
+- [x] P3-W01: Add `static/ui.js` with the delayed tooltip behavior and generic `[data-dialog-close]` handling; load it from `base.html`.
+- [x] P3-W02: Add `data-tooltip` to key library, review and detail buttons, with special wording for review-card **Remove** and its `aria-label`.
+- [x] P3-W03: Apply the shared `.dialog-close` style and `data-dialog-close` attribute to the export, review and Settings folder-browser dialogs; remove obsolete close handlers from `selection.js` and `settings.js`.
+- [x] P3-W04: Add tests for tooltip attributes, dialog-close markup and the shared script; verify the Settings close button still works.
 
 **Acceptance criteria**
 
@@ -252,11 +252,11 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed.
 
 - **Mode:** autopilot
 - **Plan:** `docs/develop/progress/plan_v7_detail_selection_ux.md`
-- **Completed:** Phase 1 (P1-W01 to P1-W04); Phase 2 (P2-W01 to P2-W05)
+- **Completed:** Phase 1 (P1-W01 to P1-W04); Phase 2 (P2-W01 to P2-W05); Phase 3 (P3-W01 to P3-W04)
 - **Active:** none
-- **Next:** P3-W01
+- **Next:** P4-W01
 - **Relevant files:** `src/image_triage/gui/templates/photo.html`, `src/image_triage/gui/static/similarity.js`, `src/image_triage/gui/static/selection.js`, `src/image_triage/gui/templates/index.html`, `src/image_triage/gui/query.py`, `src/image_triage/gui/app.py`, `src/image_triage/gui/static/ui.js` (new), `src/image_triage/gui/templates/settings.html`, `src/image_triage/gui/static/settings.js`, `src/image_triage/gui/static/style.css`, `docs/usage/gui.md`
 - **Decisions:** selection stays browser-local; selected filter is client-side and page-scoped with the review drawer as the cross-page view; undo is one step and selection-only; tooltips are key-button-only at 2200 ms; all dialogs share one subtle red close style.
 - **Blockers:** none
-- **Last verified:** 2026-11-17, `uv run pytest -q --tb=short tests/test_browser_review.py tests/test_library_ui.py` passed
+- **Last verified:** 2026-11-18, `uv run pytest -q --tb=short tests/test_library_ui.py tests/test_browser_review.py` passed
 - **Context status:** in progress

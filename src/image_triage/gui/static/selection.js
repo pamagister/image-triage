@@ -386,6 +386,9 @@
     remove.type = "button";
     remove.className = "button-secondary";
     remove.textContent = "Remove";
+    remove.setAttribute("aria-label", "Remove from selection");
+    remove.dataset.tooltip =
+      "Remove this photo from the selection. Accepted/rejected status is unchanged.";
     remove.addEventListener("click", function () {
       subtractSelected([photo.location_id]);
       reviewPhotos = reviewPhotos.filter(function (item) {
@@ -400,6 +403,10 @@
       button.type = "button";
       button.className = status === "accepted" ? "" : "button-secondary";
       button.textContent = status === "accepted" ? "Accept" : "Reject";
+      button.dataset.tooltip =
+        status === "accepted"
+          ? "Accept this photo content, including all copies."
+          : "Reject this photo content, including all copies.";
       button.addEventListener("click", function () {
         changeStatus([photo.location_id], status, function () {
           photo.keep = status === "accepted";
@@ -814,16 +821,6 @@
       button.addEventListener("click", openReview);
     });
 
-    var reviewClose = document.querySelector("[data-review-close]");
-    if (reviewClose) {
-      reviewClose.addEventListener("click", function () {
-        var dialog = document.getElementById("review-dialog");
-        if (dialog) {
-          dialog.close();
-        }
-      });
-    }
-
     ["[data-review-root]", "[data-review-folder]"].forEach(function (selector) {
       var field = document.querySelector(selector);
       if (field) {
@@ -883,15 +880,6 @@
         exportDialog.showModal();
       });
     }
-
-    document.querySelectorAll("[data-export-close]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        var dialog = button.closest("dialog");
-        if (dialog) {
-          dialog.close();
-        }
-      });
-    });
 
     var scope = document.querySelector("[data-scope]");
     if (scope) {
