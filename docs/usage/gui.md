@@ -48,7 +48,10 @@ are not imported.
   similar-shot and event controls. Metric filters use dual-handle min/max sliders with live numeric
   readouts, and active presets from `filters.yaml` (Good, Blurry, Low quality, Similar,
   Accepted, Rejected by default) preserve the current root/folder scope unless the preset explicitly
-  contains a root or folder. Active filters appear as removable badges above the result count.
+  contains a root or folder. The **Selection** filter offers Any / Selected / Not selected; it
+  filters only the current page client-side, while **Review all selected** opens the existing
+  cross-page review drawer. The choice is kept in the URL through pagination, sorting and folder
+  changes. Active filters appear as removable badges above the result count.
   Accepted and rejected photos carry status badges on their tiles. Sort by
   capture time, score, rating, sharpness, bokeh, blur, aesthetic, subject, group or event in
   either direction, and page through the result with the active filters preserved. Choose 10, 20,
@@ -70,9 +73,11 @@ are not imported.
   zero is strictest, while larger values may include unrelated images. Suggestions search all
   active roots, even outside the current filters, without changing stored groups. Identical files
   are labeled separately. If a hash is missing, only identical files can be suggested. This is a
-  visual approximation, not a semantic subject search. Open a thumbnail to review that photo;
-  additional suggestions can be loaded as needed. The stored group and technical metrics remain
-  accessible under **Photo details and stored group**.
+  visual approximation, not a semantic subject search. Select the main image or any suggestion
+  directly with its checkbox; the detail heading shows the current selection count. Suggestion
+  checkboxes stay in sync when the distance slider changes or more suggestions are loaded.
+  Open a thumbnail to review that photo; additional suggestions can be loaded as needed. The stored
+  group and technical metrics remain accessible under **Photo details and stored group**.
 - **Detail navigation** - Previous/Next follows the complete filtered and sorted library result,
   including page boundaries and separate file locations. Back to library restores the result and
   page. A suggested photo outside that result is labeled accordingly. Use Left/Right arrows to
@@ -101,12 +106,20 @@ custom profiles and presets.
 - Tick the checkbox on a tile to select it. The selection unit is the location, so the same
   image in two watched folders can be selected independently. The selection lives in
   `localStorage`, so it survives filtering, pagination, folder/root changes and reloads within
-  the same browser; it is deliberately not stored on the server.
+  the same browser; it is deliberately not stored on the server. The photo detail page can also
+  select its main image and every visual suggestion.
+- Hover or focus a key action button for about 2.2 seconds to see an explanatory tooltip.
+  **Remove** in the review drawer only changes the selection; the accepted/rejected status is
+  unchanged. Dialog close buttons share one subtle red style in the top-right corner.
 - **Select all filtered** adds every photo matching the current filters, across all pages, to the
   existing selection. Individual checkboxes can then be unticked to opt out.
 - **De-select all filtered** removes only the photos matching the current filters from the
   selection; selections from other roots/folders remain.
 - **Clear all** empties the selection and asks for confirmation.
+- **Undo** restores the selection from before the last covered bulk selection action: select all
+  filtered, de-select all filtered, clear all, best-N/one-per-group, or removing a photo from the
+  review drawer. It is one step, survives a reload, and is cleared after use. Undo never changes
+  accepted/rejected decisions.
 - **Best N** - the profile dropdown above the grid lists every selection profile from
   `selections.yaml` in its configured order; Settings controls that order and the active default.
   The profile's N is prefilled but can be overridden per run. **Run selection** keeps the existing

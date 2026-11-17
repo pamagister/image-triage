@@ -1,6 +1,6 @@
 # Image Triage v6 - Detail Selection, Selected Filter, Tooltips and Undo
 
-**Status:** `[-]` in progress
+**Status:** `[x]` completed
 **Created:** 2026-11-17
 **Extends:** [`plan_v6_gui_review_and_similar_shots`](plan_v6_gui_review_and_similar_shots.md). The review workspace and visual suggestions already exist; this plan adds the missing selection and feedback layer.
 **Target:** make selection available directly in the photo review workspace, add a client-side selected/unselected filter, clarify ambiguous actions with delayed tooltips, and provide a one-step undo for selection-changing bulk actions.
@@ -190,11 +190,11 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed.
 
 ---
 
-### Phase 5 - Verification, documentation and release `[ ]`
+### Phase 5 - Verification, documentation and release `[x]`
 
-- [ ] P5-W01: Run `make fmt`, `make lint`, `make test`, `make syncdocs` and `mkdocs build`; fix regressions.
-- [ ] P5-W02: Run the real-browser review workflow and a manual walkthrough covering detail selection, selected filter, tooltips, dialog close buttons and undo.
-- [ ] P5-W03: Update `docs/usage/gui.md`, commit, push, confirm CI and report the tracking issue.
+- [x] P5-W01: Run `make fmt`, `make lint`, `make test`, `make syncdocs` and `mkdocs build`; fix regressions.
+- [x] P5-W02: Run the real-browser review workflow and a manual walkthrough covering detail selection, selected filter, tooltips, dialog close buttons and undo.
+- [x] P5-W03: Update `docs/usage/gui.md`, commit, push, confirm CI and report the tracking issue.
 
 **Acceptance criteria**
 
@@ -252,11 +252,11 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed.
 
 - **Mode:** autopilot
 - **Plan:** `docs/develop/progress/plan_v7_detail_selection_ux.md`
-- **Completed:** Phase 1 (P1-W01 to P1-W04); Phase 2 (P2-W01 to P2-W05); Phase 3 (P3-W01 to P3-W04); Phase 4 (P4-W01 to P4-W04)
+- **Completed:** All phases and work packages (P1 to P5)
 - **Active:** none
-- **Next:** P5-W01
+- **Next:** none
 - **Relevant files:** `src/image_triage/gui/templates/photo.html`, `src/image_triage/gui/static/similarity.js`, `src/image_triage/gui/static/selection.js`, `src/image_triage/gui/templates/index.html`, `src/image_triage/gui/query.py`, `src/image_triage/gui/app.py`, `src/image_triage/gui/static/ui.js` (new), `src/image_triage/gui/templates/settings.html`, `src/image_triage/gui/static/settings.js`, `src/image_triage/gui/static/style.css`, `docs/usage/gui.md`
 - **Decisions:** selection stays browser-local; selected filter is client-side and page-scoped with the review drawer as the cross-page view; undo is one step and selection-only; tooltips are key-button-only at 2200 ms; all dialogs share one subtle red close style.
 - **Blockers:** none
-- **Last verified:** 2026-11-18, `uv run pytest -q --tb=short tests/test_library_ui.py tests/test_browser_review.py` passed
-- **Context status:** in progress
+- **Last verified:** 2026-11-18, `make fmt`, `make lint`, `make test` (149 passed), `make syncdocs`, `mkdocs build`, and `tests/test_browser_review.py` all passed
+- **Context status:** complete
