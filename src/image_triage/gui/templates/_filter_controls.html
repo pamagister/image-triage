@@ -1,0 +1,26 @@
+{% macro range_filter(label, min_name, max_name, filters, preset=false, step=0.01) %}
+{% set min_value = filters.get(min_name) %}
+{% set max_value = filters.get(max_name) %}
+{% set min_number = min_value if min_value is not none else 0 %}
+{% set max_number = max_value if max_value is not none else 1 %}
+<div class="range-filter" data-dual-range {% if preset %}data-preset-range{% endif %}>
+  <div class="range-label">
+    <span>{{ label }}</span>
+    <span class="range-readout">
+      <output data-output-for="{{ min_name }}">{{ '%.2f'|format(min_number) }}</output>
+      <span aria-hidden="true">–</span>
+      <output data-output-for="{{ max_name }}">{{ '%.2f'|format(max_number) }}</output>
+    </span>
+  </div>
+  <div class="dual-range">
+    <span class="dual-range-track" aria-hidden="true"></span>
+    <span class="dual-range-fill" data-range-fill aria-hidden="true"></span>
+    <input type="range" min="0" max="1" step="{{ step }}" {% if not preset %}name="{{ min_name }}"{% endif %}
+           value="{{ min_number }}" data-range-key="{{ min_name }}" data-range-min
+           aria-label="Minimum {{ label }}">
+    <input type="range" min="0" max="1" step="{{ step }}" {% if not preset %}name="{{ max_name }}"{% endif %}
+           value="{{ max_number }}" data-range-key="{{ max_name }}" data-range-max
+           aria-label="Maximum {{ label }}">
+  </div>
+</div>
+{% endmacro %}

@@ -543,6 +543,30 @@
     applySelection(readSelected());
     restoreOpenFolders();
 
+    var presetForm = document.querySelector("[data-save-preset]");
+    var filterForm = document.querySelector("form.filters");
+    if (presetForm && filterForm) {
+      presetForm.addEventListener("submit", function (event) {
+        var target = presetForm.querySelector('[name="preset_target"]');
+        if (target.value && !window.confirm("Update this preset with the current filters?")) {
+          event.preventDefault();
+          return;
+        }
+        var params = new URLSearchParams(window.location.search);
+        params.delete("page");
+        Array.from(filterForm.elements).forEach(function (element) {
+          if (element.name) params.delete(element.name);
+        });
+        new FormData(filterForm).forEach(function (value, key) {
+          params.append(key, value);
+        });
+        if (!filterForm.querySelector('[name="hide_rejected"]:checked')) {
+          params.set("hide_rejected", "false");
+        }
+        presetForm.action = "/presets/save?" + params.toString();
+      });
+    }
+
     document.querySelectorAll("[data-dual-range]").forEach(function (group) {
       var minInput = group.querySelector("[data-range-min]");
       var maxInput = group.querySelector("[data-range-max]");
@@ -550,8 +574,8 @@
       if (!minInput || !maxInput || !fill) {
         return;
       }
-      var minOutput = group.querySelector('[data-output-for="' + minInput.name + '"]');
-      var maxOutput = group.querySelector('[data-output-for="' + maxInput.name + '"]');
+      var minOutput = group.querySelector('[data-output-for="' + (minInput.dataset.rangeKey || minInput.name) + '"]');
+      var maxOutput = group.querySelector('[data-output-for="' + (maxInput.dataset.rangeKey || maxInput.name) + '"]');
 
       function update(changed) {
         var low = Number(minInput.value);

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_filter_controls.html" import range_filter %}
 {% block title %}Settings - Image Triage{% endblock %}
 {% block content %}
 <h1>Settings</h1>
@@ -202,6 +203,36 @@
             <td>
               <details class="preset-fields">
                 <summary>Edit filters</summary>
+                <div class="preset-ranges">
+                  <div class="range-label">Rating</div>
+                  <div class="checkbox-row rating-row">
+                    {% for value in [5, 4, 3, 2, 1] %}
+                    <label><input type="checkbox" data-preset-list="rating" value="{{ value }}" {% if value in preset.overrides.get('rating', []) %}checked{% endif %}> <span>{{ value }}</span></label>
+                    {% endfor %}
+                  </div>
+                  {{ range_filter('Score', 'min_score', 'score_max', preset.overrides, true) }}
+                  {{ range_filter('Aesthetic', 'aesthetic_min', 'aesthetic_max', preset.overrides, true) }}
+                  {{ range_filter('Composition', 'composition_min', 'composition_max', preset.overrides, true) }}
+                  {{ range_filter('Subject', 'subject_min', 'subject_max', preset.overrides, true) }}
+                  {{ range_filter('Sharpness', 'sharpness_min', 'sharpness_max', preset.overrides, true) }}
+                  {{ range_filter('Bokeh', 'bokeh_min', 'bokeh_max', preset.overrides, true) }}
+                  {{ range_filter('Blur score', 'blur_min', 'blur_max', preset.overrides, true) }}
+                  <div class="checkbox-row blur-row">
+                    {% for kind in blur_kinds %}
+                    <label><input type="checkbox" data-preset-list="blur" value="{{ kind }}" {% if kind in preset.overrides.get('blur', []) %}checked{% endif %}> <span>{{ kind }}</span></label>
+                    {% endfor %}
+                  </div>
+                  <div class="checkbox-row status-row">
+                    {% for value in ['accepted', 'rejected', 'none'] %}
+                    <label><input type="checkbox" data-preset-list="status" value="{{ value }}" {% if value in preset.overrides.get('status', []) %}checked{% endif %}> <span>{{ value }}</span></label>
+                    {% endfor %}
+                  </div>
+                  <label>Captured from <input type="date" data-preset-date="date_from" value="{{ preset.overrides.get('date_from', '') }}"></label>
+                  <label>Captured to <input type="date" data-preset-date="date_to" value="{{ preset.overrides.get('date_to', '') }}"></label>
+                  <p class="section-help">Move a handle to set a limit. Clear a value under All fields to leave that limit unset.</p>
+                </div>
+                <details>
+                <summary>All fields</summary>
                 <div class="preset-fields-grid">
                   {% for field in preset_fields %}
                   {% set key = field.key %}
@@ -227,6 +258,7 @@
                   </label>
                   {% endfor %}
                 </div>
+                </details>
               </details>
             </td>
             <td><button type="button" class="button-danger compact-button" data-remove-preset>Remove</button></td>

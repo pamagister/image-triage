@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_filter_controls.html" import range_filter %}
 {% block title %}Library - Image Triage{% endblock %}
 {% block content %}
 <h1>Library</h1>
@@ -106,33 +107,6 @@
 </div>
 {% endif %}
 
-{% macro range_filter(label, min_name, max_name, step=0.01) %}
-{% set min_value = filters.get(min_name) %}
-{% set max_value = filters.get(max_name) %}
-{% set min_number = min_value if min_value is not none else 0 %}
-{% set max_number = max_value if max_value is not none else 1 %}
-<div class="range-filter" data-dual-range>
-  <div class="range-label">
-    <span>{{ label }}</span>
-    <span class="range-readout">
-      <output data-output-for="{{ min_name }}">{{ '%.2f'|format(min_number) }}</output>
-      <span aria-hidden="true">–</span>
-      <output data-output-for="{{ max_name }}">{{ '%.2f'|format(max_number) }}</output>
-    </span>
-  </div>
-  <div class="dual-range">
-    <span class="dual-range-track" aria-hidden="true"></span>
-    <span class="dual-range-fill" data-range-fill aria-hidden="true"></span>
-    <input type="range" min="0" max="1" step="{{ step }}" name="{{ min_name }}"
-           value="{{ min_number }}" data-range-min data-range-pair="{{ max_name }}"
-           aria-label="Minimum {{ label }}">
-    <input type="range" min="0" max="1" step="{{ step }}" name="{{ max_name }}"
-           value="{{ max_number }}" data-range-max data-range-pair="{{ min_name }}"
-           aria-label="Maximum {{ label }}">
-  </div>
-</div>
-{% endmacro %}
-
 {% macro folder_node(item, selected) %}
 <li class="folder-node" data-folder-node data-root="{{ item.root }}" data-folder="{{ item.folder }}">
   {% if item.children %}
@@ -187,6 +161,21 @@
           {% endfor %}
         </div>
 
+        <details class="save-preset">
+          <summary>Save current filters as preset</summary>
+          <form method="post" action="/presets/save?{{ base_query }}" class="save-preset-form" data-save-preset>
+            <label>Save as
+              <select name="preset_target">
+                <option value="">New preset</option>
+                {% for preset in all_presets %}<option value="{{ preset.name }}">Update {{ preset.label }}</option>{% endfor %}
+              </select>
+            </label>
+            <label>New preset name <input name="preset_name" type="text"></label>
+            <label>Display label <input name="preset_label" type="text" placeholder="Same as name"></label>
+            <button type="submit">Save preset</button>
+          </form>
+        </details>
+
         <form method="get" action="/" class="filters" role="search">
           <input type="hidden" name="view" value="{{ view }}">
           <input type="hidden" name="tab" value="filters">
@@ -205,17 +194,17 @@
 
           <details class="filter-group" {% if 'quality' not in filter_settings.visible %}hidden{% endif %}>
             <summary>Quality</summary>
-            {{ range_filter('Score', 'min_score', 'score_max') }}
-            {{ range_filter('Aesthetic', 'aesthetic_min', 'aesthetic_max') }}
-            {{ range_filter('Composition', 'composition_min', 'composition_max') }}
-            {{ range_filter('Subject', 'subject_min', 'subject_max') }}
+            {{ range_filter('Score', 'min_score', 'score_max', filters) }}
+            {{ range_filter('Aesthetic', 'aesthetic_min', 'aesthetic_max', filters) }}
+            {{ range_filter('Composition', 'composition_min', 'composition_max', filters) }}
+            {{ range_filter('Subject', 'subject_min', 'subject_max', filters) }}
           </details>
 
           <details class="filter-group" {% if 'sharpness' not in filter_settings.visible %}hidden{% endif %}>
             <summary>Sharpness and blur</summary>
-            {{ range_filter('Sharpness', 'sharpness_min', 'sharpness_max') }}
-            {{ range_filter('Bokeh', 'bokeh_min', 'bokeh_max') }}
-            {{ range_filter('Blur score', 'blur_min', 'blur_max') }}
+            {{ range_filter('Sharpness', 'sharpness_min', 'sharpness_max', filters) }}
+            {{ range_filter('Bokeh', 'bokeh_min', 'bokeh_max', filters) }}
+            {{ range_filter('Blur score', 'blur_min', 'blur_max', filters) }}
             <div class="checkbox-row blur-row">
               {% for kind in blur_kinds %}
               <label><input type="checkbox" name="blur" value="{{ kind }}" {% if kind in filters.get('blur', []) %}checked{% endif %}> <span>{{ kind }}</span></label>

@@ -244,27 +244,29 @@ def _url_with(query, **overrides: Any) -> str:
     """Build a library URL from the active filters plus explicit overrides."""
     params: list[tuple[str, Any]] = []
     for key, value in query.filters.items():
-        if key in overrides or value in (None, "", []) or value is False:
+        if key in overrides or value in (None, "", []):
             continue
         if isinstance(value, (list, tuple)):
             params.extend((key, str(item)) for item in value)
         else:
-            params.append((key, value))
+            params.append((key, "false" if value is False else value))
     params.extend([("sort", query.sort), ("order", query.order)])
     if "view" not in overrides:
         params.append(("view", query.view))
     if "tab" not in overrides and query.tab != "folders":
         params.append(("tab", query.tab))
     for key, value in overrides.items():
-        if value is None or value is False:
+        if value is None:
             continue
         if isinstance(value, (list, tuple)):
             params.extend((key, str(item)) for item in value)
         elif value is True:
             params.append((key, "true"))
+        elif value is False:
+            params.append((key, "false"))
         else:
             params.append((key, str(value)))
-    if query.search:
+    if query.search and "q" not in overrides:
         params.insert(0, ("q", query.search))
     return "/?" + urlencode(params)
 
@@ -654,8 +656,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             profiles = []
             storage_errors.append(str(exc))
         try:
+            all_presets = load_presets(settings, create=False)
             presets = active_presets(settings)
         except (OSError, UsageError) as exc:
+            all_presets = []
             presets = []
             storage_errors.append(str(exc))
         active_profile = _active_profile_name(settings) if profiles else ""
@@ -698,6 +702,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     }
                     for preset in presets
                 ],
+                "all_presets": all_presets,
                 "filter_settings": settings.gui.filters,
                 "selection_profiles": profiles,
                 "active_profile": active_profile,
@@ -737,6 +742,66 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ).start()
             return RedirectResponse("/jobs", status_code=303)
         return _library_response(request, repo)
+
+    @app.post("/presets/save", response_model=None)
+    def save_current_preset(
+        request: Request,
+        repo: Repository = Depends(repository),
+        preset_target: str = Form(""),
+        preset_name: str = Form(""),
+        preset_label: str = Form(""),
+    ) -> HTMLResponse | RedirectResponse:
+        """Save the current library filters as a new or existing preset."""
+        settings = _current_settings(request)
+        if _active_jobs(repo):
+            return _library_response(
+                request, repo, error="cannot save a preset while a job is active", status_code=409
+            )
+        query = parse_photo_query(
+            request.query_params,
+            default_view=settings.gui.default_view,
+            default_hide_rejected=settings.gui.filters.hide_rejected,
+        )
+        try:
+            presets = load_presets(settings, create=False)
+            existing = next((item for item in presets if item.name == preset_target), None)
+            if preset_target and existing is None:
+                raise ValueError("preset to update was not found")
+            name = existing.name if existing else preset_name.strip()
+            if not name:
+                raise ValueError("enter a name for the new preset")
+            if not existing and any(item.name == name for item in presets):
+                raise ValueError("a preset with that name already exists; choose it to update")
+            overrides = dict(query.filters)
+            if query.search:
+                overrides["q"] = query.search
+            preset = preset_from_mapping(
+                {
+                    "name": name,
+                    "label": preset_label.strip() or (existing.label if existing else name),
+                    "overrides": overrides,
+                },
+                path=filters_path(settings),
+            )
+            if existing:
+                presets[presets.index(existing)] = preset
+            else:
+                presets.append(preset)
+            updated = settings.model_copy(deep=True)
+            if not existing and name not in updated.gui.filters.presets:
+                updated.gui.filters.presets.append(name)
+            files = {
+                filters_path(updated): presets_yaml(presets),
+                updated.config_path: yaml.safe_dump(
+                    updated.model_dump(mode="json"), sort_keys=False
+                ),
+            }
+            with replace_settings_files(files):
+                pass
+        except (OSError, UsageError, ValueError, RuntimeError) as exc:
+            return _library_response(request, repo, error=str(exc), status_code=400)
+        request.app.state.settings = updated
+        return RedirectResponse(_url_with(query, tab="filters"), status_code=303)
 
     @app.post("/export", response_model=None)
     def start_export(
@@ -1057,6 +1122,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "preset_fields": [
                     {"key": key, "kind": FILTER_FIELD_KINDS[key]} for key in FILTER_FIELDS
                 ],
+                "blur_kinds": [kind.value for kind in BlurKind],
                 "active_profile": _active_profile_name(settings) if profile_rows else "",
                 "active_jobs": _active_jobs(repo) if active_jobs is None else active_jobs,
                 "database_override": settings.input.db_path is not None,

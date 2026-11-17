@@ -16,6 +16,7 @@ PACKAGE_FILTERS_PATH = Path(__file__).parent.parent / "profiles" / FILTERS_FILE_
 
 #: Filter query keys a preset may set. This mirrors the library query parser.
 FILTER_KEYS = {
+    "q",
     "rating",
     "event_id",
     "group_id",

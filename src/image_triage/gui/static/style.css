@@ -1570,6 +1570,31 @@ header {
   font-size: 0.82rem;
 }
 
+.preset-ranges {
+  min-width: 17rem;
+  padding: 0.6rem 0;
+}
+
+.save-preset {
+  margin: 0.5rem 0;
+}
+
+.save-preset summary {
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.save-preset-form {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.6rem 0;
+}
+
+.save-preset-form label {
+  display: grid;
+  gap: 0.2rem;
+}
+
 .preset-fields-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));

@@ -148,3 +148,47 @@ for (const button of document.querySelectorAll("[data-remove-preset]")) {
     form.requestSubmit();
   });
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  for (const range of document.querySelectorAll("[data-preset-range]")) {
+    const row = range.closest("[data-preset-row]");
+    const minimum = range.querySelector("[data-range-min]");
+    const maximum = range.querySelector("[data-range-max]");
+    const field = (handle) => row.querySelector(`[aria-label="Preset ${handle.dataset.rangeKey}"]`);
+    for (const handle of [minimum, maximum]) {
+      handle.addEventListener("input", () => {
+        field(handle).value = handle.value;
+        const other = handle === minimum ? maximum : minimum;
+        if (field(other).value !== "") {
+          field(other).value = other.value;
+        }
+      });
+      field(handle).addEventListener("input", () => {
+        const value = field(handle).value;
+        handle.value = value || (handle === minimum ? "0" : "1");
+        handle.dispatchEvent(new Event("input"));
+        field(handle).value = value;
+      });
+    }
+  }
+  for (const row of document.querySelectorAll("[data-preset-row]")) {
+    for (const checkbox of row.querySelectorAll("[data-preset-list]")) {
+      const key = checkbox.dataset.presetList;
+      const field = row.querySelector(`[aria-label="Preset ${key}"]`);
+      checkbox.addEventListener("change", () => {
+        let values = field.value.split(",").map((value) => value.trim()).filter(Boolean);
+        values = values.filter((value) => value !== checkbox.value);
+        if (checkbox.checked) values.push(checkbox.value);
+        field.value = values.join(",");
+      });
+      field.addEventListener("input", () => {
+        checkbox.checked = field.value.split(",").map((value) => value.trim()).includes(checkbox.value);
+      });
+    }
+    for (const date of row.querySelectorAll("[data-preset-date]")) {
+      const field = row.querySelector(`[aria-label="Preset ${date.dataset.presetDate}"]`);
+      date.addEventListener("input", () => { field.value = date.value; });
+      field.addEventListener("input", () => { date.value = field.value; });
+    }
+  }
+});

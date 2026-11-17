@@ -577,6 +577,47 @@ def test_invalid_preset_file_is_not_overwritten(photo_dir: Path, tmp_path: Path)
         assert not settings.config_path.exists()
 
 
+def test_save_and_update_current_filters_as_preset(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    query = "?tab=filters&q=burst&min_score=0.44&rating=4&rating=5&hide_rejected=false"
+    with client:
+        response = client.post(
+            "/presets/save" + query,
+            data={"preset_name": "my-filter", "preset_label": "My filter"},
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        stored = load_presets(client.app.state.settings)
+        preset = next(item for item in stored if item.name == "my-filter")
+        assert preset.overrides == {
+            "q": "burst",
+            "min_score": 0.44,
+            "rating": [4, 5],
+            "hide_rejected": False,
+        }
+        assert "my-filter" in client.app.state.settings.gui.filters.presets
+        response = client.post(
+            "/presets/save?q=other&group_size_min=2",
+            data={"preset_target": "my-filter"},
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        updated = next(p for p in load_presets(client.app.state.settings) if p.name == "my-filter")
+        assert updated.label == "My filter"
+        assert updated.overrides == {"q": "other", "group_size_min": 2}
+        duplicate = client.post(
+            "/presets/save",
+            data={"preset_name": "my-filter"},
+            follow_redirects=False,
+        )
+        assert duplicate.status_code == 400
+        assert "already exists" in duplicate.text
+        assert (
+            next(p for p in load_presets(client.app.state.settings) if p.name == "my-filter")
+            == updated
+        )
+
+
 def test_settings_ranks_and_renames_profiles_and_presets(photo_dir: Path, tmp_path: Path) -> None:
     settings, client = _client_with_settings(photo_dir, tmp_path)
     profiles = load_profiles(settings)

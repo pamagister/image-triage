@@ -93,12 +93,12 @@ class PhotoQuery:
         """Query string of every active filter, used by pagination and sort links."""
         params: list[tuple[str, Any]] = []
         for key, value in self.filters.items():
-            if value in (None, "", []) or value is False:
+            if value in (None, "", []):
                 continue
             if isinstance(value, (list, tuple)):
                 params.extend((key, str(item)) for item in value)
             else:
-                params.append((key, value))
+                params.append((key, "false" if value is False else value))
         params.append(("sort", self.sort))
         params.append(("order", self.order))
         if self.view != "folders":
