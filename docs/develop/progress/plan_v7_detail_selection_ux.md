@@ -171,12 +171,12 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed.
 
 ---
 
-### Phase 4 - One-step selection undo `[ ]`
+### Phase 4 - One-step selection undo `[x]`
 
-- [ ] P4-W01: Add undo storage helpers, the hidden **Undo** button and `updateUndoButton()` to `selection.js` and `index.html`.
-- [ ] P4-W02: Capture the previous selection before select-all-filtered, de-select-all-filtered, clear-all, best-N / one-per-group, and review-drawer Remove.
-- [ ] P4-W03: Implement undo: restore the previous id array, refresh checkboxes, count and selection filter, then clear the undo entry.
-- [ ] P4-W04: Add tests for the undo markup, persistence across reload, restoration after each covered action and clearing after undo.
+- [x] P4-W01: Add undo storage helpers, the hidden **Undo** button and `updateUndoButton()` to `selection.js` and `index.html`.
+- [x] P4-W02: Capture the previous selection before select-all-filtered, de-select-all-filtered, clear-all, best-N / one-per-group, and review-drawer Remove.
+- [x] P4-W03: Implement undo: restore the previous id array, refresh checkboxes, count and selection filter, then clear the undo entry.
+- [x] P4-W04: Add tests for the undo markup, persistence across reload, restoration after each covered action and clearing after undo.
 
 **Acceptance criteria**
 
@@ -252,9 +252,9 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed.
 
 - **Mode:** autopilot
 - **Plan:** `docs/develop/progress/plan_v7_detail_selection_ux.md`
-- **Completed:** Phase 1 (P1-W01 to P1-W04); Phase 2 (P2-W01 to P2-W05); Phase 3 (P3-W01 to P3-W04)
+- **Completed:** Phase 1 (P1-W01 to P1-W04); Phase 2 (P2-W01 to P2-W05); Phase 3 (P3-W01 to P3-W04); Phase 4 (P4-W01 to P4-W04)
 - **Active:** none
-- **Next:** P4-W01
+- **Next:** P5-W01
 - **Relevant files:** `src/image_triage/gui/templates/photo.html`, `src/image_triage/gui/static/similarity.js`, `src/image_triage/gui/static/selection.js`, `src/image_triage/gui/templates/index.html`, `src/image_triage/gui/query.py`, `src/image_triage/gui/app.py`, `src/image_triage/gui/static/ui.js` (new), `src/image_triage/gui/templates/settings.html`, `src/image_triage/gui/static/settings.js`, `src/image_triage/gui/static/style.css`, `docs/usage/gui.md`
 - **Decisions:** selection stays browser-local; selected filter is client-side and page-scoped with the review drawer as the cross-page view; undo is one step and selection-only; tooltips are key-button-only at 2200 ms; all dialogs share one subtle red close style.
 - **Blockers:** none
