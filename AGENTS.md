@@ -87,6 +87,24 @@ Run only commands that exist and are appropriate for the task. Check the project
 - Use mock only if really required. Implement "Tests with Teeth"
 - Do not weaken or remove tests merely to make them pass.
 
+## Agent workflow routing
+
+Choose the workflow from the user's requested scope, not from whether they know or use the internal mode name.
+
+- **Task mode:** A bounded change such as a review, typo fix, small refactor or small documentation adjustment. Load `workflow-task`.
+- **Feature mode:** One self-contained feature or bug fix that needs a short design step, issue tracking, a commit, a push and CI verification. Load `workflow-feature`.
+- **Autopilot:** Whenever the user asks to implement, execute or continue a plan, or names one or more phases/work packages from a plan. This includes a single selected phase. Phrases such as "implement the first phase", "execute phase 2", "continue plan.md" or "implement autonomously" are sufficient; the user does not need to say "Autopilot". Load `workflow-autopilot`. By default it executes the full plan; if the user names phases or work packages, it executes only those.
+
+A plan or phase request always takes precedence over the single-feature workflow, even when the selected phase is the only requested scope.
+
+Load only the skills needed for the current phase:
+- `workflow-core`: shared task loop, context discipline, safety, verification, reporting and authorization rules.
+- `workflow-task`: bounded implementation without commit, push or issue tracking.
+- `workflow-feature`: standalone feature implementation with issue, commit, push and CI.
+- `workflow-autopilot`: full-plan or selected-phase execution, including fresh-session handoff.
+- `git-workflow`: Git, GitHub issues, `gh` CLI, commits, pushes and CI.
+- `mission-planning`: turn a mission or external specification into one executable plan with a durable handoff block.
+
 ## Decision Rules
 
 - Do not assume when uncertainty matters. State assumptions and ask concise clarifying questions when necessary.
