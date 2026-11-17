@@ -6,6 +6,13 @@
 
 {% if saved %}<p class="banner" role="status">Settings saved.</p>{% endif %}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if storage_errors %}
+<div class="error" role="alert">
+  <p>Settings files cannot be read. Saving is disabled to protect your data.</p>
+  <ul>{% for message in storage_errors %}<li>{{ message }}</li>{% endfor %}</ul>
+  <p>Back up the affected file, then restore a known-good copy. Reload this page after recovery.</p>
+</div>
+{% endif %}
 {% if active_jobs %}<p class="banner">{{ active_jobs | length }} job(s) active; settings are read-only until they finish.</p>{% endif %}
 
 <form method="post" action="/settings" class="settings-form" id="settings-form">
@@ -296,7 +303,7 @@
   </section>
 
   <div class="settings-actions">
-    <button type="submit" {% if active_jobs %}disabled{% endif %}>Save settings</button>
+    <button type="submit" {% if active_jobs or storage_errors %}disabled{% endif %}>Save settings</button>
   </div>
 </form>
 

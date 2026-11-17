@@ -304,8 +304,8 @@ def active_presets(settings: Settings) -> list[FilterPreset]:
     return [by_name[name] for name in settings.gui.filters.presets if name in by_name]
 
 
-def write_presets(settings: Settings, presets: list[FilterPreset]) -> Path:
-    """Validate and atomically write the central ``filters.yaml``."""
+def presets_yaml(presets: list[FilterPreset]) -> str:
+    """Validate and serialize presets without writing any files."""
     if not presets:
         raise UsageError("at least one filter preset is required")
     names: set[str] = set()
@@ -315,13 +315,20 @@ def write_presets(settings: Settings, presets: list[FilterPreset]) -> Path:
         if preset.name in names:
             raise UsageError(f"duplicate filter preset name: {preset.name}")
         names.add(preset.name)
+        preset_from_mapping(preset.to_dict(), path=PACKAGE_FILTERS_PATH)
+    return yaml.safe_dump(
+        {"presets": [preset.to_dict() for preset in presets]},
+        sort_keys=False,
+        allow_unicode=True,
+    )
+
+
+def write_presets(settings: Settings, presets: list[FilterPreset]) -> Path:
+    """Validate and atomically write the central ``filters.yaml``."""
+    serialized = presets_yaml(presets)
     path = filters_path(settings)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"presets": [preset.to_dict() for preset in presets]}
     temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
-        encoding="utf-8",
-    )
+    temporary.write_text(serialized, encoding="utf-8")
     temporary.replace(path)
     return path

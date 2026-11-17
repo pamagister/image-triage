@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import threading
 from dataclasses import replace
 from datetime import datetime
@@ -29,6 +28,7 @@ from image_triage.export.previews import preview_path
 from image_triage.grouping.build import build_groups_and_events
 from image_triage.gui.library_status import library_status
 from image_triage.gui.query import PhotoQuery, parse_photo_query
+from image_triage.gui.settings_files import replace_settings_files
 from image_triage.io.scan import find_images
 from image_triage.scoring.score import score_library
 from image_triage.selection.presets import (
@@ -39,14 +39,14 @@ from image_triage.selection.presets import (
     load_presets,
     overrides_from_field_values,
     preset_from_mapping,
-    write_presets,
+    presets_yaml,
 )
 from image_triage.selection.profiles import (
     SelectionProfile,
     load_profile,
     load_profiles,
     profiles_path,
-    write_profiles,
+    profiles_yaml,
 )
 from image_triage.selection.select import best_per_group, select_photos
 
@@ -647,8 +647,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
             item["depth"] = 0 if item["folder"] == "." else item["folder"].count("/") + 1
         tree = _folder_tree(folders)
-        profiles = load_profiles(settings, create=False)
-        active_profile = _active_profile_name(settings)
+        storage_errors = []
+        try:
+            profiles = load_profiles(settings, create=False)
+        except (OSError, UsageError) as exc:
+            profiles = []
+            storage_errors.append(str(exc))
+        try:
+            presets = active_presets(settings)
+        except (OSError, UsageError) as exc:
+            presets = []
+            storage_errors.append(str(exc))
+        active_profile = _active_profile_name(settings) if profiles else ""
         best_n = next(
             (profile.top_n for profile in profiles if profile.name == active_profile),
             profiles[0].top_n if profiles else settings.selection.top_n,
@@ -686,7 +696,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         "label": preset.label,
                         "url": _url_with(query, **preset.overrides),
                     }
-                    for preset in active_presets(settings)
+                    for preset in presets
                 ],
                 "filter_settings": settings.gui.filters,
                 "selection_profiles": profiles,
@@ -700,7 +710,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "active_jobs": _active_jobs(repo),
                 "status": library_status(_current_settings(request), repo),
                 "filter_options": repo.filter_options(),
-                "error": error,
+                "error": " ".join([error, *storage_errors]).strip(),
                 "default_output": str(_default_output(_current_settings(request))),
                 "roots": repo.roots(),
             },
@@ -1002,6 +1012,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         saved: bool = False,
     ) -> HTMLResponse:
         """Render the settings page with current root statistics and messages."""
+        storage_errors = []
+        try:
+            profile_rows = load_profiles(settings, create=False)
+        except (OSError, UsageError) as exc:
+            profile_rows = []
+            storage_errors.append(str(exc))
+        try:
+            preset_rows = load_presets(settings, create=False)
+        except (OSError, UsageError) as exc:
+            preset_rows = []
+            storage_errors.append(str(exc))
         return TEMPLATES.TemplateResponse(
             request,
             "settings.html",
@@ -1029,17 +1050,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     ("date", "Captured date"),
                     ("similar", "Similar shots"),
                 ],
-                "selection_profile_rows": load_profiles(settings, create=False),
-                "filter_preset_rows": load_presets(settings, create=False),
+                "selection_profile_rows": profile_rows,
+                "filter_preset_rows": preset_rows,
                 "selection_store_path": profiles_path(settings),
                 "filter_store_path": filters_path(settings),
                 "preset_fields": [
                     {"key": key, "kind": FILTER_FIELD_KINDS[key]} for key in FILTER_FIELDS
                 ],
-                "active_profile": _active_profile_name(settings),
+                "active_profile": _active_profile_name(settings) if profile_rows else "",
                 "active_jobs": _active_jobs(repo) if active_jobs is None else active_jobs,
                 "database_override": settings.input.db_path is not None,
                 "error": error,
+                "storage_errors": storage_errors,
                 "saved": saved,
             },
             status_code=status_code,
@@ -1107,6 +1129,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> RedirectResponse | HTMLResponse:
         """Persist runtime settings to the central YAML configuration."""
         settings = _current_settings(request)
+        try:
+            load_profiles(settings, create=False)
+            load_presets(settings, create=False)
+        except (OSError, UsageError) as exc:
+            return _settings_context(
+                request,
+                repo,
+                settings=settings,
+                error=f"cannot save while settings files are invalid: {exc}",
+                status_code=400,
+            )
         active = _active_jobs(repo)
         if active:
             return _settings_context(
@@ -1281,17 +1314,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 status_code=400,
             )
 
-        try:
-            repo.sync_roots(configured, enabled=enabled)
-        except Exception as exc:
-            return _settings_context(
-                request,
-                repo,
-                settings=settings,
-                error=f"could not update root state: {exc}",
-                status_code=400,
-            )
-
         def _preset_overrides_from_form(index: int) -> dict[str, Any]:
             """Build one preset override mapping from the GUI fields."""
             width = len(FILTER_FIELDS)
@@ -1307,6 +1329,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ]
             return overrides_from_field_values(encoded, path=filters_path(updated))
 
+        serialized_files: dict[Path, str] = {}
         try:
             if profile_name:
                 profile_fields = [
@@ -1345,7 +1368,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                             ),
                         )
                     ]
-                write_profiles(updated, profiles)
+                serialized_files[profiles_path(updated)] = profiles_yaml(profiles)
                 updated.selection.profile = profiles[0].name
             if preset_name:
                 if len(preset_name) != len(preset_label):
@@ -1381,7 +1404,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                             ),
                         )
                     ]
-                write_presets(updated, presets)
+                serialized_files[filters_path(updated)] = presets_yaml(presets)
                 if preset_submitted:
                     updated.gui.filters.presets = [
                         old_to_new.get(name, name)
@@ -1397,14 +1420,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 status_code=400,
             )
 
-        path = updated.config_path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_suffix(path.suffix + ".tmp")
-        temporary.write_text(
-            yaml.safe_dump(updated.model_dump(mode="json"), sort_keys=False),
-            encoding="utf-8",
+        serialized_files[updated.config_path] = yaml.safe_dump(
+            updated.model_dump(mode="json"), sort_keys=False
         )
-        os.replace(temporary, path)
+        try:
+            with replace_settings_files(serialized_files):
+                repo.sync_roots(configured, enabled=enabled)
+        except Exception as exc:
+            return _settings_context(
+                request,
+                repo,
+                settings=settings,
+                error=f"could not save settings: {exc}",
+                status_code=400,
+            )
         request.app.state.settings = updated
         return RedirectResponse("/settings?saved=1", status_code=303)
 

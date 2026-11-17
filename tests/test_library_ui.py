@@ -11,8 +11,8 @@ from image_triage.analysis.analyze import analyze_library
 from image_triage.core.settings import load_settings
 from image_triage.db.repository import Repository
 from image_triage.gui.app import create_app
-from image_triage.selection.presets import FILTER_FIELDS, load_presets
-from image_triage.selection.profiles import load_profiles
+from image_triage.selection.presets import FILTER_FIELDS, filters_path, load_presets
+from image_triage.selection.profiles import load_profiles, profiles_path
 
 
 def _client(photo_dir: Path, tmp_path: Path, **gui: object):
@@ -488,6 +488,92 @@ def test_settings_cannot_remove_last_profile_or_preset(photo_dir: Path, tmp_path
         )
         assert response.status_code == 400
         assert "at least one filter preset" in response.text
+        assert not settings.config_path.exists()
+
+
+def test_invalid_presets_do_not_write_other_settings(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    profiles = load_profiles(settings)
+    presets = load_presets(settings)
+    original_profiles = profiles_path(settings).read_bytes()
+    original_presets = filters_path(settings).read_bytes()
+    invalid = [presets[0], replace(presets[1], name=presets[0].name)]
+    with client:
+        response = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(photo_dir.resolve())],
+                "enabled_roots": [str(photo_dir.resolve())],
+                **_profile_form([replace(profiles[0], top_n=123), *profiles[1:]]),
+                **_preset_form(invalid),
+            },
+            follow_redirects=False,
+        )
+        assert response.status_code == 400
+        assert "duplicate filter preset name" in response.text
+        assert profiles_path(settings).read_bytes() == original_profiles
+        assert filters_path(settings).read_bytes() == original_presets
+        assert not settings.config_path.exists()
+
+
+def test_settings_write_failure_rolls_back_files(
+    photo_dir: Path, tmp_path: Path, monkeypatch
+) -> None:
+    from image_triage.gui import settings_files
+
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    profiles = load_profiles(settings)
+    presets = load_presets(settings)
+    before_profiles = profiles_path(settings).read_bytes()
+    before_presets = filters_path(settings).read_bytes()
+    settings.config_path.parent.mkdir(parents=True, exist_ok=True)
+    settings.config_path.write_text("{}\n", encoding="utf-8")
+    before_config = settings.config_path.read_bytes()
+    real_replace = settings_files.os.replace
+
+    def fail_config(source, destination):
+        if Path(destination) == settings.config_path:
+            raise OSError("simulated write failure")
+        real_replace(source, destination)
+
+    monkeypatch.setattr(settings_files.os, "replace", fail_config)
+    with client:
+        response = client.post(
+            "/settings",
+            data={
+                "root_paths": [str(photo_dir.resolve())],
+                "enabled_roots": [str(photo_dir.resolve())],
+                **_profile_form([replace(profiles[0], top_n=123), *profiles[1:]]),
+                **_preset_form(presets),
+            },
+            follow_redirects=False,
+        )
+        assert response.status_code == 400
+        assert "simulated write failure" in response.text
+        assert profiles_path(settings).read_bytes() == before_profiles
+        assert filters_path(settings).read_bytes() == before_presets
+        assert settings.config_path.read_bytes() == before_config
+
+
+def test_invalid_preset_file_is_not_overwritten(photo_dir: Path, tmp_path: Path) -> None:
+    settings, client = _client_with_settings(photo_dir, tmp_path)
+    path = filters_path(settings)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("presets: [broken\n", encoding="utf-8")
+    original = path.read_bytes()
+    with client:
+        page = client.get("/settings")
+        assert page.status_code == 200
+        assert "Back up the affected file" in page.text
+        assert "disabled>Save settings" in page.text
+        response = client.post(
+            "/settings",
+            data={"root_paths": [str(photo_dir.resolve())]},
+            follow_redirects=False,
+        )
+        assert response.status_code == 400
+        assert "cannot save while settings files are invalid" in response.text
+        assert path.read_bytes() == original
         assert not settings.config_path.exists()
 
 

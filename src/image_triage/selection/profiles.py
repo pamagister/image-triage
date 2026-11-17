@@ -186,8 +186,8 @@ def load_profile(
     return result
 
 
-def write_profiles(settings: Settings, profiles: list[SelectionProfile]) -> Path:
-    """Validate and atomically write the central ``selections.yaml``."""
+def profiles_yaml(profiles: list[SelectionProfile]) -> str:
+    """Validate and serialize profiles without writing any files."""
     if not profiles:
         raise UsageError("at least one selection profile is required")
     names: set[str] = set()
@@ -196,13 +196,19 @@ def write_profiles(settings: Settings, profiles: list[SelectionProfile]) -> Path
         if profile.name in names:
             raise UsageError(f"duplicate selection profile name: {profile.name}")
         names.add(profile.name)
+    return yaml.safe_dump(
+        {"profiles": [profile.to_dict() for profile in profiles]},
+        sort_keys=False,
+        allow_unicode=True,
+    )
+
+
+def write_profiles(settings: Settings, profiles: list[SelectionProfile]) -> Path:
+    """Validate and atomically write the central ``selections.yaml``."""
+    serialized = profiles_yaml(profiles)
     path = profiles_path(settings)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"profiles": [profile.to_dict() for profile in profiles]}
     temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
-        encoding="utf-8",
-    )
+    temporary.write_text(serialized, encoding="utf-8")
     temporary.replace(path)
     return path
