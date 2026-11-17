@@ -10,7 +10,7 @@ from typing import Any
 from urllib.parse import parse_qsl, urlencode
 
 import yaml
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -29,6 +29,7 @@ from image_triage.grouping.build import build_groups_and_events
 from image_triage.gui.library_status import library_status
 from image_triage.gui.query import PAGE_SIZES, PhotoQuery, parse_photo_query
 from image_triage.gui.settings_files import replace_settings_files
+from image_triage.gui.similarity import find_similar
 from image_triage.io.scan import find_images
 from image_triage.scoring.score import score_library
 from image_triage.selection.presets import (
@@ -1039,11 +1040,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/photo/{photo_id}", response_class=HTMLResponse)
     def photo_detail(
-        request: Request, photo_id: int, repo: Repository = Depends(repository)
+        request: Request,
+        photo_id: int,
+        repo: Repository = Depends(repository),
+        location_id: int | None = Query(None, ge=1),
     ) -> HTMLResponse:
-        photo = repo.photo_by_id(photo_id)
+        settings = _current_settings(request)
+        roots = [str(root) for root in settings.watched_roots]
+        photo = repo.active_location_for_photo(photo_id, roots, location_id)
         if photo is None:
             raise HTTPException(404, "photo not found")
+        try:
+            distance = int(
+                request.query_params.get("distance", settings.similarity.max_hash_distance)
+            )
+            if not 0 <= distance <= 32:
+                raise ValueError("invalid distance")
+        except ValueError:
+            distance = min(32, settings.similarity.max_hash_distance)
         similar = (
             repo.list_photos(group_id=photo.group_id, limit=12)
             if photo.group_id is not None
@@ -1055,12 +1069,48 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             {
                 "photo": photo,
                 "similar": similar,
+                "similarity_distance": distance,
                 "override": next(
                     (item for item in repo.get_overrides() if item.photo_id == photo_id),
                     None,
                 ),
             },
         )
+
+    @app.get("/api/photo/{photo_id}/similar")
+    def similar_photos(
+        request: Request,
+        photo_id: int,
+        repo: Repository = Depends(repository),
+        location_id: int | None = Query(None, ge=1),
+        distance: int = Query(12, ge=0, le=32),
+        after: str = "",
+        limit: int = Query(24, ge=1, le=50),
+    ) -> dict[str, Any]:
+        """Return a bounded page of read-only visual suggestions across active roots."""
+        roots = [str(root) for root in _current_settings(request).watched_roots]
+        photo = repo.active_location_for_photo(photo_id, roots, location_id)
+        if photo is None:
+            raise HTTPException(404, "available photo not found")
+        cursor = None
+        if after:
+            try:
+                raw_distance, raw_location = after.split(":")
+                cursor = (int(raw_distance), int(raw_location))
+                if not (0 <= cursor[0] <= 64 and cursor[1] > 0):
+                    raise ValueError("invalid cursor")
+            except ValueError as exc:
+                raise HTTPException(400, "invalid similarity cursor") from exc
+        matches, more, hash_available = find_similar(
+            repo, photo, distance, roots=roots, after=cursor, limit=limit
+        )
+        return {
+            "items": [match.to_dict() for match in matches],
+            "hash_available": hash_available,
+            "next_cursor": f"{matches[-1].distance}:{matches[-1].location_id}"
+            if more and matches
+            else None,
+        }
 
     @app.get("/compare", response_class=HTMLResponse)
     def compare(request: Request, ids: str, repo: Repository = Depends(repository)) -> HTMLResponse:

@@ -315,6 +315,31 @@ button {
   border: 1px solid var(--border);
 }
 
+.similarity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.6rem;
+  list-style: none;
+  padding: 0;
+}
+
+.similarity-card a {
+  display: grid;
+  gap: 0.2rem;
+  color: var(--fg);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.similarity-card img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.similarity-card small { color: var(--muted); }
+
 table {
   border-collapse: collapse;
   width: 100%;

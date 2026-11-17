@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -496,6 +496,42 @@ class Repository:
             (location_id,),
         ).fetchone()
         return self._row_to_photo(row) if row else None
+
+    def active_location_for_photo(
+        self, photo_id: int, roots: Sequence[str], location_id: int | None = None
+    ) -> Photo | None:
+        """Return an available location in a configured, enabled root for a photo."""
+        if not roots:
+            return None
+        placeholders = ", ".join("?" for _ in roots)
+        location_clause = " AND l.id = ?" if location_id is not None else ""
+        row = self.connection.execute(
+            "SELECT l.id FROM photo_locations l JOIN roots r ON r.id = l.root_id "
+            f"WHERE l.photo_id = ? AND l.available = 1 AND r.enabled = 1 "
+            f"AND r.path IN ({placeholders}){location_clause} "
+            "ORDER BY r.path, l.relative_path, l.id LIMIT 1",
+            (photo_id, *roots, *([location_id] if location_id is not None else [])),
+        ).fetchone()
+        return self.photo_by_location(int(row["id"])) if row else None
+
+    def iter_similarity_candidates(
+        self, excluded_location: int | None, roots: Sequence[str]
+    ) -> Iterator[sqlite3.Row]:
+        """Stream available locations and hashes without loading metrics or image data."""
+        if not roots:
+            return iter(())
+        placeholders = ", ".join("?" for _ in roots)
+        return iter(
+            self.connection.execute(
+                "SELECT p.id AS photo_id, p.digest, p.phash, p.group_id, "
+                "l.id AS location_id, l.relative_path AS path, r.path AS root "
+                "FROM photo_locations l JOIN photos p ON p.id = l.photo_id "
+                "JOIN roots r ON r.id = l.root_id "
+                f"WHERE l.available = 1 AND r.enabled = 1 AND l.id != ? "
+                f"AND r.path IN ({placeholders})",
+                (excluded_location or 0, *roots),
+            )
+        )
 
     def photos_by_locations(self, location_ids: Sequence[int]) -> list[Photo]:
         """Return available photos for the given location ids, ignoring stale ids."""

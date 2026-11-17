@@ -6,7 +6,7 @@
 {% if photo.keep is true %}<p><span class="status-badge status-accepted">accepted</span></p>
 {% elif photo.keep is false %}<p><span class="status-badge status-rejected">rejected</span></p>{% endif %}
 <div class="detail">
-  <img class="detail-image" src="/media/{{ photo.id }}" alt="{{ photo.path }}">
+  <img class="detail-image" src="/media/location/{{ photo.location_id }}" alt="{{ photo.path }}">
   <div>
     <h2>Score {{ '%.3f'|format(photo.score) }} - rating {{ photo.rating }}/5</h2>
     <table>
@@ -61,7 +61,7 @@
   </div>
 </div>
 
-<h2>Similar shots</h2>
+<h2>Stored similarity group</h2>
 <ul class="grid">
   {% for item in similar %}
   <li class="card">
@@ -75,4 +75,18 @@
 {% if similar|length > 1 %}
 <p><a href="/compare?ids={% for item in similar %}{{ item.id }}{% if not loop.last %},{% endif %}{% endfor %}">compare similar shots</a></p>
 {% endif %}
+
+<section class="visual-similarity" data-similarity data-photo-id="{{ photo.id }}" data-location-id="{{ photo.location_id }}">
+  <h2>Visual suggestions</h2>
+  <p>Searches available photos in all active libraries, regardless of current filters. This compares perceptual hashes, not subject meaning, and does not change stored groups.</p>
+  <label>Allow more visual differences: <output data-similarity-value>{{ similarity_distance }}</output> / 32
+    <input type="range" min="0" max="32" step="1" value="{{ similarity_distance }}" data-similarity-distance>
+  </label>
+  <p class="section-help">0 is most exact; larger values are broader and may include unrelated photos.</p>
+  <p data-similarity-status role="status">Loading suggestions…</p>
+  <ul class="similarity-grid" data-similarity-results></ul>
+  <button type="button" class="button-secondary" data-similarity-more hidden>Show more</button>
+  <noscript>Enable JavaScript to load visual suggestions.</noscript>
+</section>
+<script src="/static/similarity.js" defer></script>
 {% endblock %}
