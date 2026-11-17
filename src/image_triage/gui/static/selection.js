@@ -184,13 +184,22 @@
   function applySelection(selected) {
     var chosen = new Set(selected);
     document.querySelectorAll("[data-select-photo]").forEach(function (box) {
-      box.checked = chosen.has(Number(box.value));
+      var isSelected = chosen.has(Number(box.value));
+      box.checked = isSelected;
+      var target = box.closest(".card, .similarity-card, .review-image-frame");
+      if (target) {
+        target.classList.toggle("is-selected", isSelected);
+      }
     });
     var counter = document.querySelector("[data-selected-count]");
     if (counter) {
       counter.textContent = String(chosen.size);
     }
   }
+
+  document.addEventListener("image-triage:selection-refresh", function () {
+    applySelection(readSelected());
+  });
 
   function unionSelected(ids) {
     var selected = readSelected();

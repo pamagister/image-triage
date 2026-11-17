@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from pathlib import Path
 
@@ -166,6 +167,36 @@ def test_selection_controls_offer_add_deselect_and_confirm_clear(
         assert "unionSelected" in script
         assert "subtractSelected" in script
         assert "window.confirm" in script
+
+
+def test_detail_page_supports_main_and_suggestion_selection(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    with _client(photo_dir, tmp_path) as client:
+        page = client.get("/")
+        assert page.status_code == 200
+        match = re.search(rb'href="/photo/(\d+)\?', page.content)
+        assert match is not None
+
+        detail = client.get(f"/photo/{match.group(1).decode()}")
+        assert detail.status_code == 200
+        assert b'class="detail-select-box"' in detail.content
+        assert b"data-select-photo" in detail.content
+        assert b'class="review-selection"' in detail.content
+        assert b"data-selected-count" in detail.content
+
+        selection_js = Path("src/image_triage/gui/static/selection.js").read_text()
+        assert "image-triage:selection-refresh" in selection_js
+        assert "is-selected" in selection_js
+
+        similarity_js = Path("src/image_triage/gui/static/similarity.js").read_text()
+        assert "similarity-select" in similarity_js
+        assert "image-triage:selection-refresh" in similarity_js
+
+        css = Path("src/image_triage/gui/static/style.css").read_text()
+        assert ".card.is-selected" in css
+        assert ".similarity-card.is-selected" in css
+        assert ".review-image-frame.is-selected" in css
 
 
 def test_root_folder_filter_aggregates_descendants(photo_dir: Path, tmp_path: Path) -> None:
