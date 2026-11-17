@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Similar-shot groups - Image Triage{% endblock %}
+{% block content %}
+<h1>Similar-shot groups</h1>
+<p class="page-intro">Stored groups of similar shots with at least two available photos in active libraries. Groups are built during analysis; events are separate.</p>
+<ul class="grid">
+  {% for group in groups %}
+  <li class="card">
+    <a href="/?view=flat&amp;tab=filters&amp;group_id={{ group.id }}">
+      <img src="/media/location/{{ group.cover }}" alt="Representative photo for group {{ group.id }}" loading="lazy">
+    </a>
+    <div class="meta">
+      <strong>Group {{ group.id }}</strong>
+      <div>{{ group.count }} available photos</div>
+      <a href="/?view=flat&amp;tab=filters&amp;group_id={{ group.id }}">Browse group</a>
+      <a href="/compare/group/{{ group.id }}">Compare</a>
+    </div>
+  </li>
+  {% else %}
+  <li>No similar-shot groups with at least two available photos.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

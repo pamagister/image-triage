@@ -317,6 +317,69 @@ def test_event_and_group_filter_pages_do_not_500(photo_dir: Path, tmp_path: Path
             assert response.status_code == 200
 
 
+def test_library_options_exclude_unavailable_historical_events_and_groups(
+    photo_dir: Path, tmp_path: Path
+) -> None:
+    settings, client = _prepared_client(photo_dir, tmp_path)
+    repository = Repository.open(settings.database_path)
+    try:
+        photos = repository.all_photos()
+        first, second, third, fourth = photos
+        assert all(photo.id is not None for photo in photos)
+        repository.set_groups([(first.id, 1), (second.id, 1), (third.id, 2), (fourth.id, 2)])
+        events = repository.set_events(
+            [
+                Event(
+                    start=datetime(2024, 1, 1),
+                    end=datetime(2024, 1, 1),
+                    label="available event",
+                    source="time",
+                    photo_count=2,
+                ),
+                Event(
+                    start=datetime(2023, 1, 1),
+                    end=datetime(2023, 1, 1),
+                    label="historical event",
+                    source="time",
+                    photo_count=2,
+                ),
+            ],
+            [],
+        )
+        repository.assign_events(
+            [
+                (first.id, events[0].id),
+                (second.id, events[0].id),
+                (third.id, events[1].id),
+                (fourth.id, events[1].id),
+            ]
+        )
+        with repository.connection:
+            repository.connection.execute(
+                "UPDATE photo_locations SET available = 0 WHERE photo_id IN (?, ?)",
+                (third.id, fourth.id),
+            )
+        assert repository.count_photos(group_size_min=2) == 2
+        assert [group["id"] for group in repository.available_groups()] == [1]
+        assert [event["label"] for event in repository.available_events()] == ["available event"]
+    finally:
+        repository.close()
+    with client:
+        page = client.get("/?tab=filters")
+        assert page.status_code == 200
+        assert "available event (2)" in page.text
+        assert "historical event" not in page.text
+        assert "Group 1 (2 available)" in page.text
+        assert "Group 2 (" not in page.text
+        assert "Events" in page.text and "not visual similarity" in page.text
+        groups = client.get("/groups")
+        assert groups.status_code == 200
+        assert "Group 1" in groups.text and "Group 2" not in groups.text
+        timeline = client.get("/events")
+        assert "available event" in timeline.text
+        assert "historical event" not in timeline.text
+
+
 def test_empty_filter_fields_do_not_return_a_validation_error(
     photo_dir: Path, tmp_path: Path
 ) -> None:

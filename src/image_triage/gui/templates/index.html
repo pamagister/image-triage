@@ -222,6 +222,19 @@
             <summary>Similar shots</summary>
             <label>Group size min <input type="number" name="group_size_min" min="1" placeholder="any" value="{{ filters.get('group_size_min', '') }}"></label>
             <label>Group size max <input type="number" name="group_size_max" min="1" placeholder="any" value="{{ filters.get('group_size_max', '') }}"></label>
+            <label>Similarity group
+              <select name="group_id" multiple size="4">
+                {% for group in groups %}
+                <option value="{{ group.id }}" {% if group.id in filters.get('group_id', []) %}selected{% endif %}>Group {{ group.id }} ({{ group.count }} available)</option>
+                {% endfor %}
+              </select>
+            </label>
+            <a href="/groups">Browse similar-shot groups</a>
+            <p class="sidebar-help">Counts cover available photos in active libraries. Other filters can reduce results.</p>
+          </details>
+
+          <details class="filter-group">
+            <summary>Events</summary>
             <label>Event
               <select name="event_id" multiple size="4">
                 {% for event in events %}
@@ -229,6 +242,7 @@
                 {% endfor %}
               </select>
             </label>
+            <p class="sidebar-help">Events group photos by time and place, not visual similarity. Counts cover available photos in active libraries.</p>
           </details>
 
           <details class="filter-group" open>

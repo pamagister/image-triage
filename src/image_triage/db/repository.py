@@ -652,7 +652,8 @@ class Repository:
             FROM photo_locations l
             JOIN photos p ON p.id = l.photo_id
             JOIN roots r ON r.id = l.root_id
-            WHERE p.gps_lat IS NOT NULL AND p.gps_lon IS NOT NULL AND l.available = 1
+            WHERE p.gps_lat IS NOT NULL AND p.gps_lon IS NOT NULL
+              AND l.available = 1 AND r.enabled = 1
             ORDER BY p.taken, r.path, l.relative_path
             """
         ).fetchall()
@@ -793,7 +794,7 @@ class Repository:
             placeholders = ", ".join("?" for _ in items)
             return f"{column} IN ({placeholders})"
 
-        where: list[str] = ["l.available = 1"]
+        where: list[str] = ["l.available = 1", "r.enabled = 1"]
         params: list[Any] = []
         roots = values(root)
         if roots:
@@ -875,11 +876,17 @@ class Repository:
         add_range("m.aesthetic", aesthetic_min, aesthetic_max)
         add_range("m.subject_score", subject_min, subject_max)
         add_range("m.exposure", exposure_min, exposure_max)
+        available_group_size = (
+            "CASE WHEN p.group_id IS NULL THEN 1 ELSE (SELECT COUNT(DISTINCT gp.id) FROM photos gp "
+            "JOIN photo_locations gl ON gl.photo_id = gp.id "
+            "JOIN roots gr ON gr.id = gl.root_id "
+            "WHERE gp.group_id = p.group_id AND gl.available = 1 AND gr.enabled = 1) END"
+        )
         if group_size_min is not None:
-            where.append("COALESCE(g.member_count, 1) >= ?")
+            where.append(f"{available_group_size} >= ?")
             params.append(group_size_min)
         if group_size_max is not None:
-            where.append("COALESCE(g.member_count, 1) <= ?")
+            where.append(f"{available_group_size} <= ?")
             params.append(group_size_max)
         statuses = values(status)
         if statuses:
@@ -1312,6 +1319,29 @@ class Repository:
         ).fetchall()
         return [{"id": int(row["id"]), "count": int(row["member_count"])} for row in rows]
 
+    def available_groups(self) -> list[dict[str, Any]]:
+        """Groups with at least two available photo contents in enabled roots."""
+        rows = self.connection.execute(
+            "SELECT p.group_id AS id, COUNT(*) AS count, MIN(l.id) AS cover "
+            "FROM photo_locations l JOIN photos p ON p.id = l.photo_id "
+            "JOIN roots r ON r.id = l.root_id "
+            "WHERE l.available = 1 AND r.enabled = 1 AND p.group_id IS NOT NULL "
+            "GROUP BY p.group_id HAVING COUNT(DISTINCT p.id) >= 2 "
+            "ORDER BY count DESC, p.group_id"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def available_events(self) -> list[dict[str, Any]]:
+        """Events and location counts restricted to available photos in enabled roots."""
+        rows = self.connection.execute(
+            'SELECT e.id, e.start, e."end", e.label, e.source, COUNT(*) AS photo_count '
+            "FROM events e JOIN photos p ON p.event_id = e.id "
+            "JOIN photo_locations l ON l.photo_id = p.id JOIN roots r ON r.id = l.root_id "
+            "WHERE l.available = 1 AND r.enabled = 1 "
+            "GROUP BY e.id ORDER BY e.start, e.id"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
     def label_options(self) -> list[dict[str, Any]]:
         """Detection labels with their photo counts, for the label filter."""
         rows = self.connection.execute(
@@ -1451,7 +1481,7 @@ class Repository:
         """Best-scoring available photo per event, for timeline cards."""
         rows = self.connection.execute(
             _LOCATION_SELECT
-            + " WHERE p.event_id IS NOT NULL AND l.available = 1 "
+            + " WHERE p.event_id IS NOT NULL AND l.available = 1 AND r.enabled = 1 "
             + "ORDER BY p.event_id, p.score DESC, p.taken, l.relative_path"
         ).fetchall()
         covers: dict[int, Photo] = {}

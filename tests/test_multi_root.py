@@ -275,6 +275,29 @@ def test_disabled_roots_are_excluded_and_repository_tracks_active_state(
         repository.close()
 
 
+def test_disabled_root_photos_are_not_browsed_or_counted_in_groups(tmp_path: Path) -> None:
+    first = tmp_path / "active"
+    second = tmp_path / "disabled"
+    save_jpeg(first / "a.jpg", _scene(1), datetime(2024, 1, 1))
+    save_jpeg(second / "b.jpg", _scene(2), datetime(2024, 1, 1))
+    settings = _settings([first, second], tmp_path / "roots.db")
+    repository = Repository.open(settings.database_path)
+    try:
+        analyze_library(settings, repository)
+        photos = repository.all_photos()
+        repository.set_groups([(photos[0].id, 1), (photos[1].id, 1)])
+        assert repository.count_photos(group_size_min=2) == 2
+        assert repository.available_groups()[0]["count"] == 2
+
+        repository.sync_roots([first, second], enabled=[first])
+        assert repository.count_photos() == 1
+        assert repository.count_photos(group_size_min=2) == 0
+        assert repository.count_photos(group_size_max=1) == 1
+        assert repository.available_groups() == []
+    finally:
+        repository.close()
+
+
 def test_nested_roots_are_de_overlapped(tmp_path: Path) -> None:
     parent = tmp_path / "photos"
     child = parent / "2024"

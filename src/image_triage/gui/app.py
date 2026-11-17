@@ -678,8 +678,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     limit=PER_PAGE,
                     offset=(page - 1) * PER_PAGE,
                 ),
-                "events": repo.events(),
-                "groups": repo.group_options(),
+                "events": repo.available_events(),
+                "groups": repo.available_groups(),
                 "labels": repo.label_options(),
                 "blur_kinds": [kind.value for kind in BlurKind],
                 "total": total,
@@ -1508,11 +1508,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         covers = repo.event_covers()
         timeline = [
             {
-                **event.to_dict(),
-                "cover": covers.get(event.id),
-                "url": f"/?event_id={event.id}&view=folders",
+                **event,
+                "cover": covers.get(event["id"]),
+                "url": f"/?event_id={event['id']}&view=folders",
             }
-            for event in repo.events()
+            for event in repo.available_events()
         ]
         points = repo.gps_points()
         if points:
@@ -1529,6 +1529,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             request,
             "events.html",
             {"timeline": timeline, "points": points},
+        )
+
+    @app.get("/groups", response_class=HTMLResponse)
+    def groups(request: Request, repo: Repository = Depends(repository)) -> HTMLResponse:
+        """Browse stored similarity groups with available photos."""
+        return TEMPLATES.TemplateResponse(
+            request, "groups.html", {"groups": repo.available_groups()}
         )
 
     @app.get("/jobs", response_class=HTMLResponse)
