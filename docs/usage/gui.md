@@ -29,9 +29,12 @@ are not imported.
   filter presets, export defaults, blur calibration, rating thresholds and analysis toggles.
   Selection profiles live in one central `selections.yaml`; filter presets live in one central
   `filters.yaml`. Profiles and presets can be added, renamed, removed and ranked with up/down
-  controls; the top profile is the library default. Filter preset fields cover every supported
-  library filter. The packaged defaults are copied into the config directory on first use. Analysis and
-  scoring changes are marked as requiring a new scan or scoring run. The watched-roots table
+  controls; the top profile is the library default. Each list must retain at least one entry.
+  The preset cards use the same rating, metric, blur, date and status controls as the library;
+  **All fields** provides the remaining advanced filters. A slider's **Clear** button unsets both
+  limits rather than forcing them to the endpoints. Presets can also be created or updated from
+  the current library filters. The packaged defaults are copied into the config directory on first
+  use. Analysis and scoring changes are marked as requiring a new scan or scoring run. The watched-roots table
   shows an active checkbox, on-disk and analyzed image counts, and a remove action per root.
   Roots can be added by path or through a server-side directory browser. Removing a root keeps
   its analysis history and never touches originals. The central state database path is shown
@@ -42,12 +45,15 @@ are not imported.
   stale-library banner with a **Scan library** button. The left sidebar has **Folders** and
   **Filters** tabs. The Folders tab always shows every watched root; selecting folders scopes
   the grid. The Filters tab contains rating, quality, sharpness/blur, capture date, status and
-  similar-shot controls. Metric filters use dual-handle min/max sliders with live numeric
+  similar-shot and event controls. Metric filters use dual-handle min/max sliders with live numeric
   readouts, and active presets from `filters.yaml` (Good, Blurry, Low quality, Similar,
-  Accepted, Rejected by default) apply within the current root/folder scope. Active filters appear as removable badges above the
-  result count. Accepted and rejected photos carry status badges on their tiles. Sort by
+  Accepted, Rejected by default) preserve the current root/folder scope unless the preset explicitly
+  contains a root or folder. Active filters appear as removable badges above the result count.
+  Accepted and rejected photos carry status badges on their tiles. Sort by
   capture time, score, rating, sharpness, bokeh, blur, aesthetic, subject, group or event in
-  either direction, and page through the result with the active filters preserved. The first
+  either direction, and page through the result with the active filters preserved. Choose 10, 20,
+  50, 100 or 200 photos per page; the browser remembers the choice, while an explicit URL takes
+  precedence. Applying filters retains the Filters tab and selected folders. The first
   tile line is the file name; the full path is below it. Optional metadata fields and the
   visible filter groups are selected in Settings (default metadata: score, rating, date).
 - **Folder view** - the sidebar tree lists only folders that contain matching photos, with
@@ -55,8 +61,25 @@ are not imported.
   watched root, even when the photo grid is scoped to one root or folder. Each folder row has
   a checkbox that selects all descendant locations; a partially selected folder is shown as
   indeterminate.
-- **Photo detail** - image, global and subject sharpness, bokeh, blur, composition breakdown,
-  detections, similar shots, the current soft rating/keep/reject override and a form to change it.
+- **Similar shots** - browse stored similarity groups with at least two available photo contents.
+  Their counts refer to available locations in active roots; other filters can reduce the result.
+  Events are separate time/place clusters, not visual similarity groups. Unavailable historical
+  entries are not offered as available groups or events.
+- **Photo detail** - the image and a scrollable strip of visual suggestions are visible together
+  on desktop. The similarity slider adjusts the allowed 64-bit perceptual-hash difference:
+  zero is strictest, while larger values may include unrelated images. Suggestions search all
+  active roots, even outside the current filters, without changing stored groups. Identical files
+  are labeled separately. If a hash is missing, only identical files can be suggested. This is a
+  visual approximation, not a semantic subject search. Open a thumbnail to review that photo;
+  additional suggestions can be loaded as needed. The stored group and technical metrics remain
+  accessible under **Photo details and stored group**.
+- **Detail navigation** - Previous/Next follows the complete filtered and sorted library result,
+  including page boundaries and separate file locations. Back to library restores the result and
+  page. A suggested photo outside that result is labeled accordingly. Use Left/Right arrows to
+  navigate, **A** to accept, **R** to reject and **1–5** to set a rating. Shortcuts are inactive
+  while editing a form field. Direct rating and decision controls are also available on screen.
+  Rating overrides immediately appear in the library and rating filters; they remain soft overrides
+  and do not modify originals. Decisions and ratings apply to the photo content, including copies.
 - **Compare** - side-by-side view of similar shots with their metric tables and actions to
   select all, select the best, accept the best or reject the others.
 - **Events** - a timeline of event cards with representative thumbnails, dates, photo counts
@@ -65,6 +88,13 @@ are not imported.
 - **Jobs** - read-only background job history, reachable from the header. Active jobs are
   highlighted and the page refreshes automatically. Scans, exports and large best-N runs
   report progress and results here; jobs cannot be started manually from the page.
+
+If a profile or preset YAML file is invalid, Settings displays its path and disables saving to
+avoid overwriting it. Back up the affected file and restore a known-good copy before reloading;
+values previously lost without a backup cannot be reconstructed automatically. The settings save
+validates files before writing and rolls back ordinary write failures. A sudden process or system
+crash during a multi-file save is not a fully atomic transaction, so keep backups of important
+custom profiles and presets.
 
 ## Selecting and exporting
 
