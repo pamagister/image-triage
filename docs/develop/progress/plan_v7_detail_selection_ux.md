@@ -1,6 +1,6 @@
 # Image Triage v6 - Detail Selection, Selected Filter, Tooltips and Undo
 
-**Status:** `[-]` in progress
+**Status:** `[ ]` planned
 **Created:** 2026-11-17
 **Extends:** [`plan_v6_gui_review_and_similar_shots`](plan_v6_gui_review_and_similar_shots.md). The review workspace and visual suggestions already exist; this plan adds the missing selection and feedback layer.
 **Target:** make selection available directly in the photo review workspace, add a client-side selected/unselected filter, clarify ambiguous actions with delayed tooltips, and provide a one-step undo for selection-changing bulk actions.
@@ -114,12 +114,12 @@ Desired outcome:
 
 Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed.
 
-### Phase 1 - Selection in the photo review workspace `[x]`
+### Phase 1 - Selection in the photo review workspace `[ ]`
 
-- [x] P1-W01: Add the main-image selection checkbox and selected-state styling in `photo.html` and `style.css`; show the current selection count in the detail heading.
-- [x] P1-W02: Add a labelled checkbox to every visual suggestion card in `similarity.js`, including an accessible name and a selected-state hook.
-- [x] P1-W03: Add the `image-triage:selection-refresh` event and make `applySelection()` toggle `is-selected` on cards and the detail image frame; dispatch the event after similarity rendering.
-- [x] P1-W04: Add tests for detail markup and browser interaction: select from a suggestion, select the main image, and verify the selection count and localStorage contents.
+- [ ] P1-W01: Add the main-image selection checkbox and selected-state styling in `photo.html` and `style.css`; show the current selection count in the detail heading.
+- [ ] P1-W02: Add a labelled checkbox to every visual suggestion card in `similarity.js`, including an accessible name and a selected-state hook.
+- [ ] P1-W03: Add the `image-triage:selection-refresh` event and make `applySelection()` toggle `is-selected` on cards and the detail image frame; dispatch the event after similarity rendering.
+- [ ] P1-W04: Add tests for detail markup and browser interaction: select from a suggestion, select the main image, and verify the selection count and localStorage contents.
 
 **Acceptance criteria**
 
@@ -251,12 +251,12 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed.
 ## 7. Progress / Handoff
 
 - **Mode:** autopilot
-- **Plan:** `docs/develop/progress/plan_v7_detail_selection_ux.md`
-- **Completed:** Phase 1 (P1-W01 to P1-W04)
-- **Active:** none
-- **Next:** P2-W01
+- **Plan:** `docs/develop/progress/plan_v6_detail_selection_ux.md`
+- **Completed:** none
+- **Active:** P1-W01 `[-]`
+- **Next:** P1-W02
 - **Relevant files:** `src/image_triage/gui/templates/photo.html`, `src/image_triage/gui/static/similarity.js`, `src/image_triage/gui/static/selection.js`, `src/image_triage/gui/templates/index.html`, `src/image_triage/gui/query.py`, `src/image_triage/gui/app.py`, `src/image_triage/gui/static/ui.js` (new), `src/image_triage/gui/templates/settings.html`, `src/image_triage/gui/static/settings.js`, `src/image_triage/gui/static/style.css`, `docs/usage/gui.md`
 - **Decisions:** selection stays browser-local; selected filter is client-side and page-scoped with the review drawer as the cross-page view; undo is one step and selection-only; tooltips are key-button-only at 2200 ms; all dialogs share one subtle red close style.
 - **Blockers:** none
-- **Last verified:** 2026-11-17, `uv run pytest -q --tb=short tests/test_library_ui.py::test_detail_page_supports_main_and_suggestion_selection tests/test_live_similarity.py tests/test_browser_review.py` passed
-- **Context status:** in progress
+- **Last verified:** 2026-11-17, plan only; no implementation checks run
+- **Context status:** clean

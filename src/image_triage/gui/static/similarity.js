@@ -15,15 +15,6 @@
   function render(item) {
     var card = document.createElement("li");
     card.className = "similarity-card";
-    var select = document.createElement("label");
-    select.className = "similarity-select";
-    var checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.setAttribute("data-select-photo", "");
-    checkbox.value = String(item.location_id);
-    checkbox.setAttribute("aria-label", "Select " + item.name);
-    select.appendChild(checkbox);
-    card.appendChild(select);
     var link = document.createElement("a");
     var url = new URL(window.location.href);
     url.pathname = "/photo/" + item.photo_id;
@@ -60,7 +51,6 @@
       if (!response.ok) throw new Error("Could not load suggestions (" + response.status + ")");
       var data = await response.json();
       data.items.forEach(render);
-      document.dispatchEvent(new CustomEvent("image-triage:selection-refresh"));
       cursor = data.next_cursor;
       more.hidden = !cursor;
       status.textContent = !data.hash_available

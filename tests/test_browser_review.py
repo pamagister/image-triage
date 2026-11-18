@@ -246,29 +246,6 @@ uvicorn.run(create_app(settings), host='127.0.0.1',
         """)
         assert layout["bottom"] <= layout["height"] + 1
         assert layout["tileTop"] < layout["height"]
-        detail_selection = script("""
-            let main = document.querySelector('.review-image-frame [data-select-photo]');
-            main.click();
-            let suggestion = document.querySelector('.similarity-card [data-select-photo]');
-            if (suggestion) suggestion.click();
-            return {
-                main: main.checked,
-                main_selected: document.querySelector('.review-image-frame')
-                    .classList.contains('is-selected'),
-                suggestion: suggestion ? suggestion.checked : null,
-                suggestion_selected: suggestion
-                    ? suggestion.closest('.similarity-card').classList.contains('is-selected')
-                    : null,
-                count: document.querySelector('[data-selected-count]').textContent,
-                stored: JSON.parse(localStorage.getItem('image-triage:selected') || '[]')
-            };
-        """)
-        assert detail_selection["main"] is True
-        assert detail_selection["main_selected"] is True
-        assert detail_selection["suggestion"] is True
-        assert detail_selection["suggestion_selected"] is True
-        assert detail_selection["count"] == str(len(detail_selection["stored"]))
-        assert len(detail_selection["stored"]) >= 2
         first_url = script("return location.href")
         script("document.querySelector('.similarity-card a').click()")
         _wait_for(lambda: (href := script("return location.href")) and href != first_url)
