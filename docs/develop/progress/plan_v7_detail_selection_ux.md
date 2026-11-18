@@ -1,8 +1,7 @@
-# Image Triage v6 - Detail Selection, Selected Filter, Tooltips and Undo
+# Image Triage v7 - Detail Selection, Selected Filter, Tooltips and Undo
 
 **Status:** `[ ]` planned
 **Created:** 2026-11-17
-**Extends:** [`plan_v6_gui_review_and_similar_shots`](plan_v6_gui_review_and_similar_shots.md). The review workspace and visual suggestions already exist; this plan adds the missing selection and feedback layer.
 **Target:** make selection available directly in the photo review workspace, add a client-side selected/unselected filter, clarify ambiguous actions with delayed tooltips, and provide a one-step undo for selection-changing bulk actions.
 
 ---
@@ -251,7 +250,7 @@ Status markers: `[ ]` pending, `[-]` in progress, `[x]` completed.
 ## 7. Progress / Handoff
 
 - **Mode:** autopilot
-- **Plan:** `docs/develop/progress/plan_v6_detail_selection_ux.md`
+- **Plan:** `docs/develop/progress/plan_v7_detail_selection_ux.md`
 - **Completed:** none
 - **Active:** P1-W01 `[-]`
 - **Next:** P1-W02
