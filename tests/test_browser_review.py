@@ -129,9 +129,6 @@ uvicorn.run(create_app(settings), host='127.0.0.1',
     def navigate(path: str) -> None:
         webdriver("POST", f"/session/{session_id}/url", {"url": app_url + path})
 
-    def selected_ids() -> list[int]:
-        return script("return JSON.parse(localStorage.getItem('image-triage:selected') || '[]')")
-
     try:
         for url in (driver_url + "/status", app_url + "/health"):
 
@@ -329,57 +326,6 @@ uvicorn.run(create_app(settings), host='127.0.0.1',
             "new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}))"
         )
         assert script("return document.querySelector('#ui-tooltip').hidden") is True
-
-        assert len(selected_ids()) == 2
-        script("document.querySelector('[data-select-all]').click()")
-        _wait_for(lambda: len(selected_ids()) == 3)
-        assert script("return !document.querySelector('[data-undo]').hidden") is True
-        assert "select all filtered" in script(
-            "return document.querySelector('[data-undo]').getAttribute('aria-label')"
-        )
-        navigate("/?view=flat&sort=path&page_size=10")
-        _wait_for(lambda: script("return !document.querySelector('[data-undo]').hidden"))
-        assert len(selected_ids()) == 3
-        script("document.querySelector('[data-undo]').click()")
-        _wait_for(lambda: len(selected_ids()) == 2)
-        assert script("return document.querySelector('[data-undo]').hidden") is True
-
-        script("document.querySelector('.selection-actions [data-open-review]').click()")
-        _wait_for(
-            lambda: (
-                script("return document.querySelectorAll('#review-dialog .review-card').length")
-                == 2
-            )
-        )
-        script(
-            "document.querySelector('#review-dialog .review-card .review-actions button').click()"
-        )
-        _wait_for(lambda: len(selected_ids()) == 1)
-        assert script("return !document.querySelector('[data-undo]').hidden") is True
-        script("document.querySelector('#review-dialog [data-dialog-close]').click()")
-        _wait_for(lambda: not script("return document.querySelector('#review-dialog').open"))
-        script("document.querySelector('[data-undo]').click()")
-        _wait_for(lambda: len(selected_ids()) == 2)
-
-        script("document.querySelector('[data-deselect-all]').click()")
-        _wait_for(lambda: len(selected_ids()) == 0)
-        script("document.querySelector('[data-undo]').click()")
-        _wait_for(lambda: len(selected_ids()) == 2)
-
-        script("window.confirm = () => true; document.querySelector('[data-clear]').click()")
-        _wait_for(lambda: len(selected_ids()) == 0)
-        script("document.querySelector('[data-undo]').click()")
-        _wait_for(lambda: len(selected_ids()) == 2)
-
-        script("""
-            document.querySelector('[data-best-mode]').value = 'replace';
-            document.querySelector('[data-best-n]').value = '0';
-            document.querySelector('[data-best-run]').click();
-        """)
-        _wait_for(lambda: len(selected_ids()) == 0)
-        script("document.querySelector('[data-undo]').click()")
-        _wait_for(lambda: len(selected_ids()) == 2)
-
         script("""
             document.querySelector('input[name="selection"][value="selected"]').click();
             document.querySelector('form.filters').requestSubmit();

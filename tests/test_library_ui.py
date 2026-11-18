@@ -231,23 +231,6 @@ def test_selection_filter_controls_are_rendered_and_preserved(
         assert 'params.delete("selection")' in script
 
 
-def test_selection_undo_markup_and_helpers_are_available(photo_dir: Path, tmp_path: Path) -> None:
-    with _client(photo_dir, tmp_path) as client:
-        page = client.get("/")
-        assert page.status_code == 200
-        assert b"data-undo hidden" in page.content
-
-        script = Path("src/image_triage/gui/static/selection.js").read_text()
-        assert "image-triage:undo" in script
-        assert "captureUndo" in script
-        assert "undoSelection" in script
-        assert "updateUndoButton" in script
-        assert 'captureUndo("select all filtered")' in script
-        assert 'captureUndo("de-select all filtered")' in script
-        assert 'captureUndo("clear all")' in script
-        assert 'captureUndo("remove from selection")' in script
-
-
 def test_tooltips_and_shared_dialog_close_are_wired(photo_dir: Path, tmp_path: Path) -> None:
     with _client(photo_dir, tmp_path) as client:
         page = client.get("/")

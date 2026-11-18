@@ -9,7 +9,6 @@
   "use strict";
 
   var STORAGE_KEY = "image-triage:selected";
-  var UNDO_KEY = "image-triage:undo";
   var TREE_KEY = "image-triage:open-folders";
 
   function readSelected() {
@@ -28,78 +27,6 @@
     } catch (err) {
       /* storage may be unavailable; selection still works for this page */
     }
-  }
-
-  function readUndo() {
-    try {
-      var raw = window.localStorage.getItem(UNDO_KEY);
-      var parsed = raw ? JSON.parse(raw) : null;
-      if (!parsed || parsed.kind !== "selection" || !Array.isArray(parsed.ids)) {
-        return null;
-      }
-      return {
-        kind: "selection",
-        label: typeof parsed.label === "string" ? parsed.label : "selection change",
-        ids: parsed.ids.map(Number).filter(Number.isFinite),
-        created_at: typeof parsed.created_at === "string" ? parsed.created_at : "",
-      };
-    } catch (err) {
-      return null;
-    }
-  }
-
-  function updateUndoButton() {
-    var button = document.querySelector("[data-undo]");
-    if (!button) {
-      return;
-    }
-    var entry = readUndo();
-    if (!entry) {
-      button.hidden = true;
-      button.removeAttribute("aria-label");
-      button.removeAttribute("data-tooltip");
-      return;
-    }
-    button.hidden = false;
-    var label = "Undo " + entry.label;
-    button.setAttribute("aria-label", label);
-    button.dataset.tooltip = label + ".";
-  }
-
-  function captureUndo(label) {
-    try {
-      window.localStorage.setItem(
-        UNDO_KEY,
-        JSON.stringify({
-          kind: "selection",
-          label: label,
-          ids: readSelected(),
-          created_at: new Date().toISOString(),
-        })
-      );
-    } catch (err) {
-      /* undo is optional when browser storage is unavailable */
-    }
-    updateUndoButton();
-  }
-
-  function clearUndo() {
-    try {
-      window.localStorage.removeItem(UNDO_KEY);
-    } catch (err) {
-      /* storage may be unavailable */
-    }
-    updateUndoButton();
-  }
-
-  function undoSelection() {
-    var entry = readUndo();
-    if (!entry) {
-      return;
-    }
-    writeSelected(entry.ids);
-    applySelection(entry.ids);
-    clearUndo();
   }
 
   function currentQuery() {
@@ -463,7 +390,6 @@
     remove.dataset.tooltip =
       "Remove this photo from the selection. Accepted/rejected status is unchanged.";
     remove.addEventListener("click", function () {
-      captureUndo("remove from selection");
       subtractSelected([photo.location_id]);
       reviewPhotos = reviewPhotos.filter(function (item) {
         return item.location_id !== photo.location_id;
@@ -646,12 +572,6 @@
         return data;
       })
       .then(function (result) {
-        var label = groupBest
-          ? "one per group"
-          : mode === "replace"
-            ? "replace with " + (body.n || 0) + " photos"
-            : "select " + (body.n || 0) + " photos";
-        captureUndo(label);
         applyLocationIds(result.location_ids || []);
         if (status) {
           var summary = result.summary || {};
@@ -690,7 +610,6 @@
       });
     }
     applySelection(readSelected());
-    updateUndoButton();
     restoreOpenFolders();
 
     document.querySelectorAll('[name="sidebar-tab"]').forEach(function (radio) {
@@ -839,26 +758,14 @@
     var selectAll = document.querySelector("[data-select-all]");
     if (selectAll) {
       selectAll.addEventListener("click", function () {
-        fetchFilteredIds(function (ids) {
-          if (!ids.length) {
-            return;
-          }
-          captureUndo("select all filtered");
-          unionSelected(ids);
-        });
+        fetchFilteredIds(unionSelected);
       });
     }
 
     var deselectAll = document.querySelector("[data-deselect-all]");
     if (deselectAll) {
       deselectAll.addEventListener("click", function () {
-        fetchFilteredIds(function (ids) {
-          if (!ids.length) {
-            return;
-          }
-          captureUndo("de-select all filtered");
-          subtractSelected(ids);
-        });
+        fetchFilteredIds(subtractSelected);
       });
     }
 
@@ -868,15 +775,9 @@
         if (!window.confirm("Clear all selected photos?")) {
           return;
         }
-        captureUndo("clear all");
         writeSelected([]);
         applySelection([]);
       });
-    }
-
-    var undoButton = document.querySelector("[data-undo]");
-    if (undoButton) {
-      undoButton.addEventListener("click", undoSelection);
     }
 
     function changeSelectedStatus(status) {
