@@ -9,6 +9,8 @@ const browseCurrent = document.getElementById("browse-current");
 const browseError = document.getElementById("browse-error");
 const browseUp = document.getElementById("browse-up");
 const browseSelect = document.getElementById("browse-select");
+const browseClose = document.getElementById("browse-close");
+const browseCancel = document.getElementById("browse-cancel");
 
 let currentPath = "";
 
@@ -92,6 +94,9 @@ browseSelect.addEventListener("click", () => {
   dialog.close();
   newRootInput.focus();
 });
+
+browseClose.addEventListener("click", () => dialog.close());
+browseCancel.addEventListener("click", () => dialog.close());
 
 function moveRow(button, offset) {
   const row = button.closest("[data-profile-row], [data-preset-row]");

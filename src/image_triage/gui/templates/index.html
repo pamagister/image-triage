@@ -102,7 +102,7 @@
       <option value="group">one per group</option>
     </select>
   </label>
-  <button type="button" data-best-run data-tooltip="Run the selection profile against the current filters.">Run selection</button>
+  <button type="button" data-best-run>Run selection</button>
   <span class="best-status" data-best-status></span>
 </div>
 
@@ -285,7 +285,7 @@
               <label><input type="radio" name="selection" value="unselected" {% if selection == 'unselected' %}checked{% endif %}> Not selected</label>
             </div>
             <p class="sidebar-help">Filters the current page only. Review all selected shows every selected photo across pages.</p>
-            <button type="button" class="button-secondary" data-open-review data-tooltip="Review every selected photo across pages.">Review all selected</button>
+            <button type="button" class="button-secondary" data-open-review>Review all selected</button>
           </details>
 
           <details class="filter-group">
@@ -318,8 +318,8 @@
             <a class="button-link" href="/?view={{ view }}&amp;tab=filters&amp;page_size={{ page_size }}{% if selection != 'any' %}&amp;selection={{ selection }}{% endif %}">Reset</a>
           </div>
           <div class="decision-actions">
-            <button type="button" class="button-secondary" data-accept-filtered data-tooltip="Accept every photo matching the current server-side filters.">Accept filtered</button>
-            <button type="button" class="button-secondary" data-reject-filtered data-tooltip="Reject every photo matching the current server-side filters.">Reject filtered</button>
+            <button type="button" class="button-secondary" data-accept-filtered>Accept filtered</button>
+            <button type="button" class="button-secondary" data-reject-filtered>Reject filtered</button>
           </div>
         </form>
       </section>
@@ -375,20 +375,20 @@
 <div class="selection-tray" data-selection>
   <div class="selection-count"><span data-selected-count>0</span> selected</div>
   <div class="selection-actions">
-    <button type="button" data-open-review data-tooltip="Review every selected photo across pages.">Review selection</button>
-    <button type="button" data-accept-selected data-tooltip="Mark every selected photo as accepted.">Accept</button>
-    <button type="button" data-reject-selected data-tooltip="Mark every selected photo as rejected.">Reject</button>
-    <button type="button" data-select-all data-tooltip="Add every photo matching the current filters to the selection.">Select all filtered</button>
-    <button type="button" data-deselect-all data-tooltip="Remove photos matching the current filters from the selection.">De-select all filtered</button>
-    <button type="button" data-clear data-tooltip="Remove every photo from the browser-local selection.">Clear all</button>
-    <button type="button" data-export-open data-tooltip="Export the current selection or another scope.">Export</button>
+    <button type="button" data-open-review>Review selection</button>
+    <button type="button" data-accept-selected>Accept</button>
+    <button type="button" data-reject-selected>Reject</button>
+    <button type="button" data-select-all>Select all filtered</button>
+    <button type="button" data-deselect-all>De-select all filtered</button>
+    <button type="button" data-clear>Clear all</button>
+    <button type="button" data-export-open>Export</button>
   </div>
 </div>
 
 <dialog id="export-dialog" class="export-dialog" aria-labelledby="export-title">
   <div class="dialog-header">
     <strong id="export-title">Export photos</strong>
-    <button type="button" class="dialog-close" data-dialog-close aria-label="Close" data-tooltip="Close export dialog">Close</button>
+    <button type="button" class="button-secondary" data-export-close aria-label="Close">Close</button>
   </div>
   <form method="post" action="/export?{{ base_query }}" class="export-form" data-export-form>
     <input type="hidden" name="photo_ids" value="" data-photo-ids>
@@ -413,7 +413,7 @@
     <label>JPEG quality <input type="number" name="jpeg_quality" min="1" max="100" placeholder="85"></label>
     <p class="export-note">Originals are copied only; the GUI never creates links.</p>
     <div class="dialog-actions">
-      <button type="button" class="button-secondary" data-dialog-close>Cancel</button>
+      <button type="button" class="button-secondary" data-export-close>Cancel</button>
       <button type="submit">Start export</button>
     </div>
   </form>
@@ -422,7 +422,7 @@
 <dialog id="review-dialog" class="review-dialog" aria-labelledby="review-title">
   <div class="dialog-header">
     <strong id="review-title">Selected photos <span class="review-count" data-review-count>0</span></strong>
-    <button type="button" class="dialog-close" data-dialog-close aria-label="Close" data-tooltip="Close review drawer">Close</button>
+    <button type="button" class="button-secondary" data-review-close aria-label="Close">Close</button>
   </div>
   <div class="review-scope">
     <label>Root

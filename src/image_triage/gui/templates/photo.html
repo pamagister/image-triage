@@ -18,14 +18,14 @@
       {% if next_url %}<a href="{{ next_url }}" data-detail-next aria-keyshortcuts="ArrowRight">Next</a>{% else %}<span>Next</span>{% endif %}
     </nav>
     <form method="post" action="/photo/{{ photo.id }}/decision?{{ detail_query }}" class="review-actions">
-      <button type="submit" name="status" value="accepted" data-decision="accepted" aria-keyshortcuts="A" aria-pressed="{{ 'true' if photo.keep is true else 'false' }}" data-tooltip="Accept this photo content, including all copies.">Accept</button>
-      <button type="submit" name="status" value="rejected" data-decision="rejected" aria-keyshortcuts="R" aria-pressed="{{ 'true' if photo.keep is false else 'false' }}" data-tooltip="Reject this photo content, including all copies.">Reject</button>
-      <button type="submit" name="status" value="none" class="button-secondary" data-tooltip="Clear the accepted/rejected decision for this photo content.">Clear decision</button>
+      <button type="submit" name="status" value="accepted" data-decision="accepted" aria-keyshortcuts="A" aria-pressed="{{ 'true' if photo.keep is true else 'false' }}">Accept</button>
+      <button type="submit" name="status" value="rejected" data-decision="rejected" aria-keyshortcuts="R" aria-pressed="{{ 'true' if photo.keep is false else 'false' }}">Reject</button>
+      <button type="submit" name="status" value="none" class="button-secondary">Clear decision</button>
     </form>
     <form method="post" action="/photo/{{ photo.id }}/rating?{{ detail_query }}" class="review-ratings" aria-label="Set rating">
       <span>Rating</span>
       {% for value in [1, 2, 3, 4, 5] %}
-      <button type="submit" name="rating" value="{{ value }}" data-rate="{{ value }}" aria-label="Rate {{ value }} out of 5" aria-keyshortcuts="{{ value }}" aria-pressed="{{ 'true' if override and override.rating == value else 'false' }}" data-tooltip="Rate this photo {{ value }} out of 5.">{{ value }}</button>
+      <button type="submit" name="rating" value="{{ value }}" data-rate="{{ value }}" aria-label="Rate {{ value }} out of 5" aria-keyshortcuts="{{ value }}" aria-pressed="{{ 'true' if override and override.rating == value else 'false' }}">{{ value }}</button>
       {% endfor %}
     </form>
   </div>
