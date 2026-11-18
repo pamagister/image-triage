@@ -41,8 +41,27 @@ Do not claim that checks passed unless they were actually executed. If verificat
 
 ## Browser UI Inspection
 
-- `playwright-cli` (Playwright CLI + Skills) is available for inspecting the local web UI. The skill is committed at `.agents/skills/playwright-cli`; install the CLI and Chromium with `npm install -g --prefix ~/.local @playwright/cli@latest` and `playwright-cli install-browser chromium`.
-- Use `playwright-cli open <url>`, `snapshot`, `click`, `fill` and `screenshot` to reproduce UI workflows. Sessions are headless by default; close them when done.
+`playwright-cli` (Playwright CLI + Skills) is available for inspecting the local web UI. The skill is
+committed at `.agents/skills/playwright-cli`; install the CLI and Chromium with
+`npm install -g --prefix ~/.local @playwright/cli@latest` and `playwright-cli install-browser chromium`.
+See `docs/develop/tools.md` for the full setup.
+
+Start the GUI with `uv run image-triage gui` (default `http://127.0.0.1:8765/`). Validate changes from
+cheapest to most realistic:
+
+- **HTTP with curl:** `curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' <url>` for status and
+  redirects; use `-d`/`-X POST` when reproducing form submissions.
+- **FastAPI TestClient:** `uv run pytest tests/test_gui.py -k <pattern> -x` for in-process endpoint and
+  template checks, without starting a server or browser.
+- **Chromium via Playwright CLI:** `playwright-cli open <url>`, then `find <text>`, `snapshot`,
+  `click`, `fill`, `console`, `requests` and `screenshot`; close with `playwright-cli close`.
+  Headless by default, `--headed` for visual checks.
+- **Firefox:** system Firefox 159 and geckodriver 0.37 are available; `uv run pytest
+  tests/test_browser_review.py` drives a real Firefox workflow. Playwright CLI needs
+  `playwright-cli install-browser firefox` before `playwright-cli open --browser firefox <url>` works.
+
+Close browser sessions and stop the GUI when done. Transient Playwright output goes to the ignored
+`.playwright-cli/` directory.
 
 ## Testing and Delivery
 
