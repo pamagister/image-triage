@@ -6,6 +6,7 @@
     <a href="{{ library_url }}" data-back-library>Back to library</a>
     <h1 title="{{ photo.root_path }}/{{ photo.path }}">{{ photo.name }}</h1>
     <span class="review-summary">Score {{ '%.3f'|format(photo.score) }} · rating {{ override.rating if override and override.rating is not none else photo.rating }}/5</span>
+    <span class="review-selection"><span data-selected-count>0</span> selected</span>
     {% if photo.keep is true %}<span class="status-badge status-accepted">accepted</span>
     {% elif photo.keep is false %}<span class="status-badge status-rejected">rejected</span>{% endif %}
   </div>
@@ -31,6 +32,9 @@
 
   <div class="review-stage">
     <div class="review-image-frame">
+      <label class="detail-select-box">
+        <input type="checkbox" data-select-photo value="{{ photo.location_id }}" aria-label="Select {{ photo.name }}">
+      </label>
       <img class="detail-image" src="/media/location/{{ photo.location_id }}" alt="{{ photo.path }}">
     </div>
     <aside class="review-sidebar" aria-label="Similar photos and details">

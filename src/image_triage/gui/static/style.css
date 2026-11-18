@@ -267,6 +267,11 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   box-shadow: 0 0 0 2px var(--accent);
 }
 
+.card.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card { transition: none; }
 }
@@ -339,12 +344,37 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   padding: 0;
 }
 
+.similarity-card {
+  position: relative;
+}
+
 .similarity-card a {
   display: grid;
   gap: 0.2rem;
   color: var(--fg);
   font-size: 0.8rem;
   overflow-wrap: anywhere;
+}
+
+.similarity-select {
+  position: absolute;
+  top: 0.25rem;
+  left: 0.25rem;
+  z-index: 1;
+  padding: 0.1rem 0.25rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.similarity-select input:focus-visible,
+.detail-select-box input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.similarity-card.is-selected img {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .similarity-card img {
@@ -384,6 +414,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   max-width: 35%;
 }
 
+.review-selection { color: var(--muted); font-size: 0.8rem; }
 .review-summary,
 .review-shortcuts { color: var(--muted); font-size: 0.8rem; }
 .review-shortcuts { margin: 0; }
@@ -404,10 +435,25 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 
 .review-image-frame {
+  position: relative;
   min-height: 0;
   overflow: hidden;
   background: #1c2730;
   border-radius: 10px;
+}
+
+.detail-select-box {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 2;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.review-image-frame.is-selected {
+  box-shadow: 0 0 0 3px var(--accent);
 }
 
 .review-image-frame .detail-image {

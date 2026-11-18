@@ -246,6 +246,67 @@ uvicorn.run(create_app(settings), host='127.0.0.1',
         """)
         assert layout["bottom"] <= layout["height"] + 1
         assert layout["tileTop"] < layout["height"]
+        detail_url = script("return location.href")
+        detail_selection = script("""
+            let main = document.querySelector('.review-image-frame [data-select-photo]');
+            main.click();
+            let suggestion = document.querySelector('.similarity-card [data-select-photo]');
+            if (suggestion) suggestion.click();
+            let stored = JSON.parse(localStorage.getItem('image-triage:selected') || '[]');
+            return {
+                main: main.checked,
+                main_selected: document.querySelector('.review-image-frame')
+                    .classList.contains('is-selected'),
+                suggestion: suggestion ? suggestion.checked : null,
+                suggestion_selected: suggestion
+                    ? suggestion.closest('.similarity-card').classList.contains('is-selected')
+                    : null,
+                count: document.querySelector('[data-selected-count]').textContent,
+                stored: stored,
+                url: location.href
+            };
+        """)
+        assert detail_selection["main"] is True
+        assert detail_selection["main_selected"] is True
+        assert detail_selection["suggestion"] is True
+        assert detail_selection["suggestion_selected"] is True
+        assert detail_selection["count"] == str(len(detail_selection["stored"]))
+        assert len(detail_selection["stored"]) >= 2
+        assert detail_selection["url"] == detail_url
+        script("""
+            let slider = document.querySelector('[data-similarity-distance]');
+            document.querySelector('[data-similarity-status]').textContent = 'sentinel';
+            slider.value = '32';
+            slider.dispatchEvent(new Event('input', {bubbles: true}));
+        """)
+        _wait_for(
+            lambda: (
+                (
+                    status := script(
+                        "return document.querySelector('[data-similarity-status]').textContent"
+                    )
+                )
+                and status != "sentinel"
+                and not status.startswith("Loading")
+            )
+        )
+        similarity_sync = script("""
+            let stored = JSON.parse(localStorage.getItem('image-triage:selected') || '[]');
+            let boxes = Array.from(
+                document.querySelectorAll('.similarity-card [data-select-photo]')
+            );
+            return {
+                mismatches: boxes.filter(
+                    b => b.checked !== stored.includes(Number(b.value))
+                ).length,
+                count: document.querySelector('[data-selected-count]').textContent,
+                output: document.querySelector('[data-similarity-value]').textContent,
+                stored: stored.length
+            };
+        """)
+        assert similarity_sync["output"] == "32"
+        assert similarity_sync["mismatches"] == 0
+        assert similarity_sync["count"] == str(similarity_sync["stored"])
         first_url = script("return location.href")
         script("document.querySelector('.similarity-card a').click()")
         _wait_for(lambda: (href := script("return location.href")) and href != first_url)
@@ -270,6 +331,30 @@ uvicorn.run(create_app(settings), host='127.0.0.1',
             )
         )
         assert "tab=filters" in script("return document.querySelector('[data-back-library]').href")
+        script("document.querySelector('[data-back-library]').click()")
+        _wait_for(
+            lambda: (
+                "/photo/" not in (script("return location.pathname") or "/photo/")
+                and script("return !!document.querySelector('[data-selection]')")
+            )
+        )
+        library_selection = script("""
+            let stored = JSON.parse(localStorage.getItem('image-triage:selected') || '[]');
+            return {
+                tray: document.querySelector(
+                    '[data-selection] [data-selected-count]'
+                ).textContent,
+                summary: document.querySelector(
+                    '.selection-summary [data-selected-count]'
+                ).textContent,
+                checked: Array.from(document.querySelectorAll('[data-select-photo]'))
+                    .filter(box => box.checked).length,
+                stored: stored.length
+            };
+        """)
+        assert library_selection["tray"] == str(library_selection["stored"])
+        assert library_selection["summary"] == str(library_selection["stored"])
+        assert library_selection["checked"] == library_selection["stored"]
     finally:
         if session_id:
             try:
