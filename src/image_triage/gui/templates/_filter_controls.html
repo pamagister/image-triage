@@ -25,3 +25,22 @@
   </div>
 </div>
 {% endmacro %}
+
+{% macro status_filter(selected, name='', preset_key='') %}
+{% set values = selected if selected is sequence and selected is not string else [] %}
+{% set selected_value = 'all' %}
+{% if values %}
+  {% if values | length == 1 %}
+    {% set selected_value = values[0] %}
+  {% elif 'not_rejected' in values or ('accepted' in values and 'none' in values) %}
+    {% set selected_value = 'not_rejected' %}
+  {% endif %}
+{% endif %}
+<select class="status-select" {% if name %}name="{{ name }}"{% else %}data-preset-select="{{ preset_key or 'status' }}"{% endif %} aria-label="Status">
+  <option value="all" {% if selected_value == 'all' %}selected{% endif %}>All</option>
+  <option value="accepted" {% if selected_value == 'accepted' %}selected{% endif %}>Accepted</option>
+  <option value="rejected" {% if selected_value == 'rejected' %}selected{% endif %}>Rejected</option>
+  <option value="none" {% if selected_value == 'none' %}selected{% endif %}>Undecided</option>
+  <option value="not_rejected" {% if selected_value == 'not_rejected' %}selected{% endif %}>Not rejected</option>
+</select>
+{% endmacro %}

@@ -347,3 +347,18 @@ def test_set_status_preserves_rating_and_clears_keep(tmp_path: Path) -> None:
         assert stored.rating == 4
     finally:
         repository.close()
+
+
+def test_not_rejected_status_filter_excludes_only_rejected(tmp_path: Path) -> None:
+    repository = Repository.open(tmp_path / "not-rejected.db")
+    try:
+        accepted = repository.upsert_photo(_photo("accepted.jpg"))
+        rejected = repository.upsert_photo(_photo("rejected.jpg"))
+        undecided = repository.upsert_photo(_photo("undecided.jpg"))
+        repository.set_status([accepted], "accepted")
+        repository.set_status([rejected], "rejected")
+
+        matches = repository.list_photos(status=["not_rejected"])
+        assert {photo.id for photo in matches} == {accepted, undecided}
+    finally:
+        repository.close()

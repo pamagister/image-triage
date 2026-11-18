@@ -268,6 +268,15 @@ def test_query_parser_applies_hide_rejected_default_only_when_unspecified() -> N
     assert explicit.filters["hide_rejected"] is False
 
 
+def test_query_parser_status_dropdown_values() -> None:
+    all_statuses = parse_photo_query(QueryParams([("status", "all")]), default_hide_rejected=True)
+    assert "status" not in all_statuses.filters
+    assert all_statuses.filters["hide_rejected"] is False
+
+    not_rejected = parse_photo_query(QueryParams([("status", "not_rejected")]))
+    assert not_rejected.filters["status"] == ["not_rejected"]
+
+
 def test_preset_url_expands_list_and_boolean_overrides() -> None:
     query = parse_photo_query(QueryParams([("root", "/photos")]))
     url = _url_with(query, rating=[4, 5], status=["accepted"], hide_rejected=True)
@@ -762,6 +771,8 @@ def test_filter_form_preserves_scope_and_explicit_hide_rejected(
         assert f'name="root" value="{photo_dir.resolve()}"' in page.text
         assert 'name="folder" value="sub"' in page.text
         assert 'name="hide_rejected" value="false"' in page.text
+        assert '<select class="status-select" name="status"' in page.text
+        assert '<option value="all" selected' in page.text
         assert 'name="page_size" value="20"' in page.text
 
 

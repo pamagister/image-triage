@@ -193,6 +193,27 @@ document.addEventListener("DOMContentLoaded", () => {
         checkbox.checked = field.value.split(",").map((value) => value.trim()).includes(checkbox.value);
       });
     }
+    for (const select of row.querySelectorAll("[data-preset-select]")) {
+      const key = select.dataset.presetSelect;
+      const field = row.querySelector(`[aria-label="Preset ${key}"]`);
+      select.addEventListener("change", () => {
+        field.value = select.value === "all" ? "" : select.value;
+      });
+      field.addEventListener("input", () => {
+        const values = field.value.split(",").map((value) => value.trim()).filter(Boolean);
+        if (!values.length) {
+          select.value = "all";
+        } else if (values.length === 1) {
+          select.value = values[0];
+        } else if (values.includes("not_rejected")) {
+          select.value = "not_rejected";
+        } else if (values.includes("accepted") && values.includes("none")) {
+          select.value = "not_rejected";
+        } else {
+          select.value = values[0];
+        }
+      });
+    }
     for (const date of row.querySelectorAll("[data-preset-date]")) {
       const field = row.querySelector(`[aria-label="Preset ${date.dataset.presetDate}"]`);
       date.addEventListener("input", () => { field.value = date.value; });

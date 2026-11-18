@@ -156,6 +156,8 @@ def _validate_overrides(overrides: Any, *, path: Path) -> dict[str, Any]:
         raise UsageError(f"unknown filter keys: {sorted(unknown)}", path=str(path))
     result: dict[str, Any] = {}
     for key, value in overrides.items():
+        if key == "status" and value == ["all"]:
+            continue
         if key in _LIST_KEYS:
             if not isinstance(value, list) or not value:
                 raise UsageError(f"{key} must be a non-empty list", path=str(path))

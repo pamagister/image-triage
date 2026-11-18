@@ -943,6 +943,10 @@ class Repository:
                     "NOT EXISTS (SELECT 1 FROM overrides o "
                     "WHERE o.photo_id = p.id AND o.keep IS NOT NULL)"
                 )
+            if "not_rejected" in statuses:
+                status_clauses.append(
+                    "NOT EXISTS (SELECT 1 FROM overrides o WHERE o.photo_id = p.id AND o.keep = 0)"
+                )
             if status_clauses:
                 where.append("(" + " OR ".join(status_clauses) + ")")
         if hide_rejected:

@@ -345,6 +345,8 @@ def test_settings_page_shows_root_counts_and_read_only_database(
         assert b'name="profile_name"' in page.content
         assert b'name="profile_top_n"' in page.content
         assert b'name="profile_order"' in page.content
+        assert b'data-preset-select="status"' in page.content
+        assert b'<option value="not_rejected"' in page.content
         assert b"data-move-up" in page.content
         assert b'name="preset_enabled"' in page.content
         assert b'name="preset_values"' in page.content
@@ -991,7 +993,9 @@ def test_selection_review_panel_and_status_controls_are_available(
         assert b"data-reject-filtered" in page.content
         assert b'id="review-dialog"' in page.content
         assert b"data-review-grid" in page.content
-        assert b'name="status" value="accepted"' in page.content
+        assert b'<select class="status-select" name="status"' in page.content
+        assert b'<option value="accepted"' in page.content
+        assert b'<option value="not_rejected"' in page.content
 
         script = Path("src/image_triage/gui/static/selection.js").read_text()
         assert "/api/photos" in script

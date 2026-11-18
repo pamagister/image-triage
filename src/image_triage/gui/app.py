@@ -92,6 +92,11 @@ FILTER_LABELS = {
     "folder": "folder",
 }
 
+#: Friendly chip labels for values that differ from their stored form.
+FILTER_VALUE_LABELS = {
+    "status": {"none": "undecided", "not_rejected": "not rejected"},
+}
+
 #: Default slider values are always submitted by the range controls but are not active filters.
 DEFAULT_FILTER_VALUES = {
     "min_score": 0.0,
@@ -286,7 +291,8 @@ def _filter_chips(query: PhotoQuery) -> list[dict[str, str]]:
         if value is True:
             display = "yes"
         elif isinstance(value, (list, tuple)):
-            display = ", ".join(str(item) for item in value)
+            labels = FILTER_VALUE_LABELS.get(key, {})
+            display = ", ".join(labels.get(str(item), str(item)) for item in value)
         else:
             display = str(value)
         chips.append(

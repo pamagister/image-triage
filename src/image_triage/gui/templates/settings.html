@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_filter_controls.html" import range_filter %}
+{% from "_filter_controls.html" import range_filter, status_filter %}
 {% block title %}Settings - Image Triage{% endblock %}
 {% block content %}
 <h1>Settings</h1>
@@ -225,11 +225,7 @@
                 <label>From <input type="date" data-preset-date="date_from" value="{{ preset.overrides.get('date_from', '') }}"></label>
                 <label>To <input type="date" data-preset-date="date_to" value="{{ preset.overrides.get('date_to', '') }}"></label>
               </div>
-              <div class="checkbox-row status-row">
-                {% for value in ['accepted', 'rejected', 'none'] %}
-                <label><input type="checkbox" data-preset-list="status" value="{{ value }}" {% if value in preset.overrides.get('status', []) %}checked{% endif %}> <span>{{ value }}</span></label>
-                {% endfor %}
-              </div>
+              {{ status_filter(preset.overrides.get('status', []), preset_key='status') }}
             </details>
             <details class="filter-group">
               <summary>All fields</summary>

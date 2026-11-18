@@ -30,12 +30,13 @@ are not imported.
   Selection profiles live in one central `selections.yaml`; filter presets live in one central
   `filters.yaml`. Profiles and presets can be added, renamed, removed and ranked with up/down
   controls; the top profile is the library default. Each list must retain at least one entry.
-  The preset cards use the same rating, metric, blur, date and status controls as the library;
-  **All fields** provides the remaining advanced filters. A slider's **Clear** button unsets both
-  limits rather than forcing them to the endpoints. Presets can also be created or updated from
-  the current library filters. The packaged defaults are copied into the config directory on first
-  use. Analysis and scoring changes are marked as requiring a new scan or scoring run. The watched-roots table
-  shows an active checkbox, on-disk and analyzed image counts, and a remove action per root.
+  The preset cards use the same rating, metric, blur, date and single-select status
+  controls as the library; **All fields** provides the remaining advanced filters. A slider's
+  **Clear** button unsets both limits rather than forcing them to the endpoints. Presets can also
+  be created or updated from the current library filters. The packaged defaults are copied into the
+  config directory on first use. Analysis and scoring changes are marked as requiring a new scan or
+  scoring run. The watched-roots table shows an active checkbox, on-disk and analyzed image counts,
+  and a remove action per root.
   Roots can be added by path or through a server-side directory browser. Removing a root keeps
   its analysis history and never touches originals. The central state database path is shown
   read-only. Settings are written atomically to the central YAML configuration and shared
@@ -45,10 +46,12 @@ are not imported.
   stale-library banner with a **Scan library** button. The left sidebar has **Folders** and
   **Filters** tabs. The Folders tab always shows every watched root; selecting folders scopes
   the grid. The Filters tab contains rating, quality, sharpness/blur, capture date, status and
-  similar-shot and event controls. Metric filters use dual-handle min/max sliders with live numeric
-  readouts, and active presets from `filters.yaml` (Good, Blurry, Low quality, Similar,
-  Accepted, Rejected by default) preserve the current root/folder scope unless the preset explicitly
-  contains a root or folder. Active filters appear as removable badges above the result count.
+  similar-shot and event controls. The status control is a single-select dropdown with All,
+  Accepted, Rejected, Undecided and Not rejected options. Metric filters use dual-handle min/max
+  sliders with live numeric readouts, and active presets from `filters.yaml` (Good, Blurry,
+  Low quality, Similar, Accepted, Rejected by default) preserve the current root/folder scope unless
+  the preset explicitly contains a root or folder. Active filters appear as removable badges above
+  the result count.
   Accepted and rejected photos carry status badges on their tiles. Sort by
   capture time, score, rating, sharpness, bokeh, blur, aesthetic, subject, group or event in
   either direction, and page through the result with the active filters preserved. Choose 10, 20,

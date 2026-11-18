@@ -186,6 +186,13 @@ def parse_photo_query(
         elif raw in {"0", "false", "off", "no"}:
             query.filters[key] = False
 
+    # The status dropdown submits ``all`` to mean "show every status". Keep that
+    # choice explicit so it overrides a configured hide-rejected default.
+    statuses = query.filters.get("status")
+    if statuses and "all" in statuses:
+        query.filters.pop("status", None)
+        query.filters["hide_rejected"] = False
+
     if default_hide_rejected and "hide_rejected" not in query.filters:
         query.filters["hide_rejected"] = True
 
