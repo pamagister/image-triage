@@ -1052,26 +1052,6 @@ td {
 
 .filter-group[hidden] { display: none; }
 
-.selection-filter {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 0.75rem;
-  margin: 0.35rem 0;
-}
-
-.selection-filter label {
-  flex-direction: row;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.85rem;
-}
-
-.selection-filter-empty {
-  color: var(--muted);
-  margin: 0.5rem 0;
-  font-size: 0.85rem;
-}
-
 .filter-group .checkbox-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));

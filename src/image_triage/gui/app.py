@@ -251,8 +251,6 @@ def _url_with(query, **overrides: Any) -> str:
             params.extend((key, str(item)) for item in value)
         else:
             params.append((key, "false" if value is False else value))
-    if query.selection in {"selected", "unselected"} and "selection" not in overrides:
-        params.append(("selection", query.selection))
     params.extend([("sort", query.sort), ("order", query.order)])
     if "page_size" not in overrides:
         params.append(("page_size", query.page_size))
@@ -297,15 +295,6 @@ def _filter_chips(query: PhotoQuery) -> list[dict[str, str]]:
                 "label": label,
                 "value": display,
                 "url": _url_with(query, **{key: None}),
-            }
-        )
-    if query.selection in {"selected", "unselected"}:
-        chips.append(
-            {
-                "key": "selection",
-                "label": "Selection",
-                "value": "selected" if query.selection == "selected" else "not selected",
-                "url": _url_with(query, selection=None),
             }
         )
     return chips
@@ -718,7 +707,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "filters": filters,
                 "search": query.search,
                 "base_query": query.base_query,
-                "selection": query.selection,
                 "view": query.view,
                 "tab": query.tab,
                 "chips": _filter_chips(query),
